@@ -1,0 +1,15 @@
+import type { Hex } from "../../utils/encoding/hex.js";
+import type { ThirdwebContract } from "../contract.js";
+/**
+ * Retrieves the bytecode of a contract.
+ * @param contract - The ThirdwebContract instance.
+ * @returns A Promise that resolves to the bytecode of the contract.
+ * @example
+ * ```ts
+ * import { getBytecode } from "thirdweb/contract";
+ * const bytecode = await getBytecode(contract);
+ * ```
+ * @contract
+ */
+export declare function getBytecode(contract: ThirdwebContract): Promise<Hex>;
+//# sourceMappingURL=get-bytecode.d.ts.map

@@ -1,0 +1,14 @@
+Flask
+Flask-SQLAlchemy  # If using SQLAlchemy
+Flask-Mail
+Flask-CORS
+Flask-Login
+psycopg2-binary   # If using PostgreSQL
+python-dotenv
+web3
+requests
+pyotp           # For OTP generation
+google-auth
+google-auth-oauthlib
+itsdangerous
+gunicorn

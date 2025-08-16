@@ -1,0 +1,32 @@
+/**
+ * Creates an event object for the BatchMetadataUpdate event.
+ * @returns The prepared event object.
+ * @modules BatchMetadataERC721
+ * @example
+ * ```ts
+ * import { getContractEvents } from "thirdweb";
+ * import { BatchMetadataERC721 } from "thirdweb/modules";
+ *
+ * const events = await getContractEvents({
+ * contract,
+ * events: [
+ *  BatchMetadataERC721.batchMetadataUpdateEvent()
+ * ],
+ * });
+ * ```
+ */
+export declare function batchMetadataUpdateEvent(): import("../../../../../event/prepare-event.js").PreparedEvent<{
+    readonly name: "BatchMetadataUpdate";
+    readonly type: "event";
+    readonly inputs: readonly [{
+        readonly type: "uint256";
+        readonly name: "startTokenIdIncluside";
+    }, {
+        readonly type: "uint256";
+        readonly name: "endTokenIdInclusive";
+    }, {
+        readonly type: "string";
+        readonly name: "baseURI";
+    }];
+}>;
+//# sourceMappingURL=BatchMetadataUpdate.d.ts.map

@@ -1,0 +1,23 @@
+sequenceDiagram
+    participant U as User
+    participant FE as Frontend UI
+    participant BE as Backend
+    participant SC as Smart Contract
+
+    U->>FE: Navigate to NFT History page
+    FE->>BE: Request update history of NFT <tokenId>
+    BE->>SC: Call update length and update count
+    alt Valid NFT
+        SC-->>BE: Return update count
+        loop async for each update
+            BE->>SC: Call tokenURIs of update id
+            SC-->>BE: Return tokenURI of update
+        end
+        BE-->>BE: Format update data
+        BE-->>FE: Send NFT history data
+        FE-->>U: Display NFT history
+    else Invalid NFT
+        SC-->>BE: Return error
+        BE-->>FE: Return error
+        FE-->>U: Show error message
+    end

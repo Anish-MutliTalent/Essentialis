@@ -1,0 +1,1 @@
+const l={id:"xyz.abs",name:"Abstract Global Wallet",homepage:"https://abs.xyz/",image_id:"abstract.png",app:{browser:null,ios:null,android:null,mac:null,windows:null,linux:null,chrome:null,firefox:null,safari:null,edge:null,opera:null},rdns:"xyz.abs",mobile:{native:null,universal:null},desktop:{native:null,universal:null}};export{l as wallet};

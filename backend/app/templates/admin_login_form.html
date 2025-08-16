@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Login</title>
+</head>
+<body>
+    <h1>Admin Login</h1>
+    <form id="adminLoginForm">
+        <input type="hidden" id="login_token" value="{{ login_token }}">
+
+        <label for="dynamic_username">Dynamic Username:</label><br>
+        <input type="text" id="dynamic_username" name="dynamic_username" required><br><br>
+
+        <label for="email">Email:</label><br>
+        <input type="email" id="email" name="email" required><br><br>
+
+        <label for="password">Password:</label><br>
+        <input type="password" id="password" name="password" required><br><br>
+
+        <label for="otp_code">OTP Code:</label><br>
+        <input type="text" id="otp_code" name="otp_code" required><br><br>
+
+        <button type="submit">Login</button>
+    </form>
+    <p id="message"></p>
+
+    <script>
+        document.getElementById('adminLoginForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const token = document.getElementById('login_token').value;
+            const dynamic_username = document.getElementById('dynamic_username').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const otp_code = document.getElementById('otp_code').value;
+            const messageEl = document.getElementById('message');
+
+            const response = await fetch('/admin/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    login_token: token,
+                    dynamic_username: dynamic_username,
+                    email: email,
+                    password: password,
+                    otp_code: otp_code
+                })
+            });
+            const result = await response.json();
+            if (response.ok) {
+                messageEl.textContent = 'Login successful! Redirecting...';
+                // Redirect to admin dashboard, e.g., window.location.href = '/admin/dashboard';
+            } else {
+                messageEl.textContent = 'Error: ' + result.error;
+            }
+        });
+    </script>
+</body>
+</html>

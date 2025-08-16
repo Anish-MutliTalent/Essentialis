@@ -1,0 +1,60 @@
+sequenceDiagram
+    participant U as User
+    participant FE as Frontend UI
+    participant BE as Backend
+    participant DB as IPFS/Database
+    participant VAL as AI Validation Service
+    participant G as Government API
+    participant SC as Smart Contract
+
+    U->>FE: Upload land deed & geo-data
+    FE->>BE: Compress & encode data (GeoJSON, PDF)
+    BE-->>FE: Encoded data
+    FE->>BE: Submit minting request with data
+    BE->>G: Trigger AI, govt verification & KYC UIDAI
+    G->>G: Verify property records & KYC UIDAI
+    alt Verified
+        G-->>BE: Verification successful
+        BE->>DB: Store documents & metadata
+        DB-->>BE: Store success
+
+    else Not Verified
+        G-->>BE: Verification failed
+        BE-->>FE: Return verification error
+        FE-->>U: Show error message
+    end
+    BE->>VAL: Request geo-spatial validation
+    VAL->>DB: Check existing records & boundaries
+    DB-->>VAL: Return validation result
+    alt Valid Data
+        VAL-->>BE: Validation passed
+        alt Verified
+            loop until no more modifications are needed
+                BE->>VAL: Trigger AI validation
+                VAL->>DB: Verify property records
+                DB-->>VAL: Return verification result
+                VAL->>VAL: Analyse submitted data
+                VAL-->>BE: Return response
+                BE-->>BE: Verification successful
+                Note over BE: (Break out of loop if no more modifications)
+                BE-->>FE: Return suggestions
+                FE-->>U: Show suggestions
+                U->>FE: Accept/Reject suggestions and resubmit
+                FE->>BE: Resubmit
+            end
+            BE->>SC: Call mintNFT contract
+            SC-->>BE: NFT minted on-chain
+            BE->>SC: Log detailed mint transaction
+            SC-->>BE: Logged on-chain transaction
+            BE-->>FE: Return minting confirmation
+            FE-->>U: Display NFT minted success
+      else Not Verified
+          VAL-->>BE: Verification failed
+          BE-->>FE: Return verification error
+          FE-->>U: Show error message
+      end
+    else Invalid Data
+      VAL-->>BE: Validation failed
+      BE-->>FE: Return validation error
+      FE-->>U: Show error message
+    end

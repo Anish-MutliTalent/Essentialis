@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "@metamask/jazzicon": "^2.0.0",
+    "buffer": "^6.0.3",
+    "eciesjs": "^0.4.15",
+    "elliptic": "^6.6.1",
+    "ethers": "^5.8.0"
+  },
+  "devDependencies": {
+    "@types/elliptic": "^6.4.18"
+  }
+}

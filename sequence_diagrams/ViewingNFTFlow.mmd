@@ -1,0 +1,27 @@
+---
+config:
+  look: classic
+  theme: redux-color
+---
+sequenceDiagram
+    participant U as User
+    participant FE as Frontend UI
+    participant BE as Backend
+    participant DB as Private IPFS
+    participant SC as Smart Contract
+    U->>FE: Navigate to NFT View URL
+    FE->>BE: Request details of NFT <tokenId>
+    BE->>SC: Call tokenURI of NFT <tokenId>
+    SC -->> BE: Return tokenURI
+    BE->>DB: Query NFT data using tokenURI
+    DB-->>BE: Return NFT data
+    BE->>SC:  Fetch on-chain NFT state
+    SC-->>BE: Return on-chain data
+    BE -->>BE: Verify NFT on-chain metadata and data
+    alt Verifed
+        BE-->>FE: Return complete NFT details
+        FE-->>U: Render NFT view
+    else Invalid metadata
+        BE-->>FE: Return error
+        FE-->>U: Render error
+    end

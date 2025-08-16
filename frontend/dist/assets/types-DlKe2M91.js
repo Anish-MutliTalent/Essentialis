@@ -1,0 +1,1 @@
+const a=["google","apple","facebook","discord","line","x","coinbase","farcaster","telegram","github","twitch","steam"],e=[...a,"guest","backend","email","phone","passkey","wallet"];export{e as a,a as s};

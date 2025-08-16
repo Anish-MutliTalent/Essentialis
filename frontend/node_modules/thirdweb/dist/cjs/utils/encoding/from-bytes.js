@@ -1,0 +1,108 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.fromBytes = fromBytes;
+exports.bytesToBigInt = bytesToBigInt;
+exports.bytesToBool = bytesToBool;
+exports.bytesToNumber = bytesToNumber;
+exports.bytesToString = bytesToString;
+const ox__Bytes = require("ox/Bytes");
+const hex_js_1 = require("./hex.js");
+/**
+ * Converts a Uint8Array to the specified type.
+ * @param bytes - The Uint8Array to convert.
+ * @param toOrOpts - The target type or conversion options.
+ * @returns The converted value of the specified type.
+ * @example
+ * ```ts
+ * import { fromBytes } from "thirdweb/utils";
+ * const bytes = new Uint8Array([1, 164]);
+ * const number = fromBytes(bytes, "number");
+ * console.log(number); // 420
+ * ```
+ * @utils
+ */
+function fromBytes(bytes, toOrOpts) {
+    const opts = typeof toOrOpts === "string" ? { to: toOrOpts } : toOrOpts;
+    switch (opts.to) {
+        case "number":
+            return bytesToNumber(bytes, opts);
+        case "bigint":
+            return bytesToBigInt(bytes, opts);
+        case "boolean":
+            return bytesToBool(bytes, opts);
+        case "string":
+            return bytesToString(bytes, opts);
+        default:
+            return (0, hex_js_1.uint8ArrayToHex)(bytes, opts);
+    }
+}
+/**
+ * Converts a Uint8Array of bytes to a bigint.
+ * @param bytes - The Uint8Array of bytes to convert.
+ * @param opts - Optional parameters for the conversion.
+ * @returns The converted bigint.
+ * @example
+ * ```ts
+ * import { bytesToBigInt } from "thirdweb/utils";
+ * const bytes = new Uint8Array([1, 164]);
+ * const bigInt = bytesToBigInt(bytes);
+ * console.log(bigInt); // 420n
+ * ```
+ * @utils
+ */
+function bytesToBigInt(bytes, opts = {}) {
+    return ox__Bytes.toBigInt(bytes, opts);
+}
+/**
+ * Converts a byte array to a boolean value.
+ * @param bytes_ - The byte array to convert.
+ * @param opts - Optional parameters for the conversion.
+ * @returns The boolean value converted from the byte array.
+ * @throws Error if the byte array is invalid or the boolean representation is invalid.
+ * @example
+ * ```ts
+ * import { bytesToBool } from "thirdweb/utils";
+ * const bytes = new Uint8Array([1]);
+ * const bool = bytesToBool(bytes);
+ * console.log(bool); // true
+ * ```
+ * @utils
+ */
+function bytesToBool(bytes_, opts = {}) {
+    return ox__Bytes.toBoolean(bytes_, opts);
+}
+/**
+ * Converts a Uint8Array of bytes to a number.
+ * @param bytes - The Uint8Array of bytes to convert.
+ * @param opts - Optional configuration options.
+ * @returns The converted number.
+ * @example
+ * ```ts
+ * import { bytesToNumber } from "thirdweb/utils";
+ * const bytes = new Uint8Array([1, 164]);
+ * const number = bytesToNumber(bytes);
+ * console.log(number); // 420
+ * ```
+ * @utils
+ */
+function bytesToNumber(bytes, opts = {}) {
+    return ox__Bytes.toNumber(bytes, opts);
+}
+/**
+ * Converts an array of bytes to a string using UTF-8 encoding.
+ * @param bytes_ - The array of bytes to convert.
+ * @param opts - Optional parameters for the conversion.
+ * @returns The resulting string.
+ * @example
+ * ```ts
+ * import { bytesToString } from "thirdweb/utils";
+ * const bytes = new Uint8Array([72, 101, 108, 108, 111]);
+ * const string = bytesToString(bytes);
+ * console.log(string); // "Hello"
+ * ```
+ * @utils
+ */
+function bytesToString(bytes_, opts = {}) {
+    return ox__Bytes.toString(bytes_, opts);
+}
+//# sourceMappingURL=from-bytes.js.map

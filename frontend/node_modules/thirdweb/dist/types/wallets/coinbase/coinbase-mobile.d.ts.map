@@ -1,0 +1,1 @@
+{"version":3,"file":"coinbase-mobile.d.ts","sourceRoot":"","sources":["../../../../src/wallets/coinbase/coinbase-mobile.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,iBAAiB,EAAE,MAAM,sBAAsB,CAAC;AAC9D,OAAO,KAAK,EAAE,6BAA6B,EAAE,MAAM,mBAAmB,CAAC;AAIvE;;GAEG;AACH,wBAAsB,yBAAyB,CAC7C,OAAO,CAAC,EAAE,6BAA6B,GACtC,OAAO,CAAC,iBAAiB,CAAC,CA0B5B"}

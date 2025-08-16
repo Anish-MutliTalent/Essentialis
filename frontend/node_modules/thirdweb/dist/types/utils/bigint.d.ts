@@ -1,0 +1,41 @@
+/**
+ * Returns the minimum of two BigInt values.
+ * @param a - The first BigInt value.
+ * @param b - The second BigInt value.
+ * @returns The smaller of the two BigInt values.
+ * @utils
+ * @example
+ * ```ts
+ * min(1n, 2n)
+ * // 1n
+ */
+export declare function min(a: bigint, b: bigint): bigint;
+/**
+ * Returns the maximum of two BigInt values.
+ * @param a - The first BigInt value.
+ * @param b - The second BigInt value.
+ * @returns The larger of the two BigInt values.
+ * @utils
+ * @example
+ * ```ts
+ * max(1n, 2n)
+ * // 2n
+ */
+export declare function max(a: bigint, b: bigint): bigint;
+/**
+ * Provides error checking on string or number bigint inputs.
+ * @param value - A possibly integer-like string, number, or bigint.
+ * @returns The bigint representation of the input.
+ * @example
+ * ```ts
+ * toBigInt("2")
+ * // 2n
+ */
+export declare function toBigInt(value: string | number | bigint | Uint8Array): bigint;
+type _ReplaceBigInts<arr extends readonly unknown[], type, result extends readonly unknown[] = []> = arr extends [infer first, ...infer rest] ? _ReplaceBigInts<rest, type, readonly [...result, first extends bigint ? type : first]> : result;
+type ReplaceBigInts<obj, type> = obj extends bigint ? type : obj extends unknown[] ? _ReplaceBigInts<Readonly<obj>, type> : obj extends readonly [] ? _ReplaceBigInts<obj, type> : obj extends object ? {
+    [key in keyof obj]: ReplaceBigInts<obj[key], type>;
+} : obj;
+export declare const replaceBigInts: <const T, const type>(obj: T, replacer: (x: bigint) => type) => ReplaceBigInts<T, type>;
+export {};
+//# sourceMappingURL=bigint.d.ts.map

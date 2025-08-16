@@ -1,0 +1,70 @@
+---
+config:
+  look: classic
+  theme: redux-color
+---
+sequenceDiagram
+    participant U as User
+    participant FE as Frontend UI
+    participant BE as Backend
+    participant DB as IPFS/Database
+    participant VAL as AI Validation Service
+    participant G as Government API
+    participant SC as Smart Contract
+
+    U->>FE: Navigate to NFT Update URL
+    FE->>BE: Request details of NFT <tokenId>
+    BE->>SC: Call tokenURI of NFT <tokenId>
+    SC -->> BE: Return tokenURI
+    BE->>DB: Query NFT data using tokenURI
+    DB-->>BE: Return NFT data
+    BE->>SC:  Fetch on-chain NFT state
+    SC-->>BE: Return on-chain data
+    BE -->>BE: Verify NFT on-chain metadata and data
+    alt Verifed
+        BE-->>FE: Return complete NFT details
+        FE-->>U: Return update form
+    else Invalid metadata
+        BE-->>FE: Return error
+        FE-->>U: Render error
+    end
+
+    U->>FE: Submit updates
+    FE->>BE: Forward update request with data
+    BE->>G: Trigger AI, govt verification & KYC UIDAI
+    G->>G: Verify property records & KYC UIDAI
+    alt Verified
+        G-->>BE: Verification successful
+        BE->>DB: Store documents & metadata
+        DB-->>BE: Store success
+
+    else Not Verified
+        G-->>BE: Verification failed
+        BE-->>FE: Return verification error
+        FE-->>U: Show error message
+    end
+    alt Verified
+        loop until no more modifications are needed
+            BE->>VAL: Trigger AI validation
+            VAL->>DB: Verify property records
+            DB-->>VAL: Return verification result
+            VAL->>VAL: Analyse submitted data
+            VAL-->>BE: Return response
+            BE-->>BE: Verification successful
+            Note over BE: (Break out of loop if no more modifications)
+            BE-->>FE: Return suggestions
+            FE-->>U: Show suggestions
+            U->>FE: Accept/Reject suggestions and resubmit
+            FE->>BE: Resubmit
+        end
+        BE->>SC: Call updateNFT contract
+        SC-->>BE: NFT updated and audited on-chain
+        BE->>SC: Log detailed update transaction
+        SC-->>BE: Logged on-chain transaction
+        BE-->>FE: Return update confirmation
+        FE-->>U: Display NFT update success
+  else Not Verified
+      VAL-->>BE: Verification failed
+      BE-->>FE: Return verification error
+      FE-->>U: Show error message
+  end

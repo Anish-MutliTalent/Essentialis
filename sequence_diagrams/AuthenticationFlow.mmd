@@ -1,0 +1,69 @@
+---
+config:
+  theme: redux-color
+  look: classic
+---
+sequenceDiagram
+    participant U as User
+    participant O as OAuth Provider
+    participant FE as Frontend (LoginPage)
+    participant TW as Thirdweb Wallet Library
+    participant BE as Backend Auth API
+    participant DB as User Database
+    alt Email Login
+        U ->> FE: Enter email & click "Proceed"
+        FE ->> TW: Authenticate with email
+        TW -->> U: OTP sent
+        U ->> FE: Enter OTP & click "Verify"
+        FE ->> TW: Verify OTP
+        alt Valid OTP
+            TW ->> FE: Success
+        else Invalid OTP
+            TW ->> FE: Error
+            FE ->> U: Show invalid OTP error
+        end
+    else OAuth Login
+        U ->> FE: Click OAuth provider
+        FE ->> TW: Start OAuth login
+        TW -->> U: Open OAuth popup
+        U ->> O: Authenticate via popup
+        alt Success
+            O ->> TW: OAuth success
+            TW -->> FE: Success
+        else Failure
+            O ->> TW: Error
+            TW -->> FE: Error
+            FE ->> U: Show login error
+        end
+    else MetaMask Login
+        U ->> FE: Click MetaMask login
+        FE ->> TW: Start MetaMask connection
+        TW -->> U: Request wallet connection
+        alt User Approves
+            U ->> TW: Approve
+            TW -->> FE: Success
+        else User Cancels
+            U ->> TW: Cancel
+            TW -->> FE: Error
+            FE ->> U: Show connection failed
+        end
+    end
+    Note over FE, BE: Wallet verification & backend login
+    FE ->> BE: Request challenge
+    BE -->> FE: Return challenge message
+    FE ->> TW: Request signature
+    TW -->> FE: Return signature
+    FE ->> BE: Send signature & wallet address
+    BE ->> BE: Create session
+    BE -->> FE: Success: Return session
+    FE ->> BE: Request user profile
+    BE ->> DB: Query profile by wallet address
+    alt Profile exists
+        DB -->> BE: Return profile
+        BE -->> FE: Return profile
+        FE -->> U: Redirect to dashboard within session
+    else No profile
+        DB -->> BE: Not found
+        BE -->> FE: Not found
+        FE -->> U: Redirect to profile completion within session
+    end
