@@ -30,6 +30,4 @@ Thumbs.db
 coverage
 .cache
 .next
-out
-.nuxt
 .bolt
