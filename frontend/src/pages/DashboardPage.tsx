@@ -1,28 +1,27 @@
 // src/pages/DashboardPage.tsx
 import { useState, useEffect, useCallback } from 'react';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom'; // Outlet renders nested routes
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import LeftSidebar from '../components/UI/dashboard/LeftSidebar';
 import ProfileSidebar from '../components/UI/dashboard/ProfileSidebar';
-import { useActiveAccount } from 'thirdweb/react'; // To get address for profile fetching
-import LoadingSpinner from '../components/UI/LoadingSpinner'; // Assuming you have a loading spinner component
-import JazziconAvatar from '../components/UI/JazziconAvatas'; // Assuming you have a JazziconAvatar component
-const API_BASE_URL = '/api'; // Using proxy
+import { useActiveAccount } from 'thirdweb/react';
+import LoadingSpinner from '../components/UI/LoadingSpinner';
+import JazziconAvatar from '../components/UI/JazziconAvatas';
 
-// --- User Profile Data Type (adjust based on your actual data) ---
+const API_BASE_URL = '/api';
+
 export interface UserProfileData {
   name: string | null;
   age: number | null;
   gender: string | null;
-  email: string | null; // From backend
-  wallet_address: string; // From backend
+  email: string | null;
+  wallet_address: string;
   profile_picture_url: string | null;
-  // Add any other fields you fetch
 }
 
 const DashboardPage = () => {
   const account = useActiveAccount();
   const navigate = useNavigate();
-  const location = useLocation(); // To check current path
+  const location = useLocation();
 
   const [isProfileSidebarOpen, setIsProfileSidebarOpen] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfileData | null>(null);
@@ -40,9 +39,8 @@ const DashboardPage = () => {
       });
       if (!response.ok) {
         if (response.status === 401) {
-            // Session expired or invalid, redirect to login
             navigate('/login');
-            return; // Stop execution
+            return;
         }
         throw new Error(`Failed to fetch profile: ${response.status}`);
       }
@@ -50,99 +48,138 @@ const DashboardPage = () => {
       console.log("DashboardPage: Profile data received:", data);
       setUserProfile(data);
 
-      // --- Profile Completion Check ---
-      // Determine if redirect to complete-profile is needed
-      // Adjust this condition based on required fields (e.g., name is essential)
-      const isProfileComplete = !!data.name; // Example: profile is complete if name exists
+      const isProfileComplete = !!data.name;
 
-      // Only redirect if we are *not* already on the complete-profile page
       if (!isProfileComplete && location.pathname !== '/dashboard/complete-profile') {
         console.log("DashboardPage: Profile incomplete, redirecting to complete-profile");
-        navigate('/dashboard/complete-profile', { replace: true }); // Use replace to avoid history loop
+        navigate('/dashboard/complete-profile', { replace: true });
       } else if (isProfileComplete && location.pathname === '/dashboard/complete-profile') {
-          // If profile is complete but user somehow landed on complete-profile, go to dashboard home
           console.log("DashboardPage: Profile complete, navigating away from complete-profile");
           navigate('/dashboard', { replace: true });
       }
-      // Otherwise, stay on the current dashboard page (or the default index)
 
     } catch (error: any) {
       console.error("DashboardPage: Error fetching profile", error);
       setProfileError(`Error loading profile: ${error.message}`);
-      // Handle error appropriately, maybe show an error message to the user
     } finally {
       setIsLoadingProfile(false);
     }
-  }, [navigate, location.pathname]); // Add location.pathname
+  }, [navigate, location.pathname]);
 
-  // Fetch profile when the component mounts or account changes
   useEffect(() => {
-    if (account?.address) { // Only fetch if account is connected
+    if (account?.address) {
         fetchUserProfile();
     } else {
-        // Handle case where account disconnects while on dashboard? Maybe redirect via ProtectedRoute
         setIsLoadingProfile(false);
         setUserProfile(null);
     }
-  }, [account, fetchUserProfile]); // Rerun if account changes
+  }, [account, fetchUserProfile]);
 
   const toggleProfileSidebar = () => {
     setIsProfileSidebarOpen(!isProfileSidebarOpen);
   };
 
-  // Callback to refresh profile data after it's updated (e.g., by CompleteProfileForm)
   const refreshProfile = () => {
       fetchUserProfile();
   };
 
   return (
-    <div className="flex h-screen w-screen bg-gray-900 text-white overflow-hidden">
+    <div className="flex h-screen w-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 text-white overflow-hidden">
       {/* Left Sidebar */}
       <LeftSidebar />
 
       {/* Main Content Area */}
       <main className="flex-grow flex flex-col overflow-hidden">
-        {/* Optional Header within Main Content (for PFP toggle) */}
-        <header className="bg-black shadow-md p-3 flex justify-end items-center flex-shrink-0">
-           {isLoadingProfile ? (
-                <div className="h-10 w-10 rounded-full bg-gray-700 animate-pulse"></div>
+        {/* Header */}
+        <header className="bg-gray-900/80 backdrop-blur-xl border-b border-gray-700/50 p-4 flex justify-between items-center flex-shrink-0">
+          <div className="flex items-center gap-4">
+            <h2 className="text-lg font-semibold text-white">
+              {location.pathname === '/dashboard' && 'Dashboard'}
+              {location.pathname === '/dashboard/my-docs' && 'My Documents'}
+              {location.pathname === '/dashboard/settings' && 'Settings'}
+              {location.pathname === '/dashboard/mint-doc' && 'New Document'}
+              {location.pathname === '/dashboard/complete-profile' && 'Complete Profile'}
+              {location.pathname.includes('/view') && 'Document Viewer'}
+              {location.pathname.includes('/edit') && 'Edit Document'}
+              {location.pathname.includes('/history') && 'Document History'}
+            </h2>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            {/* Notifications */}
+            <button className="p-2 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-lg transition-all duration-200">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM10.5 3.75a6 6 0 0 1 6 6v2.25a2.25 2.25 0 0 1-2.25 2.25H7.5a2.25 2.25 0 0 1-2.25-2.25V9.75a6 6 0 0 1 6-6z" />
+              </svg>
+            </button>
+
+            {/* Profile Avatar */}
+            {isLoadingProfile ? (
+                <div className="h-10 w-10 rounded-xl bg-gray-700 animate-pulse"></div>
            ) : userProfile ? (
-               <JazziconAvatar wallet={userProfile.wallet_address} size={64} alt="Profile" className="w-10 h-10 rounded-full cursor-pointer border-2 border-gray-600 hover:border-indigo-500 transition-colors" onClick={toggleProfileSidebar}/>
+               <button 
+                 onClick={toggleProfileSidebar}
+                 className="relative group"
+               >
+                 <JazziconAvatar 
+                   wallet={userProfile.wallet_address} 
+                   size={40} 
+                   alt="Profile" 
+                   className="w-10 h-10 rounded-xl border-2 border-gray-600 group-hover:border-yellow-400/50 transition-all duration-200"
+                 />
+                 <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-900"></div>
+               </button>
            ) : (
-                <div className="h-10 w-10 rounded-full bg-gray-600 text-xs flex items-center justify-center">?</div> // Placeholder if no profile
+                <div className="h-10 w-10 rounded-xl bg-gray-600 text-xs flex items-center justify-center">?</div>
            )}
+          </div>
         </header>
 
-        {/* Content Outlet - where nested routes render */}
-        <div className="flex-grow overflow-y-auto p-6">
-          {isLoadingProfile ? (
-            <div className="flex justify-center items-center h-full">
-              <LoadingSpinner className='text-white'/> <span className="ml-3">Loading Profile...</span>
-            </div>
-          ) : profileError ? (
-             <div className="text-center text-red-400">{profileError}</div>
-          ) : (
-            // Pass refreshProfile down if CompleteProfileForm needs it
-            // Providing profile data via context might be cleaner for deeply nested components
-            <Outlet context={{ profile: userProfile, refreshProfile }} />
-          )}
+        {/* Content Area */}
+        <div className="flex-grow overflow-y-auto">
+          <div className="p-6">
+            {isLoadingProfile ? (
+              <div className="flex justify-center items-center h-64">
+                <div className="text-center">
+                  <LoadingSpinner className='text-white mb-4'/> 
+                  <span className="text-gray-300">Loading your profile...</span>
+                </div>
+              </div>
+            ) : profileError ? (
+               <div className="text-center text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl p-8">
+                 <svg className="w-12 h-12 mx-auto mb-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                 </svg>
+                 {profileError}
+               </div>
+            ) : (
+              <Outlet context={{ profile: userProfile, refreshProfile }} />
+            )}
+          </div>
         </div>
       </main>
 
-      {/* Right Profile Sidebar (Conditional Rendering with Transition) */}
+      {/* Profile Sidebar */}
       <ProfileSidebar
         isOpen={isProfileSidebarOpen}
         onClose={toggleProfileSidebar}
-        profileData={userProfile} // Pass fetched profile data
+        profileData={userProfile}
       />
 
+      {/* Overlay for mobile */}
+      {isProfileSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-20 lg:hidden"
+          onClick={toggleProfileSidebar}
+        />
+      )}
     </div>
   );
 };
 
 export default DashboardPage;
 
-// Helper hook for nested routes to access context (optional but clean)
+// Helper hook for nested routes to access context
 import { useOutletContext } from 'react-router-dom';
 
 export function useDashboardContext() {

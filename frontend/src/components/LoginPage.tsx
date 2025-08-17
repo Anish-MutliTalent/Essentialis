@@ -1,13 +1,13 @@
 // src/components/LoginPage.tsx
 import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom'; // Link might not be needed if nav is in App.tsx
+import { useNavigate } from 'react-router-dom';
 import { useActiveAccount, useConnect, useActiveWallet } from "thirdweb/react";
 import {
   inAppWallet,
   createWallet,
   preAuthenticate,
 } from "thirdweb/wallets";
-import { client } from '../lib/thirdweb'; // Your shared Thirdweb client
+import { client } from '../lib/thirdweb';
 import { signMessage } from "thirdweb/utils";
 import { FcGoogle } from "react-icons/fc";
 import MetaMaskLogo from "./UI/MetaMaskLogo";
@@ -16,17 +16,16 @@ import MetaMaskLogo from "./UI/MetaMaskLogo";
 import Divider from "./UI/Divider";
 import LoadingSpinner from "./UI/LoadingSpinner";
 
-const API_BASE_URL = '/api'; // Your Flask backend URL
+const API_BASE_URL = '/api';
 
 const LoginPage = () => {
   const navigate = useNavigate();
 
-  const account = useActiveAccount(); // Get connected account info
+  const account = useActiveAccount();
   const { connect, isConnecting, error: connectionError } = useConnect();
-  const activeWallet = useActiveWallet();        // ← correct hook for the wallet instance
+  const activeWallet = useActiveWallet();
 
   // --- State Management ---
-  // UI flow state
   const [uiState, setUiState] = useState<'idle' | 'email_otp' | 'connecting' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -44,7 +43,6 @@ const LoginPage = () => {
   const [detailsMessage, setDetailsMessage] = useState('');
 
   // --- Wallet Definitions for Connection ---
-  // Define wallet configurations to be used with the connect function
   const walletsToUse = {
       inApp: inAppWallet({ auth: { options: ["email", "google"] } }),
       metamask: createWallet("io.metamask"),
@@ -57,22 +55,20 @@ const LoginPage = () => {
         setUiState('connecting');
     } else if (connectionError) {
         setUiState('error');
-        // Attempt to get a more specific message if possible
         const specificError = connectionError instanceof Error ? connectionError.message : String(connectionError);
         setErrorMessage(`Connection failed: ${specificError}`);
     } else if (!account && uiState !== 'email_otp') {
-         setUiState('idle'); // Revert to idle if disconnected and not waiting for OTP
+         setUiState('idle');
     }
-    // Don't reset uiState if connection succeeds, let the backend linking handle it
-  }, [isConnecting, connectionError, account, uiState]); // Added uiState dependency
+  }, [isConnecting, connectionError, account, uiState]);
 
-  // --- Wallet Connection Handlers (Using `connect` from `useConnect`) ---
+  // --- Wallet Connection Handlers ---
   const handleEmailLogin = useCallback(async () => {
     if (!email) { setErrorMessage("Please enter your email."); setUiState('error'); return; }
     setUiState('connecting'); setErrorMessage(null);
     try {
       await preAuthenticate({ client, strategy: "email", email });
-      setUiState('email_otp'); // Show OTP input
+      setUiState('email_otp');
     } catch (err: any) {
       console.error("Email pre-authentication failed:", err);
       setErrorMessage(`Failed to send OTP: ${err.message || err}`);
@@ -86,19 +82,18 @@ const LoginPage = () => {
     setUiState('connecting'); setErrorMessage(null);
     try {
       await connect(async () => {
-        const wallet = walletsToUse.inApp; // Get pre-configured instance
+        const wallet = walletsToUse.inApp;
         await wallet.connect({ client, strategy: "email", email, verificationCode: otp });
         return wallet;
       });
-      // Success state handled by useEffect watching `account` and `activeWallet`
     } catch (err: any) {
       console.error("Email connect failed:", err);
       setErrorMessage(`Email verification failed: ${err.message || err}`);
-      setUiState('email_otp'); // Revert to OTP input on failure
+      setUiState('email_otp');
     }
   }, [email, otp, connect, walletsToUse.inApp]);
 
-  const handleSocialLogin = useCallback(async (strategy: "google" /* | "facebook" | "apple" */) => {
+  const handleSocialLogin = useCallback(async (strategy: "google") => {
       setUiState('connecting'); setErrorMessage(null);
       try {
           await connect(async () => {
@@ -117,7 +112,7 @@ const LoginPage = () => {
       setUiState('connecting'); setErrorMessage(null);
       try {
           await connect(async () => {
-              const wallet = walletsToUse.metamask; // Use pre-configured instance
+              const wallet = walletsToUse.metamask;
               await wallet.connect({ client });
               return wallet;
           });
@@ -135,24 +130,20 @@ const LoginPage = () => {
       setBackendLoginStatus(`Linking wallet ${acct.address.substring(0,6)}...`);
 
       try {
-        // 1. fetch challenge from backend
         const challengeRes = await fetch(`${API_BASE_URL}/auth/login/metamask/challenge`, {
           credentials: "include",
         });
         if (!challengeRes.ok) throw new Error(`Challenge fetch failed: ${challengeRes.status}`);
         const { message_to_sign } = await challengeRes.json();
 
-        // 2. get the low‑level Account object
         const accountObj = wallet.getAccount();
         if (!accountObj) throw new Error("Wallet has no Account");
 
-        // 3. sign the challenge
         const signature = await signMessage({
           account: accountObj,
           message: message_to_sign,
-        });  // :contentReference[oaicite:0]{index=0}
+        });
 
-        // 4. verify with backend
         const verifyRes = await fetch(`${API_BASE_URL}/auth/login/metamask/verify`, {
           method: "POST",
           credentials: "include",
@@ -200,7 +191,7 @@ const LoginPage = () => {
         }
         console.log("User details fetched:", data);
 
-      } else if (response.status !== 401) { // Ignore 401 as linking might handle it
+      } else if (response.status !== 401) {
         const errData = await response.json().catch(() => ({error: "Failed to parse error"}));
         throw new Error(errData.error || `Failed to fetch details: ${response.status}`);
       }
@@ -219,12 +210,10 @@ const LoginPage = () => {
       const alreadyProcessed = sessionStorage.getItem(`backend_linked_${currentAccount.address}`);
       if (!alreadyProcessed) {
         await linkWalletToBackend(currentAccount, currentActiveWallet);
-        // Check again if linking succeeded before fetching details
         if (sessionStorage.getItem(`backend_linked_${currentAccount.address}`)) {
           fetchUserDetails();
         }
       } else {
-        // Already linked in this session, check backend status and fetch details
         fetch(`${API_BASE_URL}/auth/status`, {credentials: 'include'})
           .then(res => res.ok ? res.json() : Promise.reject(new Error(`Auth status ${res.status}`)))
           .then(data => {
@@ -245,22 +234,21 @@ const LoginPage = () => {
       }
     };
 
-    // Only run if account and wallet instance are available, and not currently loading backend stuff
     if (account && activeWallet && !isBackendLoading && !isConnecting) {
       processConnection(account, activeWallet);
     } else if (!account && !isConnecting) {
       setBackendLoginStatus("Awaiting wallet connection...");
-      setUserDetails({ name: '', age: '', gender: '' }); // Reset form
+      setUserDetails({ name: '', age: '', gender: '' });
       setDetailsMessage('');
     }
 
-  }, [account, activeWallet, isBackendLoading, isConnecting, linkWalletToBackend, fetchUserDetails]); // Added missing dependencies
+  }, [account, activeWallet, isBackendLoading, isConnecting, linkWalletToBackend, fetchUserDetails]);
 
     const handleDetailsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
             setUserDetails(prevDetails => ({
                 ...prevDetails,
-            [name]: value, // Update the specific field based on input name
+            [name]: value,
         }));
     };
 
@@ -278,7 +266,6 @@ const LoginPage = () => {
         credentials: 'include',
         body: JSON.stringify({
             name: userDetails.name,
-            // Send age as number or null, ensure empty string becomes null
             age: userDetails.age === '' ? null : parseInt(userDetails.age, 10),
             gender: userDetails.gender,
         }),
@@ -287,7 +274,6 @@ const LoginPage = () => {
       if (response.ok) {
         setDetailsMessage("Details saved successfully!");
         console.log("Details saved response:", data);
-        // Update local state with potentially cleaned/validated data from response
         setUserDetails({
             name: data.user?.name || '',
             age: data.user?.age || '',
@@ -311,12 +297,11 @@ const LoginPage = () => {
   // Determine if the main login/connection UI should be shown
   const showLoginOptions = !account && uiState !== 'email_otp' && !isConnecting;
   const showOtpInput = !account && uiState === 'email_otp' && !isConnecting;
-  const showConnectingLoader = isConnecting || (uiState === 'connecting' && !isBackendLoading); // Show generic connecting loader
-  const showUserDetailsForm = account; // Show form whenever account is connected
+  const showConnectingLoader = isConnecting || (uiState === 'connecting' && !isBackendLoading);
+  const showUserDetailsForm = account;
   const [checkedSession, setCheckedSession] = useState(false);
 
   useEffect(() => {
-    // on mount, ask backend if cookie + session is still valid
     fetch(`${API_BASE_URL}/auth/status`, {
       method: "GET",
       credentials: "include",
@@ -328,7 +313,6 @@ const LoginPage = () => {
           if (data.logged_in) {
             navigate("/dashboard");
           } else {
-            // clear any stale session
             setUiState("idle");
           }
         }
@@ -339,118 +323,214 @@ const LoginPage = () => {
       .finally(() => {
         setCheckedSession(true);
       });
-  }, []); // run once
+  }, []);
 
-  // in your render, don’t show login-options until we’ve checked
   if (!checkedSession) {
     return <LoadingSpinner />;
   }
 
   return (
-    // Full screen container, centers content vertically and horizontally
-    <div className="relative min-h-screen w-full flex items-center justify-center text-black p-4 bg-black">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 flex items-center justify-center p-4">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 opacity-10">
+        <div className="absolute inset-0" style={{
+          backgroundImage: `radial-gradient(circle at 25% 25%, #fbbf24 0%, transparent 50%),
+                           radial-gradient(circle at 75% 75%, #3b82f6 0%, transparent 50%)`
+        }}></div>
+      </div>
 
-
-      {/* Content Box */}
-      <div className="relative z-10 w-full max-w-sm bg-white bg-opacity-60 backdrop-blur-md rounded-xl shadow-2xl p-6 space-y-5 border border-gray-700">
-
-        <h2 className="text-center text-3xl font-bold text-black">
-          {account ? "PROFILE" : "LOG IN / REGISTER"}
-        </h2>
-
-
-        {/* Error Display Area */}
-        {errorMessage && (
-          <div className="bg-red-500/30 border border-red-600 text-red-600 px-4 py-2 rounded-md text-sm transition-opacity duration-300">
-            {errorMessage}
+      {/* Main Content */}
+      <div className="relative z-10 w-full max-w-md">
+        {/* Logo/Brand */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-2xl mb-4">
+            <svg className="w-8 h-8 text-black" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm2 6a2 2 0 114 0 2 2 0 01-4 0zm8-2a2 2 0 100 4 2 2 0 000-4z" clipRule="evenodd" />
+            </svg>
           </div>
-        )}
+          <h1 className="text-2xl font-bold text-white mb-2">
+            ESSENTIALIS <span className="text-yellow-400">CLOUD</span>
+          </h1>
+          <p className="text-gray-400 text-sm">
+            Secure document management for everyone
+          </p>
+        </div>
 
-        {/* --- Login Options --- */}
-        {showLoginOptions && (
-          <div className="space-y-3 animate-fade-in"> {/* Simple fade-in */}
-            {/* Google */}
-            <button onClick={() => handleSocialLogin("google")} className="w-full button bg-red-600 hover:bg-red-700">
-              <span className="w-5 h-5 mr-3 inline-block">
-                  <FcGoogle size={24} />
-              </span>
-              Google
-            </button>
-            {/* MetaMask */}
-            <button onClick={handleMetaMaskConnect} className="w-full button bg-orange-500 hover:bg-orange-600">
-                <MetaMaskLogo width={30} height={30} followMouse={true} slowDrift={true} className="w-4 h-4 mr-3 inline-block"/>
-              MetaMask
-            </button>
-            <Divider>Or use email</Divider>
-            {/* Email */}
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter your email" className="w-full"/>
-            <button onClick={handleEmailLogin} disabled={email.trim() === ""} className="w-full button">
-              Proceed with Email
-            </button>
-            {/* Add WalletConnect button here if needed */}
-          </div>
-        )}
+        {/* Content Card */}
+        <div className="bg-gray-800/80 backdrop-blur-xl rounded-3xl p-8 border border-gray-700/50 shadow-2xl">
+          <h2 className="text-center text-xl font-semibold text-white mb-6">
+            {account ? "Complete Your Profile" : "Welcome Back"}
+          </h2>
 
-        {/* --- OTP Input --- */}
-        {showOtpInput && (
-          <div className="space-y-3 animate-fade-in">
-            <p className="text-sm text-center text-black">Enter code sent to {email}</p>
-            <input type="text" inputMode="numeric" pattern="[0-9]*" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="OTP Code" maxLength={6} className="text-center tracking-widest w-full"/>
-            <button onClick={handleVerifyEmail} disabled={!otp || otp.length !== 6} className="w-full button">
-              Verify & Connect
-            </button>
-             <button onClick={() => { setUiState('idle'); setErrorMessage(null); setOtp(''); }} className="w-full text-center text-sm text-black hover:text-gray mt-2">Back</button>
-          </div>
-        )}
+          {/* Error Display */}
+          {errorMessage && (
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-sm mb-6">
+              {errorMessage}
+            </div>
+          )}
 
-        {/* --- Generic Loading --- */}
-        {showConnectingLoader && (
-          <div className='text-center py-4'>
-             <LoadingSpinner />
-             <p className="mt-2 text-sm text-black">Connecting...</p>
-          </div>
-        )}
+          {/* Login Options */}
+          {showLoginOptions && (
+            <div className="space-y-4">
+              {/* Google Login */}
+              <button 
+                onClick={() => handleSocialLogin("google")} 
+                className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-900 font-medium py-3 px-4 rounded-xl transition-all duration-200 transform hover:scale-[1.02]"
+              >
+                <FcGoogle size={20} />
+                Continue with Google
+              </button>
 
-        {/* --- Connected State & Details Form --- */}
-        {showUserDetailsForm && (
-          <div className="mt-2 space-y-4 animate-fade-in">
-             {/* Backend Status */}
-             {(isBackendLoading || backendLoginStatus) &&
-                <p className={`text-center text-xs ${backendLoginStatus.startsWith('Error') ? 'text-red-400' : 'text-black'}`}>
-                    {isBackendLoading ? <LoadingSpinner/> : null} {backendLoginStatus}
-                </p>
-             }
+              {/* MetaMask */}
+              <button 
+                onClick={handleMetaMaskConnect} 
+                className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 transform hover:scale-[1.02]"
+              >
+                <MetaMaskLogo width={20} height={20} followMouse={false} slowDrift={false} />
+                Connect MetaMask
+              </button>
 
-             <hr className="border-black"/>
+              <Divider>Or use email</Divider>
 
-             <h3 className="text-lg font-semibold text-center">Your Details</h3>
-             {detailsMessage && (
-                <p className={`text-center text-xs ${detailsMessage.startsWith("Error") ? 'text-red-400' : 'text-green-400'}`}>
-                    {detailsMessage}
-                </p>
-             )}
-             {/* User Details Form */}
-
-             <form onSubmit={handleDetailsSubmit} className="space-y-3">
-                 <input type="text" id="name" name="name" value={userDetails.name} onChange={handleDetailsChange} placeholder="Full Name" disabled={isDetailsLoading} />
-                 <input type="number" id="age" name="age" value={userDetails.age} onChange={handleDetailsChange} placeholder="Age" disabled={isDetailsLoading} />
-                 <select id="gender" name="gender" value={userDetails.gender} onChange={handleDetailsChange} disabled={isDetailsLoading}>
-                     <option value="">Select Gender</option>
-                     <option value="male">Male</option>
-                     <option value="female">Female</option>
-                     <option value="other">Other</option>
-                     <option value="prefer_not_to_say">Prefer not to say</option>
-                 </select>
-                <button type="submit" className="w-full button" disabled={isDetailsLoading}>
-                    {isDetailsLoading ? <LoadingSpinner /> : null} Save Details
+              {/* Email Input */}
+              <div className="space-y-4">
+                <input 
+                  type="email" 
+                  value={email} 
+                  onChange={(e) => setEmail(e.target.value)} 
+                  placeholder="Enter your email address" 
+                  className="w-full bg-gray-700/50 border border-gray-600 text-white placeholder-gray-400 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200"
+                />
+                <button 
+                  onClick={handleEmailLogin} 
+                  disabled={email.trim() === ""} 
+                  className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-black font-medium py-3 px-4 rounded-xl transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                >
+                  Continue with Email
                 </button>
-             </form>
+              </div>
+            </div>
+          )}
 
-          </div>
-        )}
+          {/* OTP Input */}
+          {showOtpInput && (
+            <div className="space-y-4">
+              <div className="text-center">
+                <p className="text-gray-300 text-sm mb-4">
+                  Enter the verification code sent to
+                </p>
+                <p className="text-yellow-400 font-medium">{email}</p>
+              </div>
+              <input 
+                type="text" 
+                inputMode="numeric" 
+                pattern="[0-9]*" 
+                value={otp} 
+                onChange={(e) => setOtp(e.target.value)} 
+                placeholder="000000" 
+                maxLength={6} 
+                className="w-full bg-gray-700/50 border border-gray-600 text-white placeholder-gray-400 px-4 py-3 rounded-xl text-center text-lg tracking-widest focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200"
+              />
+              <button 
+                onClick={handleVerifyEmail} 
+                disabled={!otp || otp.length !== 6} 
+                className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-black font-medium py-3 px-4 rounded-xl transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              >
+                Verify & Continue
+              </button>
+              <button 
+                onClick={() => { setUiState('idle'); setErrorMessage(null); setOtp(''); }} 
+                className="w-full text-center text-sm text-gray-400 hover:text-white transition-colors duration-200"
+              >
+                ← Back to login options
+              </button>
+            </div>
+          )}
 
-      </div> {/* End Content Box */}
-    </div> // End Full screen container
+          {/* Loading State */}
+          {showConnectingLoader && (
+            <div className='text-center py-8'>
+               <LoadingSpinner />
+               <p className="mt-4 text-sm text-gray-300">Connecting securely...</p>
+            </div>
+          )}
+
+          {/* User Details Form */}
+          {showUserDetailsForm && (
+            <div className="space-y-6">
+               {/* Backend Status */}
+               {(isBackendLoading || backendLoginStatus) && (
+                <div className="text-center">
+                  <p className={`text-xs ${backendLoginStatus.startsWith('Error') ? 'text-red-400' : 'text-gray-300'}`}>
+                      {isBackendLoading && <LoadingSpinner/>} {backendLoginStatus}
+                  </p>
+                </div>
+               )}
+
+               <div className="border-t border-gray-700 pt-6">
+                 <h3 className="text-lg font-semibold text-white text-center mb-4">Complete Your Profile</h3>
+                 {detailsMessage && (
+                    <p className={`text-center text-xs mb-4 ${detailsMessage.startsWith("Error") ? 'text-red-400' : 'text-green-400'}`}>
+                        {detailsMessage}
+                    </p>
+                 )}
+
+                 <form onSubmit={handleDetailsSubmit} className="space-y-4">
+                     <input 
+                       type="text" 
+                       id="name" 
+                       name="name" 
+                       value={userDetails.name} 
+                       onChange={handleDetailsChange} 
+                       placeholder="Full Name" 
+                       disabled={isDetailsLoading} 
+                       className="w-full bg-gray-700/50 border border-gray-600 text-white placeholder-gray-400 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200"
+                     />
+                     <input 
+                       type="number" 
+                       id="age" 
+                       name="age" 
+                       value={userDetails.age} 
+                       onChange={handleDetailsChange} 
+                       placeholder="Age" 
+                       disabled={isDetailsLoading} 
+                       className="w-full bg-gray-700/50 border border-gray-600 text-white placeholder-gray-400 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200"
+                     />
+                     <select 
+                       id="gender" 
+                       name="gender" 
+                       value={userDetails.gender} 
+                       onChange={handleDetailsChange} 
+                       disabled={isDetailsLoading}
+                       className="w-full bg-gray-700/50 border border-gray-600 text-white px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all duration-200"
+                     >
+                         <option value="">Select Gender</option>
+                         <option value="male">Male</option>
+                         <option value="female">Female</option>
+                         <option value="other">Other</option>
+                         <option value="prefer_not_to_say">Prefer not to say</option>
+                     </select>
+                    <button 
+                      type="submit" 
+                      className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-black font-medium py-3 px-4 rounded-xl transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none" 
+                      disabled={isDetailsLoading}
+                    >
+                        {isDetailsLoading && <LoadingSpinner />} Save & Continue
+                    </button>
+                 </form>
+               </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="text-center mt-8">
+          <p className="text-gray-500 text-xs">
+            Secure • Private • Decentralized
+          </p>
+        </div>
+      </div>
+    </div>
   );
 };
 
