@@ -1,8 +1,0 @@
-/**
- * Get the admin wallet for the active wallet
- * Useful for smart wallets to get the underlying personal account
- * @returns The admin wallet for the active wallet, or the active wallet if it doesn't have an admin account
- * @walletConnection
- */
-export declare function useAdminWallet(): import("../../../../exports/wallets.native.js").Wallet | undefined;
-//# sourceMappingURL=useAdminWallet.d.ts.map
