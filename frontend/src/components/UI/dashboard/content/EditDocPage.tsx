@@ -12,7 +12,7 @@ import { ethers } from 'ethers';
 import { Buffer } from 'buffer';
 import { EIP1193 } from 'thirdweb/wallets';
 
-import LoadingSpinner from '../../LoadingSpinner';
+import { LoadingSpinner, Button, Input, Card, CardHeader, CardContent, Heading, Text } from '../../index';
 import { useDashboardContext } from '../../../../pages/DashboardPage';
 
 import {
@@ -91,7 +91,7 @@ const EditDocPage: React.FC = () => {
                 const signer = new ethers.providers.Web3Provider(eip).getSigner();
                 const owner = account.address;
                 const timestamp = originalMetadata.attributes.find((a: any) => a.trait_type === 'Tokenization Date')?.value || new Date().toISOString();
-                const counter = Date.now(); // New counter for new encryption
+                const counter = Date.now();
 
                 setStatusMessage('Step 1/6: Generating new keys...');
                 const dek = generateDEK();
@@ -99,27 +99,18 @@ const EditDocPage: React.FC = () => {
                 const fileDataU8 = new Uint8Array(await sourceFile.arrayBuffer());
                 const encryptedData = await aesGcmEncrypt(dek, fileDataU8, nonce);
 
-                setStatusMessage('Step 2/6: Wrapping new key... Please sign.');
-                const wrappedDekHex = await wrapDek(signer, dek, nonce);
+                setStatusMessage('Step 2/6: Wrapping keys...');
+                const wrappedDek = await wrapDek(dek, owner, timestamp, counter);
+                const wrappedDekHex = ethers.utils.hexlify(wrappedDek);
 
-                setStatusMessage('Step 3/6: Creating verifiable chunks...');
-                const encryptedDataB64 = Buffer.from(encryptedData).toString('base64');
-                const p1 = await multiply(owner, encryptedDataB64);
-                const p2 = await multiply(p1, timestamp);
-                const chunk_a = await multiply(p2, counter.toString());
+                setStatusMessage('Step 3/6: Creating metadata chunk...');
+                const metaChunk = {
+                    encrypted_data: ethers.utils.hexlify(encryptedData),
+                    wrapped_deks: { [owner.toLowerCase()]: wrappedDekHex }
+                };
+                const metaChunkFile = new Blob([JSON.stringify(metaChunk)], { type: 'application/json' });
 
-                const dataHashB64 = Buffer.from(await sha256(fileDataU8)).toString('base64');
-                const hmacKey = new TextEncoder().encode(owner + timestamp);
-                const hmacHash = await hmacSha256(hmacKey, encryptedData);
-                const hmacHashB64 = Buffer.from(hmacHash).toString('base64');
-                const chunk_b = await multiply(dataHashB64, hmacHashB64);
-                const chunk = merge(chunk_a, chunk_b);
-
-                setStatusMessage('Step 4/6: Securing metadata...');
-                const { metachunk } = await encode(chunk);
-                
-                setStatusMessage('Step 5/6: Uploading to IPFS...');
-                const metaChunkFile = new File([metachunk], "metachunk.txt", { type: 'text/plain' });
+                setStatusMessage('Step 4/6: Uploading to IPFS...');
                 const ipfsForm = new FormData();
                 ipfsForm.append('file', metaChunkFile);
                 const ipfsRes = await fetch('/api/ipfs/file', { method: 'POST', body: ipfsForm });
@@ -138,7 +129,7 @@ const EditDocPage: React.FC = () => {
                     ],
                     encrypted_file_cid: metachunkCid,
                     nonce: ethers.utils.hexlify(nonce),
-                    wrapped_deks: { [owner.toLowerCase()]: wrappedDekHex } // Note: This replaces old wrapped DEKs
+                    wrapped_deks: { [owner.toLowerCase()]: wrappedDekHex }
                 };
             } else {
                 setStatusMessage('Updating document name and description...');
@@ -169,32 +160,87 @@ const EditDocPage: React.FC = () => {
         }
     };
 
-    if (initialLoading) return <div className="flex justify-center"><LoadingSpinner /></div>;
-    if (error) return <div className="text-red-500">Error: {error}</div>;
+    if (initialLoading) return (
+        <div className="flex justify-center items-center py-12">
+            <LoadingSpinner size="lg" color="gold" />
+        </div>
+    );
+
+    if (error) return (
+        <div className="text-center py-12">
+            <div className="w-16 h-16 bg-red-500/20 rounded-full mx-auto mb-4 flex items-center justify-center border border-red-500/30">
+                <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <Heading level={3} className="text-red-400 mb-2">Error</Heading>
+            <Text color="muted">{error}</Text>
+        </div>
+    );
 
     return (
-        <form onSubmit={handleSubmit} className="max-w-2xl mx-auto p-4 bg-gray-800 text-white rounded">
-            <h2 className="text-2xl mb-4 text-center">Edit Document #{tokenId}</h2>
+        <div className="max-w-2xl mx-auto">
+            <Card variant="premium">
+                <CardHeader className="text-center">
+                    <Heading level={2} className="gradient-gold-text">
+                        Edit Document #{tokenId}
+                    </Heading>
+                </CardHeader>
 
-            <div className="mb-4">
-                <label className="block mb-1">Replace File (optional)</label>
-                <input type="file" onChange={handleFileChange} disabled={isSubmitting} />
+                <CardContent>
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        {/* File Upload Section */}
+                        <div className="space-y-3">
+                            <label className="block text-sm font-medium text-gray-300">
+                                Replace File (optional)
+                            </label>
+                            <div className="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center hover:border-yellow-400/50 transition-all-smooth">
+                                <input 
+                                    type="file" 
+                                    onChange={handleFileChange} 
+                                    disabled={isSubmitting}
+                                    className="hidden"
+                                    id="file-upload"
+                                />
+                                <label htmlFor="file-upload" className="cursor-pointer">
+                                    <div className="space-y-2">
+                                        <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                        <div className="text-sm text-gray-400">
+                                            <span className="font-medium text-yellow-400 hover:text-yellow-300">
+                                                Click to upload
+                                            </span> or drag and drop
+                                        </div>
+                                        <Text variant="small" color="muted">
+                                            {sourceFile ? `Selected: ${sourceFile.name}` : 'No file selected'}
+                                        </Text>
+                                    </div>
+                                </label>
+                            </div>
             </div>
 
-            <div className="mb-4">
-                <label className="block text-sm">Name</label>
-                <input
+                        {/* Name Input */}
+                        <div className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-300">
+                                Document Name
+                            </label>
+                            <Input
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
                     required
                     disabled={isSubmitting}
-                    className="input-field w-full"
+                                variant="professional"
+                                placeholder="Enter document name"
                 />
             </div>
 
-            <div className="mb-4">
-                <label className="block text-sm">Description</label>
+                        {/* Description Input */}
+                        <div className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-300">
+                                Description
+                            </label>
                 <textarea
                     name="description"
                     value={formData.description}
@@ -202,20 +248,39 @@ const EditDocPage: React.FC = () => {
                     rows={3}
                     required
                     disabled={isSubmitting}
-                    className="input-field w-full"
+                                className="w-full px-4 py-3 bg-gray-900/30 border border-gray-800 rounded-lg text-white placeholder-gray-400 transition-all-smooth focus:border-yellow-400 focus:outline-none focus:ring-1 focus:ring-yellow-400 disabled:opacity-50 resize-none"
+                                placeholder="Enter document description"
                 />
             </div>
 
-            <button
+                        {/* Submit Button */}
+                        <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-2 bg-indigo-600 rounded hover:bg-indigo-500 disabled:bg-gray-500"
-            >
-                {isSubmitting ? <LoadingSpinner /> : 'Update Document'}
-            </button>
+                            variant="primary"
+                            size="lg"
+                            className="w-full"
+                            loading={isSubmitting}
+                        >
+                            {isSubmitting ? 'Updating Document...' : 'Update Document'}
+                        </Button>
 
-            {statusMessage && <p className="mt-2 text-center text-gray-200">{statusMessage}</p>}
+                        {/* Status Message */}
+                        {statusMessage && (
+                            <div className={`text-center p-4 rounded-lg ${
+                                statusMessage.startsWith('Error') 
+                                    ? 'bg-red-500/20 border border-red-500/30 text-red-400' 
+                                    : statusMessage.includes('successfully') 
+                                        ? 'bg-green-500/20 border border-green-500/30 text-green-400'
+                                        : 'bg-yellow-400/20 border border-yellow-400/30 text-yellow-400'
+                            }`}>
+                                <Text variant="small">{statusMessage}</Text>
+                            </div>
+                        )}
         </form>
+                </CardContent>
+            </Card>
+        </div>
     );
 };
 
