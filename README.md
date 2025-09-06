@@ -44,11 +44,11 @@ With **decentralized storage**, **encryption-first architecture**, and a **clean
 
 ## 📌 Roadmap
 
-- [ ] MVP: Decentralized storage with encryption  
-- [ ] User dashboard (file upload, share, access revoke)  
+- ✅ MVP: Decentralized storage with encryption  
+- ✅ User dashboard (file upload, share, access revoke)  
 - [ ] DID-based login & identity management  
 - [ ] Fiat ↔ Crypto gateway integration  
-- [ ] Public Beta Release  
+- [ ] Public Beta Release 
 
 ---
 
@@ -64,7 +64,6 @@ With **decentralized storage**, **encryption-first architecture**, and a **clean
 ## 🌐 Visit Us
 
 📎 Website: [https://essentialis.cloud](https://essentialis.cloud)  
-💼 LinkedIn: [Essentialis Cloud](linkedin.com/company/essentialis-cloud)  
-🐙 GitHub: [/Essentialis-Cloud/essentialis-cloud](https://github.com/Essentialis-Cloud/essentialis-cloud)  
+💼 LinkedIn: [Essentialis Cloud](linkedin.com/company/essentialis-cloud)   
 
 > **Your Data. Your Cloud. Your Privacy.**
