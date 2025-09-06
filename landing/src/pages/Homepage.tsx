@@ -124,7 +124,7 @@ const Homepage = memo(() => {
         <div className="max-w-7xl mx-auto">
           <div className="grid md:grid-cols-3 gap-16 text-center">
             {[
-              { number: '50TB+', label: 'Documents Protected', icon: FileText },
+              { number: '1TB+', label: 'Documents Protected', icon: FileText },
               { number: '99.9%', label: 'Uptime', icon: Shield },
               { number: '24/7', label: 'Always Available', icon: Clock },
             ].map((stat, index) => (
