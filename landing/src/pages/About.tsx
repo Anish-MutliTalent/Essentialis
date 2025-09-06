@@ -107,7 +107,7 @@ const About = () => {
               },
               {
                 name: 'Anish Bhattacharya',
-                title: 'Co-founder & CTO',
+                title: 'Founder & CTO',
                 description: 'Expert in UI/UX development, Solidity, Web3, frontend and backend development.',
               },
             ].map((member, index) => (
