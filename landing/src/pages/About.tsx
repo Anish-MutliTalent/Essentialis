@@ -68,7 +68,7 @@ const About = () => {
               {
                 title: 'Core Team Formed',
                 date: '2024',
-                description: 'Founder Lakshmi Pavan Kumaar and co-founder Anish Bhattacharya teamed up to build a solution that combines advanced security with everyday simplicity.',
+                description: 'Founders Lakshmi Pavan Kumaar and Anish Bhattacharya teamed up to build a solution that combines advanced security with everyday simplicity.',
               },
               {
                 title: 'Prototype Development',
