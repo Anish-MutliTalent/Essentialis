@@ -25,6 +25,7 @@
           'No secure authentication (MFA)',
           'No folder support',
           'No sharing (only you)'
+          'No guaranteed data integrity'
         ],
         popular: false,
         cta: 'Get Started Free'
@@ -46,8 +47,10 @@
           'Document versioning retrieval',
           'Custom Folder support',
           'Priority document preview and in-app editing for supported file types (coming up)'
+          'Guaranteed data integrity'
         ],
         limitations: [
+          'No audit integrity (Data will always be intact but history and metadata may not)'
           'No API access',
           'No access control (Sharing to anyone gives them same access as yourself)'
         ],
