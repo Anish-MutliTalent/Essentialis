@@ -1,18 +1,38 @@
 // src/components/dashboard/content/DashboardHome.tsx
-import { useDashboardContext } from '../../../../pages/DashboardPage';
-import { Heading, Text, Card, CardContent, Grid, Flex } from '../../index';
+import { useDashboardContext } from "../../../../pages/DashboardPage";
+import { useDocs } from "../../../contexts/DocsContext";
+import { Heading, Text, Card, CardContent, Grid, Flex } from "../../index";
+import { useNavigate } from 'react-router-dom';
 
 const DashboardHome = () => {
   const { profile } = useDashboardContext();
+  const { docs, loading } = useDocs();
+  const navigate = useNavigate();
+
+  // try cached docs first
+  let cachedDocs: any[] = [];
+  try {
+    const raw = localStorage.getItem("mydocs");
+    if (raw) cachedDocs = JSON.parse(raw);
+  } catch {
+    cachedDocs = [];
+  }
+
+  const totalDocs = cachedDocs.length > 0 ? cachedDocs.length : docs.length;
 
   return (
     <div className="space-y-8">
       <div className="text-center">
         <Heading level={1} className="gradient-gold-text mb-4">
-          Welcome back, {profile?.name || 'User'}!
+          Welcome back, {profile?.name || "User"}!
         </Heading>
-        <Text variant="lead" color="muted" className="max-w-2xl mx-auto">
-          This is your main dashboard area. Manage your documents, view statistics, and stay organized.
+        <Text
+          variant="lead"
+          color="muted"
+          className="max-w-2xl mx-auto"
+        >
+          This is your main dashboard area. Manage your documents, view
+          statistics, and stay organized.
         </Text>
       </div>
 
@@ -21,13 +41,28 @@ const DashboardHome = () => {
         <Card variant="professional" className="text-center">
           <CardContent className="p-6">
             <div className="w-12 h-12 bg-yellow-400/20 rounded-full mx-auto mb-4 flex items-center justify-center">
-              <svg className="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              <svg
+                className="w-6 h-6 text-yellow-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
               </svg>
             </div>
-            <Heading level={4} className="mb-2">Total Documents</Heading>
-            <Text variant="lead" className="text-3xl font-bold text-yellow-400">
-              {profile?.docCount || 0}
+            <Heading level={4} className="mb-2">
+              Total Documents
+            </Heading>
+            <Text
+              variant="lead"
+              className="text-3xl font-bold text-yellow-400"
+            >
+              {loading ? "…" : totalDocs}
             </Text>
           </CardContent>
         </Card>
@@ -35,12 +70,27 @@ const DashboardHome = () => {
         <Card variant="professional" className="text-center">
           <CardContent className="p-6">
             <div className="w-12 h-12 bg-green-400/20 rounded-full mx-auto mb-4 flex items-center justify-center">
-              <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg
+                className="w-6 h-6 text-green-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
             </div>
-            <Heading level={4} className="mb-2">Verified</Heading>
-            <Text variant="lead" className="text-3xl font-bold text-green-400">
+            <Heading level={4} className="mb-2">
+              Verified
+            </Heading>
+            <Text
+              variant="lead"
+              className="text-3xl font-bold text-green-400"
+            >
               {profile?.verifiedCount || 0}
             </Text>
           </CardContent>
@@ -49,12 +99,27 @@ const DashboardHome = () => {
         <Card variant="professional" className="text-center">
           <CardContent className="p-6">
             <div className="w-12 h-12 bg-blue-400/20 rounded-full mx-auto mb-4 flex items-center justify-center">
-              <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              <svg
+                className="w-6 h-6 text-blue-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                />
               </svg>
             </div>
-            <Heading level={4} className="mb-2">Recent Activity</Heading>
-            <Text variant="lead" className="text-3xl font-bold text-blue-400">
+            <Heading level={4} className="mb-2">
+              Recent Activity
+            </Heading>
+            <Text
+              variant="lead"
+              className="text-3xl font-bold text-blue-400"
+            >
               {profile?.recentActivity || 0}
             </Text>
           </CardContent>
@@ -66,7 +131,10 @@ const DashboardHome = () => {
         <CardContent className="p-8">
           <Heading level={3} className="text-center mb-6">Quick Actions</Heading>
           <Flex justify="center" className="gap-4 flex-wrap">
-            <a href="/dashboard/mint-doc" className="group">
+            <button
+              onClick={() => navigate('/dashboard/mint-doc')}
+              className="group"
+            >
               <div className="bg-yellow-400/10 border border-yellow-400/30 rounded-lg p-4 text-center hover:bg-yellow-400/20 transition-all-smooth group-hover:border-yellow-400/50">
                 <div className="w-8 h-8 bg-yellow-400/20 rounded-full mx-auto mb-2 flex items-center justify-center">
                   <svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -75,9 +143,12 @@ const DashboardHome = () => {
                 </div>
                 <Text variant="small" className="text-yellow-400 font-medium">Create Document</Text>
               </div>
-            </a>
+            </button>
 
-            <a href="/dashboard/my-docs" className="group">
+            <button
+              onClick={() => navigate('/dashboard/my-docs')}
+              className="group"
+            >
               <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 text-center hover:bg-gray-800/70 transition-all-smooth group-hover:border-gray-600">
                 <div className="w-8 h-8 bg-gray-600/50 rounded-full mx-auto mb-2 flex items-center justify-center">
                   <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -86,9 +157,12 @@ const DashboardHome = () => {
                 </div>
                 <Text variant="small" className="text-gray-300 font-medium">View Documents</Text>
               </div>
-            </a>
+            </button>
 
-            <a href="/dashboard/settings" className="group">
+            <button
+              onClick={() => navigate('/dashboard/settings')}
+              className="group"
+            >
               <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 text-center hover:bg-gray-800/70 transition-all-smooth group-hover:border-gray-600">
                 <div className="w-8 h-8 bg-gray-600/50 rounded-full mx-auto mb-2 flex items-center justify-center">
                   <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -98,7 +172,7 @@ const DashboardHome = () => {
                 </div>
                 <Text variant="small" className="text-gray-300 font-medium">Settings</Text>
               </div>
-            </a>
+            </button>
           </Flex>
         </CardContent>
       </Card>
