@@ -50,11 +50,6 @@ def create_app(config_class=Config):
     contract_address = app.config.get('ACTION_LOGGER_CONTRACT_ADDRESS')
     action_logger_contract = w3.eth.contract(address=Web3.to_checksum_address(contract_address), abi=contract_abi)
 
-    contract_abi = open(Path(__file__).parent / "abi" / app.config.get('NFT_MARKETPLACE_CONTRACT_ABI_PATH'), 'r').read()
-    # Set the contract address (replace with your contract's deployed address)
-    contract_address = app.config.get('NFT_MARKETPLACE_CONTRACT_ADDRESS')
-    nft_marketplace_contract = w3.eth.contract(address=Web3.to_checksum_address(contract_address), abi=contract_abi)
-
     # Blueprints
     from .routes import bp as main_bp
     app.register_blueprint(main_bp)
