@@ -46,7 +46,7 @@
           'Audit logs',
           'Document versioning retrieval',
           'Custom Folder support',
-          'Priority document preview and in-app editing for supported file types (coming up)'
+          'Priority document preview and in-app editing for supported file types (coming up)',
           'Guaranteed data integrity'
         ],
         limitations: [
