@@ -18,7 +18,7 @@ class Config:
 
     # ABI Paths - construct full paths
     BASE_DIR = Path(__file__).parent
-    NFT_LAND_CONTRACT_ABI_PATH = str(BASE_DIR / 'abi' / os.getenv('NFT_LAND_CONTRACT_ABI_PATH', 'NFTLand.json'))
+    NFT_LAND_CONTRACT_ABI_PATH = str(BASE_DIR / 'abi' / os.getenv('NFT_LAND_CONTRACT_ABI_PATH', 'NFTDoc.json'))
     ACTION_LOGGER_CONTRACT_ABI_PATH = str(BASE_DIR / 'abi' / os.getenv('ACTION_LOGGER_CONTRACT_ABI_PATH', 'ActionLogger.json'))
 
     WEB3AUTH_CLIENT_ID = os.environ.get('WEB3AUTH_CLIENT_ID')

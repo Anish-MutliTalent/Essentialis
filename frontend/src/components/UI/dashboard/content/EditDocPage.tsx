@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useActiveAccount, useActiveWallet } from 'thirdweb/react';
 import { client } from '../../../../lib/thirdweb';
-import DocLandABI from '../../../../abi/DocLand.json';
+import NFTDocABI from '../../../../abi/NFTDoc.json';
 import { defineChain } from 'thirdweb/chains';
 import { getContract } from 'thirdweb';
 import { prepareContractCall, sendTransaction, waitForReceipt } from 'thirdweb';
@@ -30,8 +30,8 @@ import {
 
 window.Buffer = window.Buffer || Buffer;
 
-const polygonAmoy = defineChain(80002);
-const CONTRACT_ADDRESS = '0xB0097c317C29143A0BdF576DF352829FbBa56ecb';
+const polygonAmoy = defineChain(2442);
+const CONTRACT_ADDRESS = '0x595A79e5Fe30E14B5383ECef79d72F6B355b71bc';
 
 const EditDocPage: React.FC = () => {
     const { tokenId } = useParams<{ tokenId: string }>();
@@ -144,7 +144,7 @@ const EditDocPage: React.FC = () => {
             const tokenURI = `data:application/json;base64,${Buffer.from(JSON.stringify(finalMetadata)).toString('base64')}`;
 
             setStatusMessage('Please confirm the transaction in your wallet...');
-            const contract = getContract({ address: CONTRACT_ADDRESS, abi: DocLandABI as any, client, chain: polygonAmoy });
+            const contract = getContract({ address: CONTRACT_ADDRESS, abi: NFTDocABI as any, client, chain: polygonAmoy });
             const tx = prepareContractCall({ contract, method: 'function updateNFT(uint256,string)', params: [BigInt(tokenId!), tokenURI] });
             const sent = await sendTransaction({ transaction: tx, account });
             await waitForReceipt({ client, chain: polygonAmoy, transactionHash: sent.transactionHash });

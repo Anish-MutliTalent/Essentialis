@@ -50,11 +50,6 @@ const LoginPage = () => {
   const [backendLoginStatus, setBackendLoginStatus] = useState("Awaiting wallet connection...");
   const [isBackendLoading, setIsBackendLoading] = useState(false);
 
-  // User Details Form State
-  const [userDetails, setUserDetails] = useState({ name: '', age: '', gender: '' });
-  const [isDetailsLoading, setIsDetailsLoading] = useState(false);
-  const [detailsMessage, setDetailsMessage] = useState('');
-
   // --- Wallet Definitions for Connection ---
   const walletsToUse = {
       inApp: inAppWallet({ auth: { options: ["email", "google"] } }),
@@ -172,9 +167,10 @@ const LoginPage = () => {
           throw new Error(err.error || `Verify failed: ${verifyRes.status}`);
         }
 
-        const verifyData = await verifyRes.json();
-        setBackendLoginStatus(`Backend login successful! User ID: ${verifyData.userId}`);
-        sessionStorage.setItem(`backend_linked_${acct.address}`, "true");
+  const verifyData = await verifyRes.json();
+  setBackendLoginStatus(`Backend login successful! User ID: ${verifyData.userId}`);
+  sessionStorage.setItem(`backend_linked_${acct.address}`, "true");
+  console.debug('linkWalletToBackend: backend linked, verifyData=', verifyData);
       } catch (e: any) {
         console.error("Backend linking error:", e);
         setBackendLoginStatus(`Backend linking error: ${e.message}`);
@@ -184,38 +180,7 @@ const LoginPage = () => {
       }
     }, []);
 
-  // --- Fetch User Details ---
-  const fetchUserDetails = useCallback(async () => {
-    if (!account) return;
-    console.log("Fetching user details from backend...");
-    setIsDetailsLoading(true); setDetailsMessage('');
-    try {
-      const response = await fetch(`${API_BASE_URL}/user/details`, { method: 'GET', credentials: 'include' });
-      if (response.ok) {
-        const data = await response.json();
-        setUserDetails({
-          name: data.name || '',
-          age: data.age || '',
-          gender: data.gender || '',
-        });
-        const allFilled = data.name && data.age && data.physical_address && data.gender;
-        if (allFilled) {
-          navigate("/dashboard");
-        }
-        console.log("User details fetched:", data);
-
-      } else if (response.status !== 401) {
-        const errData = await response.json().catch(() => ({error: "Failed to parse error"}));
-        throw new Error(errData.error || `Failed to fetch details: ${response.status}`);
-      }
-    } catch (error: any) {
-      console.error("Error fetching user details:", error);
-      setDetailsMessage(`Error fetching details: ${error.message}`);
-    } finally {
-      setIsDetailsLoading(false);
-    }
-  }, [account]);
-
+  
   // --- Effect to Link Wallet & Fetch Details ---
   useEffect(() => {
     const processConnection = async (currentAccount: { address: string }, currentActiveWallet: any) => {
@@ -224,26 +189,40 @@ const LoginPage = () => {
       if (!alreadyProcessed) {
         await linkWalletToBackend(currentAccount, currentActiveWallet);
         if (sessionStorage.getItem(`backend_linked_${currentAccount.address}`)) {
-          fetchUserDetails();
+          // Verify backend session explicitly before fetching details
+          try {
+            const s = await fetch(`${API_BASE_URL}/auth/status`, { credentials: 'include' });
+            if (s.ok) {
+              const sd = await s.json();
+              console.debug('post-link auth.status', sd);
+              if (sd.logged_in && sd.wallet_address?.toLowerCase() === currentAccount.address.toLowerCase()) {
+                navigate('/dashboard', { replace: true });
+                return;
+              }
+            }
+          } catch (e) {
+            console.warn('post-link auth.status check failed', e);
+          }
         }
       } else {
-        fetch(`${API_BASE_URL}/auth/status`, {credentials: 'include'})
-          .then(res => res.ok ? res.json() : Promise.reject(new Error(`Auth status ${res.status}`)))
-          .then(data => {
-              if (data.logged_in && data.wallet_address?.toLowerCase() === currentAccount.address.toLowerCase()) {
-                  setBackendLoginStatus(`Backend session active.`);
-                  setUiState("idle");
-                  console.log("Account",account)
-                  fetchUserDetails();
-              } else {
-                 sessionStorage.removeItem(`backend_linked_${currentAccount.address}`);
-                 setBackendLoginStatus(`No active backend session.`);
-              }
-          })
-          .catch(e => {
-            console.error("Auth status check failed", e);
-            setBackendLoginStatus("Could not verify backend session.");
-          });
+        try {
+          const res = await fetch(`${API_BASE_URL}/auth/status`, {credentials: 'include'});
+          if (res.ok) {
+            const data = await res.json();
+            if (data.logged_in && data.wallet_address?.toLowerCase() === currentAccount.address.toLowerCase()) {
+              setBackendLoginStatus(`Backend session active.`);
+              setUiState("idle");
+              navigate('/dashboard', { replace: true });
+              return;
+            } else {
+              sessionStorage.removeItem(`backend_linked_${currentAccount.address}`);
+              setBackendLoginStatus(`No active backend session.`);
+            }
+          }
+        } catch (e) {
+          console.error("Auth status check failed", e);
+          setBackendLoginStatus("Could not verify backend session.");
+        }
       }
     };
 
@@ -251,62 +230,11 @@ const LoginPage = () => {
       processConnection(account, activeWallet);
     } else if (!account && !isConnecting) {
       setBackendLoginStatus("Awaiting wallet connection...");
-      setUserDetails({ name: '', age: '', gender: '' });
-      setDetailsMessage('');
     }
-
-  }, [account, activeWallet, isBackendLoading, isConnecting, linkWalletToBackend, fetchUserDetails]);
-
-    const handleDetailsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-            setUserDetails(prevDetails => ({
-                ...prevDetails,
-            [name]: value,
-        }));
-    };
+  }, [account, activeWallet, isBackendLoading, isConnecting, linkWalletToBackend]);
 
   // --- User Details Form Submission Handler ---
-  const handleDetailsSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!account) { setDetailsMessage("Error: Wallet not connected."); return; }
-    setIsDetailsLoading(true); setDetailsMessage('Saving details...');
-    console.log('Submitting user details to backend:', { wallet: account.address, details: userDetails });
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/user/details`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-            name: userDetails.name,
-            age: userDetails.age === '' ? null : parseInt(userDetails.age, 10),
-            gender: userDetails.gender,
-        }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setDetailsMessage("Details saved successfully!");
-        console.log("Details saved response:", data);
-        setUserDetails({
-            name: data.user?.name || '',
-            age: data.user?.age || '',
-            gender: data.user?.gender || '',
-        });
-        const allFilled = data.user?.name && data.user?.age && data.user?.physical_address && data.user?.gender;
-          if (allFilled) {
-            navigate("/dashboard");
-          }
-      } else {
-        throw new Error(data.error || `Failed to save details: ${response.status}`);
-      }
-    } catch (error: any) {
-      console.error("Error saving user details:", error);
-      setDetailsMessage(`Error saving details: ${error.message}`);
-    } finally {
-      setIsDetailsLoading(false);
-    }
-  };
-
+  
   // Determine if the main login/connection UI should be shown
   const showLoginOptions = !account && uiState !== 'email_otp' && !isConnecting;
   const showOtpInput = !account && uiState === 'email_otp' && !isConnecting;
@@ -315,28 +243,41 @@ const LoginPage = () => {
   const [checkedSession, setCheckedSession] = useState(false);
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/auth/status`, {
-      method: "GET",
-      credentials: "include",
-    })
-      .then(async (res) => {
-        if (res.ok) {
-          const data = await res.json();
-          console.log("Data, session check:", data, account);
-          if (data.logged_in) {
-            navigate("/dashboard");
-          } else {
-            setUiState("idle");
-          }
-        }
-      })
-      .catch(() => {
-        /* ignore */
-      })
-      .finally(() => {
-        setCheckedSession(true);
+  const checkSession = async () => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const nextParam = params.get('next');
+
+      const res = await fetch(`${API_BASE_URL}/auth/status`, {
+        method: "GET",
+        credentials: "include",
       });
-  }, []);
+
+      if (res.ok) {
+        const data = await res.json();
+        console.log("Session check:", data, account, { nextParam });
+
+        if (data.logged_in) {
+          if (nextParam && nextParam.startsWith('/')) {
+            navigate(decodeURIComponent(nextParam), { replace: true });
+          } else {
+            navigate('/dashboard', { replace: true });
+          }
+          return;
+        } else {
+          setUiState("idle");
+        }
+      }
+    } catch (e) {
+      console.warn("Session check failed", e);
+    } finally {
+      setCheckedSession(true);
+    }
+  };
+
+  checkSession();
+}, [account, navigate]);
+
 
   if (!checkedSession) {
     return (
@@ -463,82 +404,16 @@ const LoginPage = () => {
               {/* --- Connected State & Details Form --- */}
               {showUserDetailsForm && (
                 <div className="space-y-6 animate-fadeIn">
-                   {/* Backend Status */}
-                   {(isBackendLoading || backendLoginStatus) &&
-                      <div className={`text-center text-sm p-3 rounded-lg ${
-                        backendLoginStatus.startsWith('Error') 
-                          ? 'bg-red-500/20 text-red-400' 
-                          : 'bg-yellow-400/20 text-yellow-400'
-                      }`}>
-                          {isBackendLoading ? <LoadingSpinner className="inline mr-2" /> : null} 
-                          {backendLoginStatus}
+                   {account && (
+                      <div className="space-y-4 animate-fadeIn">
+                        {(isBackendLoading || backendLoginStatus) && (
+                          <div className="text-center text-sm p-3 rounded-lg bg-yellow-400/20 text-yellow-400">
+                            {isBackendLoading ? <LoadingSpinner className="inline mr-2" /> : null}
+                            {backendLoginStatus}
+                          </div>
+                        )}
                       </div>
-                   }
-
-                   <hr className="border-gray-700"/>
-
-                   <Heading level={3} className="text-center">Your Details</Heading>
-                   
-                   {detailsMessage && (
-                      <div className={`text-center text-sm p-3 rounded-lg ${
-                        detailsMessage.startsWith("Error") 
-                          ? 'bg-red-500/20 text-red-400' 
-                          : 'bg-green-500/20 text-green-400'
-                      }`}>
-                          {detailsMessage}
-                      </div>
-                   )}
-
-                   {/* User Details Form */}
-                   <form onSubmit={handleDetailsSubmit} className="space-y-4">
-                       <Input 
-                         type="text" 
-                         id="name" 
-                         name="name" 
-                         value={userDetails.name} 
-                         onChange={handleDetailsChange} 
-                         placeholder="Full Name" 
-                         disabled={isDetailsLoading}
-                         variant="professional"
-                       />
-                       
-                       <Input 
-                         type="number" 
-                         id="age" 
-                         name="age" 
-                         value={userDetails.age} 
-                         onChange={handleDetailsChange} 
-                         placeholder="Age" 
-                         disabled={isDetailsLoading}
-                         variant="professional"
-                       />
-                       
-                       <select 
-                         id="gender" 
-                         name="gender" 
-                         value={userDetails.gender} 
-                         onChange={handleDetailsChange} 
-                         disabled={isDetailsLoading}
-                         className="w-full px-4 py-3 bg-gray-900/30 border border-gray-800 rounded-lg text-white placeholder-gray-400 transition-all-smooth focus:border-yellow-400 focus:outline-none focus:ring-1 focus:ring-yellow-400 disabled:opacity-50"
-                       >
-                           <option value="">Select Gender</option>
-                           <option value="male">Male</option>
-                           <option value="female">Female</option>
-                           <option value="other">Other</option>
-                           <option value="prefer_not_to_say">Prefer not to say</option>
-                       </select>
-                       
-                       <Button 
-                         type="submit" 
-                         variant="primary"
-                         size="lg"
-                         className="w-full" 
-                         disabled={isDetailsLoading}
-                       >
-                           {isDetailsLoading ? <LoadingSpinner className="mr-2" /> : null} 
-                           Save Details
-                       </Button>
-                   </form>
+                    )}
                 </div>
               )}
             </CardContent>

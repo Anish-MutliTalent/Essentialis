@@ -11,7 +11,7 @@ import { Buffer } from 'buffer';
 import { EIP1193 } from "thirdweb/wallets";
 
 import { client } from '../../../../lib/thirdweb';
-import DocLandABI from '../../../../abi/DocLand.json';
+import NFTDocABI from '../../../../abi/NFTDoc.json';
 
 // Import our new, production-ready crypto functions
 import {
@@ -31,8 +31,8 @@ import { useDashboardContext } from '../../../../pages/DashboardPage';
 
 window.Buffer = window.Buffer || Buffer;
 
-const polygonAmoy = defineChain(80002);
-const CONTRACT_ADDRESS = '0xB0097c317C29143A0BdF576DF352829FbBa56ecb';
+const polygonAmoy = defineChain(2442);
+const CONTRACT_ADDRESS = '0x595A79e5Fe30E14B5383ECef79d72F6B355b71bc';
 
 const MintDocPage: React.FC = () => {
     const navigate = useNavigate();
@@ -130,10 +130,16 @@ const MintDocPage: React.FC = () => {
                 wrapped_deks: { [owner.toLowerCase()]: await wrapDek(signer, dek, nonce) }
             };
 
+            // Optionally, test with minimal metadata
+            // const minimalMetadata = { name: 'Test', description: 'Minimal' };
+            // const tokenURI = `data:application/json;base64,${Buffer.from(JSON.stringify(minimalMetadata)).toString('base64')}`;
+
             const tokenURI = `data:application/json;base64,${Buffer.from(JSON.stringify(metadata)).toString('base64')}`;
+            // Debug: log tokenURI length
+            console.log('tokenURI length:', tokenURI.length);
 
             setStatusMessage('Please confirm the transaction in your wallet...');
-            const contract = getContract({ address: CONTRACT_ADDRESS, abi: DocLandABI as any, client, chain: polygonAmoy });
+            const contract = getContract({ address: CONTRACT_ADDRESS, abi: NFTDocABI as any, client, chain: polygonAmoy });
             const tx = prepareContractCall({ contract, method: 'function mintNFT(string)', params: [tokenURI] });
             const sent = await sendTransaction({ transaction: tx, account });
             await waitForReceipt({ client, chain: polygonAmoy, transactionHash: sent.transactionHash });

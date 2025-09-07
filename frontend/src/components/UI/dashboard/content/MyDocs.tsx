@@ -113,8 +113,8 @@ const MyDocs: React.FC = () => {
         const docsWithMetadata = docsArray.map((doc: any) => {
           try {
             // Handle different property names
-            const tokenId = doc.token_id || doc.tokenID || doc.id || doc.tokenId;
-            const tokenUri = doc.token_uri || doc.tokenURI || doc.uri || doc.uri;
+              const tokenId = doc.token_id ?? doc.tokenID ?? doc.id ?? doc.tokenId ?? 'unknown';
+              const tokenUri = doc.token_uri ?? doc.tokenURI ?? doc.uri ?? doc.uri;
             
             if (tokenUri && tokenUri.startsWith('data:application/json;base64,')) {
               const base64 = tokenUri.split(',')[1];
@@ -141,7 +141,7 @@ const MyDocs: React.FC = () => {
           } catch (e) {
             console.error('Failed to parse metadata for doc:', doc, e);
             // Return a fallback doc object
-            const tokenId = doc.token_id || doc.tokenID || doc.id || doc.tokenId || 'unknown';
+              const tokenId = doc.token_id ?? doc.tokenID ?? doc.id ?? doc.tokenId ?? 'unknown';
             return {
               token_id: tokenId,
               token_uri: '',

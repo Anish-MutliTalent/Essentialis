@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 
-contract NFTLand is ERC721URIStorage, Ownable {
+contract NFTDoc is ERC721URIStorage, Ownable {
     uint256 public tokenCounter;
     // Mapping from tokenId to encrypted metadata (for genesis tokens)
     mapping(uint256 => string) public tokenData;

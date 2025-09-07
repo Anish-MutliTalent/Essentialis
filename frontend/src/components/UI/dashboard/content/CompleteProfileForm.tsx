@@ -45,7 +45,7 @@ const CompleteProfileForm: React.FC = () => {
     setMessage(null);
 
     try {
-      const response = await fetch('/api/user/complete-profile', {
+      const response = await fetch('/api/user/details', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -42,11 +42,24 @@ const observer = new MutationObserver((mutations) => {
 
 observer.observe(document.body, { childList: true });
 
-root.render(
-  <React.StrictMode>
-    <ThirdwebProvider>
-    <AutoConnect client={client} wallets={walletsToUse} />
-      <App />
-    </ThirdwebProvider>
-  </React.StrictMode>
-);
+// Check auth status before React mounts (no localStorage restore in new flow)
+async function restoreAndRenderApp() {
+  try {
+    console.debug('restoreAndRenderApp start');
+    // No pre-mount lastPath restore. Login flow will use `next` query param.
+  } catch (e) {
+    // Ignore errors and continue to render app
+    console.warn('restoreAndRenderApp failed', e);
+  } finally {
+    root.render(
+      <React.StrictMode>
+        <ThirdwebProvider>
+          <AutoConnect client={client} wallets={walletsToUse} />
+          <App />
+        </ThirdwebProvider>
+      </React.StrictMode>
+    );
+  }
+}
+
+restoreAndRenderApp();

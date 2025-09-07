@@ -8,6 +8,7 @@ interface HistoryEntry {
   action: string;
   details: string;
   metadata?: any;
+  version?: number;
 }
 
 const DocHistory: React.FC = () => {
@@ -23,27 +24,35 @@ const DocHistory: React.FC = () => {
         const response = await fetch(`/api/doc/${tokenId}/history`);
         if (!response.ok) throw new Error('Failed to fetch history');
         const data = await response.json();
-        
-        // Ensure data is an array, handle different response structures
+
+        // Map API response to HistoryEntry[]
         let historyArray: HistoryEntry[] = [];
-        if (Array.isArray(data)) {
-          historyArray = data;
-        } else if (data.history && Array.isArray(data.history)) {
-          historyArray = data.history;
-        } else if (data.data && Array.isArray(data.data)) {
-          historyArray = data.data;
-        } else if (data.entries && Array.isArray(data.entries)) {
-          historyArray = data.entries;
-        } else {
-          console.warn('API response is not an array, using empty history:', data);
-          historyArray = [];
+        if (data.history && Array.isArray(data.history)) {
+          historyArray = data.history.map((entry: any, idx: number) => {
+            let metadata = null;
+            if (entry.token_uri && entry.token_uri.startsWith('data:application/json;base64,')) {
+              try {
+                const base64 = entry.token_uri.replace('data:application/json;base64,', '');
+                const jsonStr = atob(base64);
+                metadata = JSON.parse(jsonStr);
+              } catch (e) {
+                metadata = { error: 'Failed to decode metadata', raw: entry.token_uri };
+              }
+            }
+            return {
+              id: `${data.token_id}-${idx}`,
+              timestamp: entry.timestamp,
+              action: entry.action || `Version #${entry.version ?? idx}`,
+              metadata,
+              version: typeof entry.version === 'number' ? entry.version : undefined,
+            };
+          });
         }
-        
         setHistory(historyArray);
       } catch (err: any) {
         console.error('Error fetching history:', err);
         setError(err.message);
-        setHistory([]); // Ensure history is always an array
+        setHistory([]);
       } finally {
         setLoading(false);
       }
@@ -98,32 +107,38 @@ const DocHistory: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {history.map((entry, index) => (
-                <div key={entry.id} className="bg-gray-800 rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
-                      <div>
-                        <Text weight="semibold" className="text-yellow-400">
-                          {entry.action}
-                        </Text>
-                        <Text variant="small" color="muted">
-                          {formatTimestamp(entry.timestamp)}
-                        </Text>
+              {(() => {
+                // Find the greatest version number, ignoring undefined/null/non-numeric
+                // Use the entry.version provided by the API (fallbacks handled)
+                const versions = history
+                  .map(h => h.version)
+                  .filter(v => typeof v === 'number' && !isNaN(v)) as number[];
+                const maxVersion = versions.length > 0 ? Math.max(...versions) : undefined;
+                return history.map(entry => (
+                  <div key={entry.id} className="bg-gray-800 rounded-lg p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
+                        <div>
+                          <Text weight="semibold" className="text-yellow-400">
+                            {entry.action}
+                          </Text>
+                          {entry.timestamp !== 'N/A' && (
+                            <Text variant="small" color="muted">
+                              {formatTimestamp(entry.timestamp)}
+                            </Text>
+                          )}
+                        </div>
                       </div>
+                      {entry.version === maxVersion && (
+                        <span className="ml-2 text-green-400 text-sm font-medium bg-green-400/20 px-2 py-1 rounded">
+                          Current
+                        </span>
+                      )}
                     </div>
-                    {index === 0 && (
-                      <span className="ml-2 text-green-400 text-sm font-medium bg-green-400/20 px-2 py-1 rounded">
-                        Current
-                      </span>
-                    )}
-                  </div>
-                  
-                  <Text variant="small" className="text-gray-300 mb-3">
-                    {entry.details}
-                  </Text>
-                  
-                  {entry.metadata && (
+                    <Text variant="small" className="text-gray-300 mb-3">
+                      {entry.details}
+                    </Text>
                     <div className="mt-3">
                       <Button
                         variant="ghost"
@@ -133,16 +148,17 @@ const DocHistory: React.FC = () => {
                       >
                         {selectedEntry === entry ? 'Hide' : 'View'} Metadata
                       </Button>
-                      
                       {selectedEntry === entry && (
                         <div className="mt-3 p-3 rounded bg-gray-900 text-gray-300 font-mono text-xs whitespace-pre-wrap overflow-hidden border border-gray-700">
-                          {JSON.stringify(entry.metadata, null, 2)}
+                          {typeof entry.metadata !== 'undefined' && entry.metadata !== null
+                            ? JSON.stringify(entry.metadata, null, 2)
+                            : 'No metadata available.'}
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
-              ))}
+                  </div>
+                ));
+              })()}
             </div>
           )}
         </CardContent>

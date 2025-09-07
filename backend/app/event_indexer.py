@@ -119,7 +119,7 @@ def listen_for_events():
             pass  # For this example, will proceed, but be aware of scanning from genesis.
 
         logging.info(f"Starting event listener for ActionLogger from block {last_block_action_logger + 1}")
-        # Add similar logic for other contracts/events (NFTLand, NFTMarketplace)
+        # Add similar logic for other contracts/events (NFTDoc, NFTMarketplace)
 
         action_logged_event_filter = action_logger_contract_instance.events.ActionLogged.create_filter(
             fromBlock=last_block_action_logger + 1

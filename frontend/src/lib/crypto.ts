@@ -228,7 +228,7 @@ export async function aesGcmDecrypt(key: Uint8Array, encryptedData: Uint8Array, 
     const decryptedData = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce.slice() }, cryptoKey, encryptedData.slice());
     return new Uint8Array(decryptedData);
 }
-const SIG_MSG = "DocLand-KEK-DERIVATION-v1";
+const SIG_MSG = "NFTDoc-KEK-DERIVATION-v1";
 export async function wrapDek(signer: ethers.Signer, dek: Uint8Array, nonce: Uint8Array): Promise<string> {
     const signature = await signer.signMessage(SIG_MSG);
     const ikm = ethers.utils.arrayify(signature);

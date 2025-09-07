@@ -61,8 +61,8 @@ def log_action_on_chain(user_address, action_description, details_json_str, acti
 
 def get_nft_details(token_id):
     if not nft_land_contract:  # Check if contract instance is valid
-        current_app.logger.error("NFTLand contract not loaded or not available.")
-        return {"error": "NFTLand contract not loaded."}, 503
+        current_app.logger.error("NFTDoc contract not loaded or not available.")
+        return {"error": "NFTDoc contract not loaded."}, 503
     if not w3:  # Check if w3 is valid
         current_app.logger.error("Web3 instance not available.")
         return {"error": "Web3 service not available"}, 503

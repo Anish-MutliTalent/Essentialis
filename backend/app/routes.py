@@ -9,6 +9,7 @@ from .models import User, ActionLog, AdminLoginToken  # Explicitly import models
 from functools import wraps
 from datetime import datetime, UTC
 import asyncio
+import json
 from werkzeug.datastructures import FileStorage  # For type hinting
 import io  # For creating in-memory file for HTML content
 from pathlib import Path
@@ -28,7 +29,7 @@ def upload_json_to_ipfs(data: dict) -> str:
 
 bp = Blueprint('main', __name__)
 
-w3 = Web3(Web3.HTTPProvider('https://polygon-amoy.g.alchemy.com/v2/2l_tXPgmiK-xL46C2bzC4C_tw1LnCQtC'))
+w3 = Web3(Web3.HTTPProvider('https://rpc.cardona.zkevm-rpc.com'))
 
 
 def login_required(f):
@@ -209,46 +210,99 @@ def upload_ipfs(content):
     return 404
 
 
-async def _get_my_nfts_async():
+async def _get_my_nfts_async(user_id: int):
     try:
-        # Read the contract ABI in a background thread
-        contract_abi = await asyncio.to_thread(
-            lambda: open(Path(__file__).parent / "abi" / current_app.config.get('NFT_LAND_CONTRACT_ABI_PATH'), 'r').read())
+        # Read and parse the contract ABI in a background thread.
+        # Support both absolute ABI paths (stored in config) and relative filenames.
+        cfg_path = current_app.config.get('NFT_LAND_CONTRACT_ABI_PATH')
+        if not cfg_path:
+            return {"error": "NFT contract ABI path not configured"}, 500
 
-        # Set the contract address (replace with your contract's deployed address)
+        if Path(cfg_path).is_absolute():
+            abi_path = Path(cfg_path)
+        else:
+            abi_path = Path(__file__).parent / "abi" / cfg_path
+
+        try:
+            abi_text = await asyncio.to_thread(lambda: abi_path.read_text())
+            contract_abi = json.loads(abi_text)
+        except Exception as e:
+            current_app.logger.error(f"Failed to read/parse ABI JSON at {abi_path}: {e}")
+            return {"error": "Invalid or unreadable contract ABI on backend"}, 500
+
+        # Ensure RPC is reachable and contract address is configured
+        if not w3.is_connected():
+            current_app.logger.error("Web3 RPC provider not reachable")
+            return {"error": "RPC provider not reachable"}, 503
+
         contract_address = current_app.config.get('NFT_LAND_CONTRACT_ADDRESS')
+        if not contract_address:
+            return {"error": "NFT contract address not configured"}, 503
+
         nft_land_contract = w3.eth.contract(address=Web3.to_checksum_address(contract_address), abi=contract_abi)
 
-        user = await asyncio.to_thread(User.query.get, session['user_id'])
-        if not user.wallet_address:
-            return jsonify({"error": "User wallet address not found"}), 400
+        # Verify that there's contract code at the address on this RPC/node
+        try:
+            code = await asyncio.to_thread(lambda: w3.eth.get_code(Web3.to_checksum_address(contract_address)))
+            if not code or code == b"\x00" or code.hex() == '0x':
+                current_app.logger.error(f"No contract code at address {contract_address} on configured RPC")
+                return {"error": "No contract deployed at configured address on RPC"}, 502
+        except Exception as e:
+            current_app.logger.error(f"Error while checking contract code at {contract_address}: {e}")
+            # Continue, but warn the caller
+            return {"error": f"Error checking contract deployment: {e}"}, 502
 
-        if not nft_land_contract:
-            return jsonify({"error": "NFTLand contract not configured"}), 503
+        # Load user from DB (do not access `session` inside coroutine)
+        user = await asyncio.to_thread(User.query.get, user_id)
+        if not user or not user.wallet_address:
+            return {"error": "User wallet address not found"}, 400
 
-        # Fetch token IDs using a thread to avoid blocking
-        tokenIDs = await asyncio.to_thread(nft_land_contract.functions.fetchNFTsForOwner(user.wallet_address).call)
+        # Ensure owner's address is checksummed when calling contract
+        try:
+            owner_address = Web3.to_checksum_address(user.wallet_address)
+        except Exception:
+            owner_address = user.wallet_address
 
-        # Gather tokenData calls concurrently
-        async def get_token_data(tokenID):
-            tokenURI = await asyncio.to_thread(nft_land_contract.functions.tokenData(tokenID).call)
-            return {'tokenID': tokenID, 'tokenURI': tokenURI}
+        # Fetch token IDs using a thread to avoid blocking (ensure .call() is invoked)
+        try:
+            tokenIDs = await asyncio.to_thread(lambda: nft_land_contract.functions.fetchNFTsForOwner(owner_address).call())
+        except Exception as e:
+            current_app.logger.error(f"Error calling fetchNFTsForOwner: {e}")
+            return {"error": "Could not fetch token IDs from contract: %s" % str(e)}, 502
 
-        tasks = [get_token_data(tokenID) for tokenID in tokenIDs]
-        nfts = await asyncio.gather(*tasks)
+        # Normalize tokenIDs to a list
+        if tokenIDs is None:
+            tokenIDs = []
+        elif isinstance(tokenIDs, (int,)):
+            tokenIDs = [tokenIDs]
 
-        return jsonify({"nfts": nfts}), 200
+        # Fetch token data in a background thread (synchronously inside thread)
+        def _gather_token_data_sync(token_ids):
+            results = []
+            for tid in token_ids:
+                try:
+                    tokenURI = nft_land_contract.functions.tokenData(tid).call()
+                    results.append({"tokenID": int(tid), "tokenURI": tokenURI})
+                except Exception as e:
+                    current_app.logger.error(f"Error fetching tokenData for {tid}: {e}")
+                    results.append({"tokenID": int(tid), "error": str(e)})
+            return results
+
+        nfts = await asyncio.to_thread(_gather_token_data_sync, tokenIDs)
+
+        return {"nfts": nfts}, 200
 
     except Exception as e:
         current_app.logger.error(f"Error fetching NFTs: {e}")
-        return jsonify({"error": f"Error fetching NFTs: {e}"}), 500
+        return {"error": f"Error fetching NFTs: {e}"}, 500
 
 
 @bp.route('/user/docs', methods=['GET'])
 @login_required
 def get_my_nfts():
-    docs = asyncio.run(_get_my_nfts_async())
-    return docs
+    user_id = session.get('user_id')
+    body, status = asyncio.run(_get_my_nfts_async(user_id))
+    return jsonify(body), status
 
 
 # --- NFT Interaction Routes ---
@@ -270,10 +324,10 @@ def prepare_mint_tx():
 
     if not current_app.config.get(
             'NFT_LAND_CONTRACT_ADDRESS') or not services.nft_land_contract:  # Check if contract is loaded
-        return jsonify({"error": "NFTLand contract not configured on backend"}), 503
+        return jsonify({"error": "NFTDoc contract not configured on backend"}), 503
 
     # Backend prepares transaction data for the client to sign and send This example assumes the `mintNFT` function
-    # in `NFTLand.sol` is `onlyOwner` and that owner is the platform. If users mint for themselves, the contract
+    # in `NFTDoc.sol` is `onlyOwner` and that owner is the platform. If users mint for themselves, the contract
     # `mintNFT` should not be `onlyOwner` or a different mint function should be used. Let's assume a
     # platform-controlled mint for now, where platform pays gas. OR, if users mint and pay gas: The `to` address
     # would be `recipient_address`. The `from` address (signer) would be `recipient_address`. The frontend would then
@@ -438,7 +492,7 @@ def get_admin_users():
 @admin_required
 def get_admin_nfts_overview():
     # This would ideally query an indexed database of all minted NFTs.
-    # If not, you'd have to iterate on-chain events (NFTMinted from NFTLand)
+    # If not, you'd have to iterate on-chain events (NFTMinted from NFTDoc)
     # or rely on `totalSupply` and then query each token (very inefficient).
     # Assume you have an `IndexedNFT` model populated by an indexer.
     # For now, placeholder:
