@@ -244,7 +244,7 @@ async def _get_my_nfts_async():
         return jsonify({"error": f"Error fetching NFTs: {e}"}), 500
 
 
-@bp.route('/doc/my_docs', methods=['GET'])
+@bp.route('/user/docs', methods=['GET'])
 @login_required
 def get_my_nfts():
     docs = asyncio.run(_get_my_nfts_async())

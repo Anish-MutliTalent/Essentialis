@@ -26,7 +26,7 @@ import {
     encode,
     hkdfSha256
 } from '../../../../lib/crypto';
-import LoadingSpinner from '../../LoadingSpinner';
+import { Button, Input, Card, CardHeader, CardContent, Heading, Text, LoadingSpinner } from '../../index';
 import { useDashboardContext } from '../../../../pages/DashboardPage';
 
 window.Buffer = window.Buffer || Buffer;
@@ -40,94 +40,57 @@ const MintDocPage: React.FC = () => {
     const activeWallet = useActiveWallet();
     const { profile } = useDashboardContext();
 
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [statusMessage, setStatusMessage] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         name: '',
         description: '',
-        file_type: '',
-        file_size: '',
-        file_extension: '',
-        tokenizationDate: new Date().toISOString(), // Use full ISO string for precision
-        ownerName: '',
+        ownerName: profile?.name || 'Unknown',
+        tokenizationDate: new Date().toISOString().split('T')[0]
     });
-
-    const [userEdited, setUserEdited] = useState({ name: false, description: false });
     const [sourceFile, setSourceFile] = useState<File | null>(null);
-    const [statusMessage, setStatusMessage] = useState<string | null>(null);
-    const [isMinting, setIsMinting] = useState(false);
 
     useEffect(() => {
-        if (account?.address && profile?.name) {
-            setFormData((f) => ({ ...f, ownerName: profile.name || account.address }));
-        } else if (account?.address) {
-            setFormData((f) => ({ ...f, ownerName: account.address }));
+        if (profile?.name) {
+            setFormData(prev => ({ ...prev, ownerName: profile.name }));
         }
-    }, [account, profile]);
+    }, [profile]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { name, value } = e.target;
-        setFormData((f) => ({ ...f, [name]: value }));
-        if (name === 'name' || name === 'description') {
-            setUserEdited((u) => ({ ...u, [name]: true }));
-        }
+        setFormData(f => ({ ...f, [e.target.name]: e.target.value }));
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0] ?? null;
-        if (!file) return;
-        setSourceFile(file);
-
-        const fileType = file.type || 'N/A';
-        const fileSize = file.size ? (file.size / 1024).toFixed(2) + ' KB' : 'N/A';
-        const fileExtension = file.name.split('.').pop() || 'N/A';
-        const fileNameNoExt = file.name.replace(/\.[^/.]+$/, "");
-
-        setFormData((f) => ({
-            ...f,
-            name: userEdited.name ? f.name : fileNameNoExt,
-            description: userEdited.description ? f.description : `Secure document: ${fileNameNoExt}.${fileExtension}`,
-            file_type: fileType,
-            file_size: fileSize,
-            file_extension: fileExtension,
-        }));
+        const file = e.target.files?.[0];
+        if (file) {
+            setSourceFile(file);
+            setFormData(prev => ({ ...prev, name: file.name.split('.')[0] }));
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!sourceFile || !account || !activeWallet) {
-            setStatusMessage('Please select a file and connect your wallet.');
-            return;
-        }
+        if (!account || !activeWallet || !sourceFile) return setStatusMessage('Please connect wallet and select a file.');
 
-        setIsMinting(true);
-        setStatusMessage('Initiating secure tokenization process...');
-
+        setIsSubmitting(true);
+        setStatusMessage(null);
         try {
-            const eip1193Provider = EIP1193.toProvider({ wallet: activeWallet, client, chain: polygonAmoy });
-            const provider = new ethers.providers.Web3Provider(eip1193Provider);
-            const signer = provider.getSigner();
+            setStatusMessage('Step 1/6: Generating encryption keys...');
+            const eip = EIP1193.toProvider({ wallet: activeWallet, client, chain: polygonAmoy });
+            const signer = new ethers.providers.Web3Provider(eip).getSigner();
             const owner = account.address;
             const timestamp = formData.tokenizationDate;
-            const counter = Date.now(); // Use timestamp as a unique counter
+            const counter = Date.now();
 
-            // 1. Generate Keys & Nonce
-            setStatusMessage('Step 1/7: Generating encryption keys and nonce...');
+            setStatusMessage('Step 2/6: Encrypting file data...');
             const dek = generateDEK();
             const nonce = await generateNonce(owner, timestamp, counter);
             const fileDataU8 = new Uint8Array(await sourceFile.arrayBuffer());
-
-            // 2. Encrypt Data with DEK
-            setStatusMessage('Step 2/7: Encrypting file data...');
             const encryptedData = await aesGcmEncrypt(dek, fileDataU8, nonce);
 
-            // 3. Wrap DEK with KEK
-            setStatusMessage('Step 3/7: Wrapping access key... Please sign message in wallet.');
-            const wrappedDekHex = await wrapDek(signer, dek, nonce);
-
-            // 4. Create Verifiable Chunks
-            setStatusMessage('Step 4/7: Creating verifiable data chunks...');
+            setStatusMessage('Step 3/6: Creating verifiable chunks...');
             const encryptedDataB64 = Buffer.from(encryptedData).toString('base64');
-            
-            // Create chunk_a with chained multiplication for reversibility
             const p1 = await multiply(owner, encryptedDataB64);
             const p2 = await multiply(p1, timestamp);
             const chunk_a = await multiply(p2, counter.toString());
@@ -137,112 +100,213 @@ const MintDocPage: React.FC = () => {
             const hmacHash = await hmacSha256(hmacKey, encryptedData);
             const hmacHashB64 = Buffer.from(hmacHash).toString('base64');
             const chunk_b = await multiply(dataHashB64, hmacHashB64);
-            
             const chunk = merge(chunk_a, chunk_b);
 
-            // 5. Encrypt chunk with Lit Protocol & create backup
-            setStatusMessage('Step 5/7: Securing metadata with Lit Protocol...');
+            setStatusMessage('Step 4/6: Securing metadata...');
             const { metachunk } = await encode(chunk);
-
-            // 6. Upload metachunk to IPFS
-            setStatusMessage('Step 6/7: Uploading secure metadata bundle to IPFS...');
+            
+            setStatusMessage('Step 5/6: Uploading to IPFS...');
             const metaChunkFile = new File([metachunk], "metachunk.txt", { type: 'text/plain' });
             const ipfsForm = new FormData();
             ipfsForm.append('file', metaChunkFile);
             const ipfsRes = await fetch('/api/ipfs/file', { method: 'POST', body: ipfsForm });
-            let metachunkCid = await ipfsRes.json();
-            if ((metachunkCid?.startsWith('"') && metachunkCid.endsWith('"'))) {
-                metachunkCid = metachunkCid.substring(1, metachunkCid.length - 1);
-            }
+            const metachunkCid = (await ipfsRes.json()).replace(/"/g, '');
 
-            // 7. Assemble On-Chain Metadata & Mint
-            setStatusMessage('Step 7/7: Preparing on-chain data...');
+            setStatusMessage('Step 6/6: Building transaction...');
             const metadata = {
                 name: formData.name,
                 description: formData.description,
+                image: "https://via.placeholder.com/400x400/1f2937/ffffff?text=Document",
                 attributes: [
-                    { "trait_type": "File Type", "value": formData.file_type },
-                    { "trait_type": "File Size", "value": formData.file_size },
-                    { "trait_type": "File Extension", "value": formData.file_extension },
-                    { "trait_type": "Owner Name", "value": formData.ownerName },
-                    { "trait_type": "Tokenization Date", "value": timestamp },
-                    { "trait_type": "Counter", "value": counter.toString() } // Store counter for decryption
+                    { "trait_type": "Owner", "value": formData.ownerName },
+                    { "trait_type": "Tokenization Date", "value": formData.tokenizationDate },
+                    { "trait_type": "File Size", "value": `${(sourceFile.size / 1024).toFixed(2)} KB` },
+                    { "trait_type": "File Type", "value": sourceFile.type || 'N/A' },
+                    { "trait_type": "File Extension", "value": sourceFile.name.split('.').pop() || 'N/A' },
+                    { "trait_type": "Counter", "value": counter.toString() }
                 ],
-                encrypted_file_cid: metachunkCid, // This now points to the metachunk
+                encrypted_file_cid: metachunkCid,
                 nonce: ethers.utils.hexlify(nonce),
-                wrapped_deks: {
-                    [owner.toLowerCase()]: wrappedDekHex,
-                }
+                wrapped_deks: { [owner.toLowerCase()]: await wrapDek(signer, dek, nonce) }
             };
 
             const tokenURI = `data:application/json;base64,${Buffer.from(JSON.stringify(metadata)).toString('base64')}`;
 
             setStatusMessage('Please confirm the transaction in your wallet...');
-            const contract = getContract({ client, address: CONTRACT_ADDRESS, abi: DocLandABI as any, chain: polygonAmoy });
-            const transaction = prepareContractCall({ contract, method: 'function mintNFT(string memory data)', params: [tokenURI] });
-            const { transactionHash } = await sendTransaction({ transaction, account });
+            const contract = getContract({ address: CONTRACT_ADDRESS, abi: DocLandABI as any, client, chain: polygonAmoy });
+            const tx = prepareContractCall({ contract, method: 'function mintNFT(string)', params: [tokenURI] });
+            const sent = await sendTransaction({ transaction: tx, account });
+            await waitForReceipt({ client, chain: polygonAmoy, transactionHash: sent.transactionHash });
 
-            setStatusMessage('Transaction sent! Waiting for confirmation...');
-            await waitForReceipt({ client, chain: polygonAmoy, transactionHash });
-
-            setStatusMessage('Success! Your document has been securely tokenized.');
-            navigate('/dashboard/my-docs');
-
+            setStatusMessage('Document minted successfully!');
+            setTimeout(() => {
+                navigate('/dashboard/my-docs');
+            }, 2000);
         } catch (err: any) {
-            console.error("Minting process failed:", err);
+            console.error(err);
             setStatusMessage(`Error: ${err.message}`);
         } finally {
-            setIsMinting(false);
+            setIsSubmitting(false);
         }
     };
 
     return (
-        <div className="flex justify-center p-4">
-            <form onSubmit={handleSubmit} className="w-full max-w-2xl bg-gray-800 text-white rounded-lg p-6 space-y-6">
-                <h2 className="text-2xl font-bold mb-4 text-center">Securely Tokenize a New Document</h2>
-                <div>
-                    <label htmlFor="sourceFile" className="block text-sm font-medium text-gray-300">
-                        Upload File*
-                    </label>
-                    <input id="sourceFile" type="file" name="sourceFile" onChange={handleFileChange} required className="mt-1 block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-500 file:text-white hover:file:bg-indigo-600" />
-                </div>
-                {sourceFile && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm bg-gray-700/50 p-3 rounded-md">
-                        <div><span className="font-semibold">File Size:</span> {formData.file_size}</div>
-                        <div><span className="font-semibold">File Type:</span> {formData.file_type}</div>
-                        <div><span className="font-semibold">Extension:</span> {formData.file_extension}</div>
-                    </div>
-                )}
-                <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-300">Name*</label>
-                    <input id="name" name="name" value={formData.name} onChange={handleChange} required className="input-field mt-1" placeholder="e.g., Q4 Financial Report" />
-                </div>
-                <div>
-                    <label htmlFor="description" className="block text-sm font-medium text-gray-300">Description*</label>
-                    <textarea id="description" name="description" value={formData.description} onChange={handleChange} rows={3} required className="input-field mt-1" placeholder="A brief description of the document." />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label htmlFor="ownerName" className="block text-sm font-medium text-gray-300">Owner Name</label>
-                        <input id="ownerName" name="ownerName" value={formData.ownerName} onChange={handleChange} readOnly className="input-field mt-1 bg-gray-700 cursor-not-allowed" />
-                    </div>
-                    <div>
-                        <label htmlFor="tokenizationDate" className="block text-sm font-medium text-gray-300">Tokenization Date</label>
-                        <input id="tokenizationDate" type="text" name="tokenizationDate" value={new Date(formData.tokenizationDate).toLocaleString()} readOnly className="input-field mt-1 bg-gray-700 cursor-not-allowed" />
-                    </div>
-                </div>
-                <div className="pt-4">
-                    <button type="submit" disabled={isMinting || !account} className="w-full py-3 px-4 bg-indigo-600 rounded-md font-semibold hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-500 disabled:cursor-wait">
-                        {isMinting ? <LoadingSpinner /> : 'Secure & Mint Document'}
-                    </button>
-                    {!account && <p className="text-center text-yellow-400 text-sm mt-4">Please connect your wallet to mint.</p>}
-                    {statusMessage && (
-                        <div className="mt-4 text-center p-3 rounded-md bg-gray-700">
-                            <p className="text-sm text-gray-200">{statusMessage}</p>
+        <div className="max-w-2xl mx-auto">
+            <Card variant="premium">
+                <CardHeader className="text-center">
+                    <Heading level={2} className="gradient-gold-text">
+                        Mint New Document
+                    </Heading>
+                    <Text color="muted" className="mt-2">
+                        Create a new encrypted document NFT
+                    </Text>
+                </CardHeader>
+
+                <CardContent>
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        {/* File Upload Section */}
+                        <div className="space-y-3">
+                            <label className="block text-sm font-medium text-gray-300">
+                                Document File *
+                            </label>
+                            <div className="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center hover:border-yellow-400/50 transition-all-smooth">
+                                <input 
+                                    type="file" 
+                                    onChange={handleFileChange} 
+                                    disabled={isSubmitting}
+                                    className="hidden"
+                                    id="file-upload"
+                                    required
+                                />
+                                <label htmlFor="file-upload" className="cursor-pointer">
+                                    <div className="space-y-2">
+                                        <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                        <div className="text-sm text-gray-400">
+                                            <span className="font-medium text-yellow-400 hover:text-yellow-300">
+                                                Click to upload
+                                            </span> or drag and drop
+                                        </div>
+                                        <Text variant="small" color="muted">
+                                            {sourceFile ? `Selected: ${sourceFile.name}` : 'No file selected'}
+                                        </Text>
+                                    </div>
+                                </label>
+                            </div>
                         </div>
-                    )}
-                </div>
-            </form>
+
+                        {/* Document Details */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm bg-gray-700/50 p-3 rounded-md">
+                            <div>
+                                <Text variant="small" color="muted">Owner</Text>
+                                <Text weight="semibold">{formData.ownerName}</Text>
+                            </div>
+                            <div>
+                                <Text variant="small" color="muted">Date</Text>
+                                <Text weight="semibold">{formData.tokenizationDate}</Text>
+                            </div>
+                            <div>
+                                <Text variant="small" color="muted">File Size</Text>
+                                <Text weight="semibold">
+                                    {sourceFile ? `${(sourceFile.size / 1024).toFixed(2)} KB` : 'N/A'}
+                                </Text>
+                            </div>
+                        </div>
+
+                        {/* Name Input */}
+                        <div className="space-y-2">
+                            <label htmlFor="name" className="block text-sm font-medium text-gray-300">
+                                Document Name *
+                            </label>
+                            <Input
+                                id="name"
+                                name="name"
+                                value={formData.name}
+                                onChange={handleChange}
+                                required
+                                placeholder="e.g., Q4 Financial Report"
+                                variant="professional"
+                            />
+                        </div>
+
+                        {/* Description Input */}
+                        <div className="space-y-2">
+                            <label htmlFor="description" className="block text-sm font-medium text-gray-300">
+                                Description *
+                            </label>
+                            <textarea
+                                id="description"
+                                name="description"
+                                value={formData.description}
+                                onChange={handleChange}
+                                rows={3}
+                                required
+                                placeholder="A brief description of the document."
+                                className="w-full px-4 py-3 bg-gray-900/30 border border-gray-800 rounded-lg text-white placeholder-gray-400 transition-all-smooth focus:border-yellow-400 focus:outline-none focus:ring-1 focus:ring-yellow-400 disabled:opacity-50 resize-none"
+                            />
+                        </div>
+
+                        {/* Owner Name Input */}
+                        <div className="space-y-2">
+                            <label htmlFor="ownerName" className="block text-sm font-medium text-gray-300">
+                                Owner Name
+                            </label>
+                            <Input
+                                id="ownerName"
+                                name="ownerName"
+                                value={formData.ownerName}
+                                onChange={handleChange}
+                                readOnly
+                                variant="professional"
+                                className="bg-gray-700 cursor-not-allowed"
+                            />
+                        </div>
+
+                        {/* Tokenization Date Input */}
+                        <div className="space-y-2">
+                            <label htmlFor="tokenizationDate" className="block text-sm font-medium text-gray-300">
+                                Tokenization Date
+                            </label>
+                            <Input
+                                id="tokenizationDate"
+                                name="tokenizationDate"
+                                type="date"
+                                value={formData.tokenizationDate}
+                                onChange={handleChange}
+                                readOnly
+                                variant="professional"
+                                className="bg-gray-700 cursor-not-allowed"
+                            />
+                        </div>
+
+                        {/* Submit Button */}
+                        <Button
+                            type="submit"
+                            disabled={isSubmitting || !sourceFile}
+                            variant="primary"
+                            size="lg"
+                            className="w-full"
+                            loading={isSubmitting}
+                        >
+                            {isSubmitting ? 'Minting Document...' : 'Mint Document'}
+                        </Button>
+
+                        {/* Status Message */}
+                        {statusMessage && (
+                            <div className={`text-center p-3 rounded-md ${
+                                statusMessage.startsWith('Error') 
+                                    ? 'bg-red-500/20 border border-red-500/30 text-red-400' 
+                                    : statusMessage.includes('successfully') 
+                                        ? 'bg-green-500/20 border border-green-500/30 text-green-400'
+                                        : 'bg-yellow-400/20 border border-yellow-400/30 text-yellow-400'
+                            }`}>
+                                <Text variant="small">{statusMessage}</Text>
+                            </div>
+                        )}
+                    </form>
+                </CardContent>
+            </Card>
         </div>
     );
 };

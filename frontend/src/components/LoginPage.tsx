@@ -1,14 +1,12 @@
 // src/components/LoginPage.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
 import { useActiveAccount, useConnect, useActiveWallet } from "thirdweb/react";
 import {
   inAppWallet,
   createWallet,
   preAuthenticate,
 } from "thirdweb/wallets";
-import { client } from '../lib/thirdweb';
 import { client } from '../lib/thirdweb';
 import { signMessage } from "thirdweb/utils";
 import { FcGoogle } from "react-icons/fc";
@@ -32,15 +30,12 @@ import {
 import Divider from "./UI/Divider";
 
 const API_BASE_URL = '/api';
-const API_BASE_URL = '/api';
 
 const LoginPage = () => {
   const navigate = useNavigate();
 
   const account = useActiveAccount();
-  const account = useActiveAccount();
   const { connect, isConnecting, error: connectionError } = useConnect();
-  const activeWallet = useActiveWallet();
   const activeWallet = useActiveWallet();
 
   // --- State Management ---
@@ -77,19 +72,15 @@ const LoginPage = () => {
         setErrorMessage(`Connection failed: ${specificError}`);
     } else if (!account && uiState !== 'email_otp') {
          setUiState('idle');
-         setUiState('idle');
     }
   }, [isConnecting, connectionError, account, uiState]);
-  }, [isConnecting, connectionError, account, uiState]);
 
-  // --- Wallet Connection Handlers ---
   // --- Wallet Connection Handlers ---
   const handleEmailLogin = useCallback(async () => {
     if (!email) { setErrorMessage("Please enter your email."); setUiState('error'); return; }
     setUiState('connecting'); setErrorMessage(null);
     try {
       await preAuthenticate({ client, strategy: "email", email });
-      setUiState('email_otp');
       setUiState('email_otp');
     } catch (err: any) {
       console.error("Email pre-authentication failed:", err);
@@ -105,7 +96,6 @@ const LoginPage = () => {
     try {
       await connect(async () => {
         const wallet = walletsToUse.inApp;
-        const wallet = walletsToUse.inApp;
         await wallet.connect({ client, strategy: "email", email, verificationCode: otp });
         return wallet;
       });
@@ -113,11 +103,9 @@ const LoginPage = () => {
       console.error("Email connect failed:", err);
       setErrorMessage(`Email verification failed: ${err.message || err}`);
       setUiState('email_otp');
-      setUiState('email_otp');
     }
   }, [email, otp, connect, walletsToUse.inApp]);
 
-  const handleSocialLogin = useCallback(async (strategy: "google") => {
   const handleSocialLogin = useCallback(async (strategy: "google") => {
       setUiState('connecting'); setErrorMessage(null);
       try {
@@ -137,7 +125,6 @@ const LoginPage = () => {
       setUiState('connecting'); setErrorMessage(null);
       try {
           await connect(async () => {
-              const wallet = walletsToUse.metamask;
               const wallet = walletsToUse.metamask;
               await wallet.connect({ client });
               return wallet;
@@ -168,7 +155,6 @@ const LoginPage = () => {
         const signature = await signMessage({
           account: accountObj,
           message: message_to_sign,
-        });
         });
 
         const verifyRes = await fetch(`${API_BASE_URL}/auth/login/metamask/verify`, {
@@ -219,7 +205,6 @@ const LoginPage = () => {
         console.log("User details fetched:", data);
 
       } else if (response.status !== 401) {
-      } else if (response.status !== 401) {
         const errData = await response.json().catch(() => ({error: "Failed to parse error"}));
         throw new Error(errData.error || `Failed to fetch details: ${response.status}`);
       }
@@ -267,18 +252,15 @@ const LoginPage = () => {
     } else if (!account && !isConnecting) {
       setBackendLoginStatus("Awaiting wallet connection...");
       setUserDetails({ name: '', age: '', gender: '' });
-      setUserDetails({ name: '', age: '', gender: '' });
       setDetailsMessage('');
     }
 
-  }, [account, activeWallet, isBackendLoading, isConnecting, linkWalletToBackend, fetchUserDetails]);
   }, [account, activeWallet, isBackendLoading, isConnecting, linkWalletToBackend, fetchUserDetails]);
 
     const handleDetailsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
             setUserDetails(prevDetails => ({
                 ...prevDetails,
-            [name]: value,
             [name]: value,
         }));
     };
@@ -330,8 +312,6 @@ const LoginPage = () => {
   const showOtpInput = !account && uiState === 'email_otp' && !isConnecting;
   const showConnectingLoader = isConnecting || (uiState === 'connecting' && !isBackendLoading);
   const showUserDetailsForm = account;
-  const showConnectingLoader = isConnecting || (uiState === 'connecting' && !isBackendLoading);
-  const showUserDetailsForm = account;
   const [checkedSession, setCheckedSession] = useState(false);
 
   useEffect(() => {
@@ -356,7 +336,6 @@ const LoginPage = () => {
       .finally(() => {
         setCheckedSession(true);
       });
-  }, []);
   }, []);
 
   if (!checkedSession) {
