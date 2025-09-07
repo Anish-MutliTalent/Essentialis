@@ -24,7 +24,7 @@
           'No email support',
           'No secure authentication (MFA)',
           'No folder support',
-          'No sharing (only you)'
+          'No sharing (only you)',
           'No guaranteed data integrity'
         ],
         popular: false,
@@ -50,7 +50,7 @@
           'Guaranteed data integrity'
         ],
         limitations: [
-          'No audit integrity (Data will always be intact but history and metadata may not)'
+          'No audit integrity (Data will always be intact but history and metadata may not)',
           'No API access',
           'No access control (Sharing to anyone gives them same access as yourself)'
         ],
