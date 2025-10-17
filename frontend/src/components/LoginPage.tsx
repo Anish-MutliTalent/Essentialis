@@ -1,5 +1,5 @@
 // src/components/LoginPage.tsx
-import React, { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useActiveAccount, useConnect, useActiveWallet } from "thirdweb/react";
 import {

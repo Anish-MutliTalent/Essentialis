@@ -24,9 +24,8 @@ import {
     sha256,
     hmacSha256,
     encode,
-    hkdfSha256
 } from '../../../../lib/crypto';
-import { Button, Input, Card, CardHeader, CardContent, Heading, Text, LoadingSpinner } from '../../index';
+import { Button, Input, Card, CardHeader, CardContent, Heading, Text } from '../../index';
 import { useDashboardContext } from '../../../../pages/DashboardPage';
 
 window.Buffer = window.Buffer || Buffer;
@@ -41,7 +40,6 @@ const MintDocPage: React.FC = () => {
     const { profile } = useDashboardContext();
 
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         name: '',

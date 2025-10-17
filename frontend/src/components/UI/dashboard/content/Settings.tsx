@@ -1,6 +1,6 @@
 // Settings.tsx
 import React, { useState } from 'react';
-import { Button, Card, CardHeader, CardContent, Heading, Text, Input, Divider } from '../../index';
+import { Button, Card, CardHeader, CardContent, Heading, Text } from '../../index';
 
 const Settings: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);

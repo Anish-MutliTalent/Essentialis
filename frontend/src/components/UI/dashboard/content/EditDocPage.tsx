@@ -20,12 +20,6 @@ import {
     generateNonce,
     aesGcmEncrypt,
     wrapDek,
-    multiply,
-    merge,
-    sha256,
-    hmacSha256,
-    encode,
-    hkdfSha256
 } from '../../../../lib/crypto';
 
 window.Buffer = window.Buffer || Buffer;
