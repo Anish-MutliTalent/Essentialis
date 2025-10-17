@@ -6,6 +6,9 @@ export default defineConfig({
     plugins: [
         react(),
     ],
+    optimizeDeps: {
+      include: ['@metamask/jazzicon'],
+    },
     server: {
     port: 5173, // Your frontend port
     proxy: {
