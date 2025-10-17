@@ -12,11 +12,6 @@ export default defineConfig({
     ssr: {
     noExternal: ['@metamask/jazzicon'],
     },
-    build: {
-      rollupOptions: {
-        external: ['@metamask/jazzicon'], // <-- add here to externalize as the error suggested
-      },
-    },
     server: {
     port: 5173, // Your frontend port
     proxy: {

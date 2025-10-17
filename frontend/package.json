@@ -12,6 +12,7 @@
   "dependencies": {
     "@babel/core": "^7.27.1",
     "@lit-protocol/lit-node-client": "^7.3.0",
+    "@metamask/jazzicon": "^2.0.0",
     "@metamask/logo": "^4.0.0",
     "@nucypher/umbral-pre": "^0.10.0",
     "@thirdweb-dev/sdk": "^4.0.99",
@@ -20,13 +21,13 @@
     "gun": "^0.2020.1241",
     "gun-relays": "^1.0.2",
     "ipfs-http-client": "^60.0.1",
-    "node-fetch": "^3.3.2",
     "lucide-react": "^0.344.0",
+    "node-fetch": "^3.3.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^7.7.0",
     "react-icons": "^5.5.0",
     "react-quill-new": "^3.4.6",
+    "react-router-dom": "^7.7.0",
     "thirdweb": "^5.97.2"
   },
   "devDependencies": {
