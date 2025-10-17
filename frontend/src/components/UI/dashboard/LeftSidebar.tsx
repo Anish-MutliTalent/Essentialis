@@ -1,7 +1,5 @@
 // src/components/dashboard/LeftSidebar.tsx
 import { NavLink } from 'react-router-dom';
-import { Heading, Text } from '../index';
-import { useEffect, useState } from 'react';
 
 const LeftSidebar = () => {
   const navItems = [

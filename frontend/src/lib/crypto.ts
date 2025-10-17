@@ -101,7 +101,7 @@ export async function divide(product_b64: string, known: string): Promise<string
     // --- 2. helper to parse a single capsule from buffer start ---
     const parseCap = (buf: Uint8Array): { cap: Uint8Array, rem: Uint8Array } => {
         if (buf.length < 12) throw new Error("Invalid capsule format: too short");
-        const { payload: pay, remainder: rem1 } = _lenUnprefix(buf.slice(8));
+        const { payload: pay, remainder: _rem1 } = _lenUnprefix(buf.slice(8));
         const L = 8 + 4 + pay.length; // 8 bytes tag + 4 length prefix + payload
         return { cap: buf.slice(0, L), rem: buf.slice(L) };
     };
