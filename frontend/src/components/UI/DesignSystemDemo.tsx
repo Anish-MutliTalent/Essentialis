@@ -16,7 +16,6 @@ import {
   LeadText,
   CaptionText,
   GradientText,
-  BalanceText
 } from './index';
 
 const DesignSystemDemo: React.FC = () => {
