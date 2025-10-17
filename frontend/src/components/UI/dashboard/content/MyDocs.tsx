@@ -5,20 +5,21 @@ import { useDocs } from "../../../contexts/DocsContext";
 import { getFileTypeIcon, getFileSize } from "../../../../lib/docs";
 
 const MyDocs: React.FC = () => {
-  const { docs, fetchDocs } = useDocs();
-  const [loading, setLoading] = React.useState(false);
+  const { docs, fetchDocs, loading, syncing } = useDocs();
 
   useEffect(() => {
     if (docs.length === 0) {
-      setLoading(true);
-      fetchDocs().finally(() => setLoading(false));
+      fetchDocs();
     }
   }, [docs, fetchDocs]);
 
-  if (loading) {
+  if (loading || syncing) {
     return (
       <div className="flex justify-center items-center py-12">
-        <LoadingSpinner size="lg" color="gold" />
+        <div className="flex flex-col items-center">
+          <LoadingSpinner size="lg" color="gold" />
+          <div className="mt-3 text-gray-300 text-sm">Syncing documents…</div>
+        </div>
       </div>
     );
   }
@@ -26,7 +27,7 @@ const MyDocs: React.FC = () => {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="text-center">
-        <Heading level={2} className="gradient-gold-text mb-2">
+        <Heading level={2} className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent mb-2">
           My Documents
         </Heading>
         <Text color="muted">

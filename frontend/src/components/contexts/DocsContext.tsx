@@ -17,8 +17,9 @@ export interface DocItem {
 interface DocsContextType {
   docs: DocItem[];
   loading: boolean;
+  syncing: boolean;
   error: string | null;
-  fetchDocs: () => Promise<void>;   // keep old name for compatibility
+  fetchDocs: () => Promise<void>; // keep old name for compatibility
   refreshDocs: () => Promise<void>; // alternative name
   setDocs?: React.Dispatch<React.SetStateAction<DocItem[]>>;
 }
@@ -28,7 +29,12 @@ const DocsContext = createContext<DocsContextType | undefined>(undefined);
 export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [docs, setDocs] = useState<DocItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const retryRef = React.useRef<{ count: number; timer?: number | null }>({ count: 0, timer: null });
+  const MAX_RETRIES = 6;
+  const BASE_RETRY_MS = 2000;
 
   // load cached docs from localStorage (if any)
   useEffect(() => {
@@ -60,6 +66,9 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const _fetchDocs = useCallback(async () => {
     setLoading(true);
     setError(null);
+    // clear syncing when we actively fetch
+    setSyncing(false);
+
     try {
       const possibleEndpoints = [
         "/api/user/docs",
@@ -109,25 +118,13 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
+      // If backend returned nothing, do NOT inject a mock sample doc.
+      // Keep docsArray empty and schedule retries in case auth completes
+      // shortly after the initial request (common on cold sign-in).
       if (docsArray.length === 0) {
-        // fallback mock (keeps your app usable in dev)
-        docsArray = [
-          {
-            token_id: "1",
-            token_uri:
-              "data:application/json;base64,eyJuYW1lIjoiU2FtcGxlIERvY3VtZW50IiwiZGVzY3JpcHRpb24iOiJBIGRlbW8gZG9jdW1lbnQgZm9yIHRlc3RpbmciLCJhdHRyaWJ1dGVzIjpbeyJ0cmFpdF90eXBlIjoiRmlsZSBUeXBlIiwidmFsdWUiOiJhcHBsaWNhdGlvbi9wZGYifSx7InRyYWl0X3R5cGUiOiJGaWxlIFNpemUiLCJ2YWx1ZSI6IjEyOCBLQiJ9XX0=",
-            metadata: {
-              name: "Sample Document",
-              description: "A demo document for testing",
-              attributes: [
-                { trait_type: "File Type", value: "application/pdf" },
-                { trait_type: "File Size", value: "128 KB" },
-                { trait_type: "Tokenization Date", value: "2024-01-15" },
-              ],
-            },
-          },
-        ];
-        successfulEndpoint = "mock-data";
+        docsArray = [];
+        successfulEndpoint = "none";
+        setSyncing(true);
       }
 
       const docsWithMetadata = docsArray.map((doc: any) => {
@@ -168,6 +165,36 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setDocs(docsWithMetadata);
       console.log(`Docs fetched (endpoint: ${successfulEndpoint}) count=${docsWithMetadata.length}`);
+
+      // If we ended up with no docs, attempt a few retries with exponential
+      // backoff in case auth cookies/session become available shortly
+      // after the first fetch (common on cold sign-in).
+      if (docsWithMetadata.length === 0) {
+        // schedule next retry if we haven't exceeded the max attempts
+        if (retryRef.current.count < MAX_RETRIES) {
+          const nextDelay = Math.round(BASE_RETRY_MS * Math.pow(2, retryRef.current.count));
+          // clear any previous timer
+          if (retryRef.current.timer) {
+            window.clearTimeout(retryRef.current.timer as number);
+          }
+          console.debug(`Docs fetch returned empty; scheduling retry #${retryRef.current.count + 1} in ${nextDelay}ms`);
+          retryRef.current.timer = window.setTimeout(() => {
+            retryRef.current.count += 1;
+            _fetchDocs();
+          }, nextDelay) as unknown as number;
+        } else {
+          console.debug("Docs fetch retries exhausted");
+          setSyncing(false);
+        }
+      } else {
+        // success: reset retry counter and syncing flag
+        if (retryRef.current.timer) {
+          window.clearTimeout(retryRef.current.timer as number);
+          retryRef.current.timer = null;
+        }
+        retryRef.current.count = 0;
+        setSyncing(false);
+      }
     } catch (err: any) {
       setError(err?.message ?? String(err));
       console.error("Error fetching docs:", err);
@@ -186,9 +213,23 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [_fetchDocs, docs.length]);
 
+  // cleanup scheduled retry timers on unmount
+  useEffect(() => {
+    return () => {
+      if (retryRef.current.timer) {
+        try {
+          window.clearTimeout(retryRef.current.timer as number);
+        } catch {}
+        retryRef.current.timer = null;
+      }
+      retryRef.current.count = 0;
+    };
+  }, []);
+
   const value: DocsContextType = {
     docs,
     loading,
+    syncing,
     error,
     fetchDocs: _fetchDocs,
     refreshDocs: _fetchDocs,

@@ -28,7 +28,7 @@ const Settings: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="text-center">
-        <Heading level={2} className="gradient-gold-text mb-2">
+        <Heading level={2} className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent mb-2">
           Settings
         </Heading>
         <Text color="muted">

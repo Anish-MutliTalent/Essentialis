@@ -100,8 +100,8 @@ const EditDocPage: React.FC = () => {
                 const encryptedData = await aesGcmEncrypt(dek, fileDataU8, nonce);
 
                 setStatusMessage('Step 2/6: Wrapping keys...');
-                const wrappedDek = await wrapDek(dek, owner, timestamp, counter);
-                const wrappedDekHex = ethers.utils.hexlify(wrappedDek);
+                const wrappedDek = await wrapDek(signer, dek, nonce);
+                const wrappedDekHex = wrappedDek;
 
                 setStatusMessage('Step 3/6: Creating metadata chunk...');
                 const metaChunk = {

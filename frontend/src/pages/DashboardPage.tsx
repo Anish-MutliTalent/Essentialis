@@ -139,7 +139,7 @@ const DashboardPage = () => {
           {/* Header with Profile Avatar */}
           <header className="bg-gray-900/50 backdrop-blur-professional border-b border-gray-800 shadow-professional p-4 flex justify-between items-center flex-shrink-0">
             <div className="flex items-center space-x-4">
-              <Heading level={4} className="gradient-gold-text">
+              <Heading level={4} className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
                 Dashboard
               </Heading>
               {profile?.name && (

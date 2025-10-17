@@ -293,7 +293,7 @@ const LoginPage = () => {
         <Section padding="xl" className="flex items-center justify-center">
           <Card variant="premium" className="w-full max-w-md">
             <CardHeader className="text-center">
-              <Heading level={2} className="gradient-gold-text">
+              <Heading level={2} className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
                 {account ? "PROFILE" : "LOG IN / REGISTER"}
               </Heading>
             </CardHeader>
@@ -301,7 +301,7 @@ const LoginPage = () => {
             <CardContent className="space-y-6">
               {/* Error Display Area */}
               {errorMessage && (
-                <div className="bg-red-500/20 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg text-sm animate-fadeIn">
+                <div className="bg-red-500/20 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg text-sm animate-fadeIn font-black">
                   {errorMessage}
                 </div>
               )}

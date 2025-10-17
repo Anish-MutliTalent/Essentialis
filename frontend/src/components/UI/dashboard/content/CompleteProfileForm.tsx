@@ -75,7 +75,7 @@ const CompleteProfileForm: React.FC = () => {
     <div className="max-w-md mx-auto">
       <Card variant="premium">
         <CardHeader className="text-center">
-          <Heading level={2} className="gradient-gold-text">
+          <Heading level={2} className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
             Complete Your Profile
           </Heading>
           <Text color="muted" className="mt-2">

@@ -53,7 +53,7 @@ const MintDocPage: React.FC = () => {
 
     useEffect(() => {
         if (profile?.name) {
-            setFormData(prev => ({ ...prev, ownerName: profile.name }));
+            setFormData(prev => ({ ...prev, ownerName: profile.name ?? 'Unknown' }));
         }
     }, [profile]);
 

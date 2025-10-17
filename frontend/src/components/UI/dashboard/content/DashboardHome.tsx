@@ -23,7 +23,7 @@ const DashboardHome = () => {
   return (
     <div className="space-y-8">
       <div className="text-center">
-        <Heading level={1} className="gradient-gold-text mb-4">
+        <Heading level={1} className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent mb-4">
           Welcome back, {profile?.name || "User"}!
         </Heading>
         <Text
@@ -91,7 +91,7 @@ const DashboardHome = () => {
               variant="lead"
               className="text-3xl font-bold text-green-400"
             >
-              {profile?.verifiedCount || 0}
+              {(profile as any)?.verifiedCount || 0}
             </Text>
           </CardContent>
         </Card>
@@ -120,7 +120,7 @@ const DashboardHome = () => {
               variant="lead"
               className="text-3xl font-bold text-blue-400"
             >
-              {profile?.recentActivity || 0}
+              {(profile as any)?.recentActivity || 0}
             </Text>
           </CardContent>
         </Card>
