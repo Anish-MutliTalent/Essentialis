@@ -46,9 +46,9 @@ const LeftSidebar = () => {
       
       {/* Additional sidebar elements can be added here */}
       <div className="mt-auto pt-6 border-t border-gray-700">
-        <Text variant="small" color="muted" className="text-center">
+        <p className="text-center text-sm text-gray-400">
           Essentialis v1.0
-        </Text>
+        </p>
       </div>
     </aside>
   );
