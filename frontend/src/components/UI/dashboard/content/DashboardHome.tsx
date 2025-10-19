@@ -1,7 +1,7 @@
 // src/components/dashboard/content/DashboardHome.tsx
 import { useDashboardContext } from "../../../../pages/DashboardPage";
 import { useDocs } from "../../../contexts/DocsContext";
-import { Heading, Text, Card, CardContent, Grid, Flex } from "../../index";
+import { Heading, Text, Card, CardContent, Grid } from "../../index";
 import { useNavigate } from 'react-router-dom';
 import { FileText, CheckCircle, Zap, Plus, Settings } from 'lucide-react';
 
