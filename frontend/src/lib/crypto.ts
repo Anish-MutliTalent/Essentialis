@@ -37,7 +37,7 @@ function _lenUnprefix(buf: Uint8Array): { payload: Uint8Array; remainder: Uint8A
     return { payload, remainder };
 }
 
-async function _kdfStream(seed: Uint8Array, n: number): Promise<Uint8Array> {
+async function _kdfStream(seed: Uint8Array, n: number, progressCb?: (generated: number) => void): Promise<Uint8Array> {
     const out = new Uint8Array(n);
     let generatedBytes = 0;
     let ctr = 0;
@@ -50,6 +50,7 @@ async function _kdfStream(seed: Uint8Array, n: number): Promise<Uint8Array> {
         out.set(hash.slice(0, bytesToCopy), generatedBytes);
         generatedBytes += bytesToCopy;
         ctr++;
+        if (progressCb) progressCb(generatedBytes);
     }
     return out;
 }
@@ -68,17 +69,35 @@ const _hash8 = async (m: Uint8Array): Promise<Uint8Array> => {
     return new Uint8Array(hash).slice(0, 8);
 };
 
-export async function multiply(x: string, y: string): Promise<string> {
+export async function multiply(x: string, y: string, progressCb?: (processed: number, total: number) => void): Promise<string> {
     const bx = _toU8(x);
     const by = _toU8(y);
     const X = _lenPrefix(bx);
     const Y = _lenPrefix(by);
+    const totalWork = X.length + Y.length;
+    let processed = 0;
 
     const hx8 = await _hash8(X);
+    processed += 0; if (progressCb) progressCb(processed, totalWork);
     const hy8 = await _hash8(Y);
+    processed += 0; if (progressCb) progressCb(processed, totalWork);
 
-    const c1_payload = _xor(X, await _kdfStream(hy8, X.length));
-    const c2_payload = _xor(Y, await _kdfStream(hx8, Y.length));
+    // Generate KDF stream for X (using hy8) and report progress
+    const padForX = await _kdfStream(hy8, X.length, (g) => {
+        // g is generated for this part; map to global processed
+        const localProcessed = Math.min(X.length, g);
+        if (progressCb) progressCb(localProcessed, totalWork);
+    });
+    const c1_payload = _xor(X, padForX);
+    processed += X.length; if (progressCb) progressCb(processed, totalWork);
+
+    // Generate KDF stream for Y (using hx8) and report progress
+    const padForY = await _kdfStream(hx8, Y.length, (g) => {
+        const localProcessed = X.length + Math.min(Y.length, g);
+        if (progressCb) progressCb(localProcessed, totalWork);
+    });
+    const c2_payload = _xor(Y, padForY);
+    processed += Y.length; if (progressCb) progressCb(processed, totalWork);
 
     const cap1 = _concatU8(hy8, _lenPrefix(c1_payload));
     const cap2 = _concatU8(hx8, _lenPrefix(c2_payload));

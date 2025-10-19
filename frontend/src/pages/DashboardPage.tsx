@@ -6,6 +6,7 @@ import ProfileSidebar from '../components/UI/dashboard/ProfileSidebar';
 import { useActiveAccount } from 'thirdweb/react';
 import { LoadingSpinner, Text, Heading } from '../components/UI';
 import JazziconAvatar from '../components/UI/JazziconAvatas';
+import { AlertCircle, Menu } from 'lucide-react';
 
 const API_BASE_URL = '/api';
 
@@ -39,6 +40,7 @@ const DashboardPage = () => {
   const navigate = useNavigate();
 
   const [isProfileSidebarOpen, setIsProfileSidebarOpen] = useState(false);
+  const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
   const [profile, setProfile] = useState<UserProfileData | null>(null);
   const [isLoadingInitial, setIsLoadingInitial] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +88,7 @@ const DashboardPage = () => {
   }, [fetchUserProfile]);
 
   const toggleProfileSidebar = () => setIsProfileSidebarOpen(!isProfileSidebarOpen);
+  const toggleLeftSidebar = () => setIsLeftSidebarOpen(!isLeftSidebarOpen);
 
   const contextValue: DashboardContextValue = {
     profile,
@@ -110,10 +113,7 @@ const DashboardPage = () => {
       <div className="flex h-screen w-screen items-center justify-center bg-black text-white">
         <div className="flex flex-col items-center space-y-6 text-center">
           <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center border border-red-500/30">
-            <svg className="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            <AlertCircle className="w-10 h-10 text-red-400" />
           </div>
           <Heading level={3} className="text-red-400">Profile Error</Heading>
           <Text color="muted">{error}</Text>
@@ -132,34 +132,46 @@ const DashboardPage = () => {
     <DashboardContext.Provider value={contextValue}>
       <div className="flex h-screen w-screen bg-black text-white overflow-hidden">
         {/* Left Sidebar */}
-        <LeftSidebar />
+        <LeftSidebar 
+          isOpen={isLeftSidebarOpen} 
+          onClose={() => setIsLeftSidebarOpen(false)} 
+        />
 
         {/* Main Content Area */}
         <main className="flex-grow flex flex-col overflow-hidden bg-gray-900/20">
           {/* Header with Profile Avatar */}
-          <header className="bg-gray-900/50 backdrop-blur-professional border-b border-gray-800 shadow-professional p-4 flex justify-between items-center flex-shrink-0">
-            <div className="flex items-center space-x-4">
-              <Heading level={4} className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
+          <header className="bg-gray-900/50 backdrop-blur-professional border-b border-gray-800 shadow-professional p-3 sm:p-4 flex justify-between items-center flex-shrink-0">
+            {/* Mobile Menu Button */}
+            <button
+              onClick={toggleLeftSidebar}
+              className="lg:hidden p-2 text-gray-400 hover:text-yellow-400 transition-colors-smooth"
+              aria-label="Open menu"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <Heading level={4} className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent text-lg sm:text-xl">
                 Dashboard
               </Heading>
               {profile?.name && (
-                <Text variant="small" color="muted">
+                <Text variant="small" color="muted" className="hidden sm:block">
                   Welcome back, {profile.name}
                 </Text>
               )}
             </div>
             
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2 sm:space-x-3">
               {profile ? (
                 <div className="relative group">
                   <JazziconAvatar 
                     wallet={profile.wallet_address} 
                     size={64} 
                     alt="Profile" 
-                    className="w-12 h-12 rounded-full cursor-pointer border-2 border-gray-700 hover:border-yellow-400/50 transition-all-smooth shadow-professional hover:shadow-gold" 
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full cursor-pointer border-2 border-gray-700 hover:border-yellow-400/50 transition-all-smooth shadow-professional hover:shadow-gold" 
                     onClick={toggleProfileSidebar}
                   />
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-gray-900"></div>
+                  <div className="absolute -bottom-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 bg-green-500 rounded-full border-2 border-gray-900"></div>
                   
                   {/* Tooltip */}
                   <div className="absolute right-0 top-full mt-2 px-3 py-2 bg-gray-900/90 backdrop-blur-professional border border-gray-700 rounded-lg text-sm text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
@@ -167,7 +179,7 @@ const DashboardPage = () => {
                   </div>
                 </div>
               ) : (
-                <div className="h-12 w-12 rounded-full bg-gray-800 border-2 border-gray-700 text-gray-400 flex items-center justify-center text-sm font-medium">
+                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-gray-800 border-2 border-gray-700 text-gray-400 flex items-center justify-center text-sm font-medium">
                   ?
                 </div>
               )}
@@ -175,7 +187,7 @@ const DashboardPage = () => {
           </header>
 
           {/* Content Outlet */}
-          <div className="flex-grow overflow-y-auto p-8">
+          <div className="flex-grow overflow-y-auto p-4 sm:p-6 lg:p-8">
             <Outlet />
           </div>
         </main>

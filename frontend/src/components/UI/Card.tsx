@@ -52,7 +52,7 @@ const CardHeader: React.FC<{ children: React.ReactNode; className?: string }> = 
   children, 
   className = '' 
 }) => (
-  <div className={`p-6 pb-0 ${className}`}>
+  <div className={`p-4 sm:p-6 pb-0 ${className}`}>
     {children}
   </div>
 );
@@ -61,7 +61,7 @@ const CardContent: React.FC<{ children: React.ReactNode; className?: string }> =
   children, 
   className = '' 
 }) => (
-  <div className={`p-6 ${className}`}>
+  <div className={`p-4 sm:p-6 ${className}`}>
     {children}
   </div>
 );
@@ -70,7 +70,7 @@ const CardFooter: React.FC<{ children: React.ReactNode; className?: string }> = 
   children, 
   className = '' 
 }) => (
-  <div className={`p-6 pt-0 ${className}`}>
+  <div className={`p-4 sm:p-6 pt-0 ${className}`}>
     {children}
   </div>
 );

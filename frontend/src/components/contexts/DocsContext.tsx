@@ -19,8 +19,8 @@ interface DocsContextType {
   loading: boolean;
   syncing: boolean;
   error: string | null;
-  fetchDocs: () => Promise<void>; // keep old name for compatibility
-  refreshDocs: () => Promise<void>; // alternative name
+  fetchDocs: () => Promise<void>;
+  refreshDocs: () => Promise<void>;
   setDocs?: React.Dispatch<React.SetStateAction<DocItem[]>>;
 }
 
@@ -32,9 +32,17 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // retryRef holds retry count and active timer id (number or null)
   const retryRef = React.useRef<{ count: number; timer?: number | null }>({ count: 0, timer: null });
   const MAX_RETRIES = 6;
   const BASE_RETRY_MS = 2000;
+
+  // small wrapper to log syncing changes (helpful for debugging)
+  const setSyncingAndLog = (val: boolean) => {
+    // debug info — remove or comment out once you confirm behavior
+    console.debug("[DocsContext] setSyncing:", val, { retryCount: retryRef.current.count, timer: retryRef.current.timer });
+    setSyncing(val);
+  };
 
   // load cached docs from localStorage (if any)
   useEffect(() => {
@@ -62,15 +70,31 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [docs]);
 
+  // defensive: whenever docs change (including becoming []), clear retries & stop syncing
+  useEffect(() => {
+    if (retryRef.current.timer) {
+      try {
+        clearTimeout(retryRef.current.timer as number);
+      } catch (e) {
+        // ignore clearing errors
+      }
+      retryRef.current.timer = null;
+    }
+    retryRef.current.count = 0;
+    // always ensure syncing is false after a successful docs update
+    setSyncingAndLog(false);
+  }, [docs]);
+
   // single fetch implementation (used for both fetchDocs and refreshDocs)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const _fetchDocs = useCallback(async () => {
     setLoading(true);
     setError(null);
-    // clear syncing when we actively fetch
-    setSyncing(false);
+    // assume fresh start, not currently syncing
+    setSyncingAndLog(false);
 
     try {
-      const possibleEndpoints = [
+      const endpoints = [
         "/api/user/docs",
         "/api/doc/my_docs",
         "/api/user/nfts",
@@ -78,84 +102,74 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ];
 
       let docsArray: any[] = [];
-      let successfulEndpoint = "";
+      let lastError: any = null;
+      let successfulEndpoint: string | null = null;
 
-      for (const endpoint of possibleEndpoints) {
+      for (const endpoint of endpoints) {
         try {
-          const response = await fetch(endpoint, { credentials: "include" });
-          if (!response.ok) continue;
-          const data = await response.json();
+          const res = await fetch(endpoint, { credentials: "include" });
+          if (!res.ok) {
+            lastError = new Error(`Non-OK: ${res.status}`);
+            continue;
+          }
 
-          if (Array.isArray(data)) {
-            docsArray = data;
-            successfulEndpoint = endpoint;
-            break;
-          } else if (data.docs && Array.isArray(data.docs)) {
-            docsArray = data.docs;
-            successfulEndpoint = endpoint;
-            break;
-          } else if (data.nfts && Array.isArray(data.nfts)) {
-            docsArray = data.nfts;
-            successfulEndpoint = endpoint;
-            break;
-          } else if (data.data && Array.isArray(data.data)) {
-            docsArray = data.data;
-            successfulEndpoint = endpoint;
-            break;
-          } else {
+          const data = await res.json();
+          let foundArray: any[] | null = null;
+
+          if (Array.isArray(data)) foundArray = data;
+          else if (Array.isArray(data.docs)) foundArray = data.docs;
+          else if (Array.isArray(data.data)) foundArray = data.data;
+          else if (Array.isArray(data.nfts)) foundArray = data.nfts;
+          else {
             for (const key of Object.keys(data)) {
-              if (Array.isArray(data[key])) {
-                docsArray = data[key];
-                successfulEndpoint = endpoint;
+              if (Array.isArray((data as any)[key])) {
+                foundArray = (data as any)[key];
                 break;
               }
             }
-            if (docsArray.length > 0) break;
           }
-        } catch (endpointError) {
-          // try next endpoint
-          continue;
+
+          if (foundArray !== null) {
+            docsArray = foundArray;
+            successfulEndpoint = endpoint;
+            break;
+          }
+        } catch (err) {
+          lastError = err;
+          // continue to next endpoint
         }
       }
 
-      // If backend returned nothing, do NOT inject a mock sample doc.
-      // Keep docsArray empty and schedule retries in case auth completes
-      // shortly after the initial request (common on cold sign-in).
-      if (docsArray.length === 0) {
-        docsArray = [];
-        successfulEndpoint = "none";
-        setSyncing(true);
+      if (!successfulEndpoint) {
+        // No endpoint returned a usable array -> treat as a real error (retry)
+        throw lastError || new Error("All endpoints failed or returned no array");
       }
 
+      // Normalize/parse metadata (works even when docsArray is empty)
       const docsWithMetadata = docsArray.map((doc: any) => {
+        const token_id = doc.token_id ?? doc.tokenID ?? doc.id ?? doc.tokenId ?? "unknown";
+        const token_uri = doc.token_uri ?? doc.tokenURI ?? doc.uri ?? doc.url ?? "";
         try {
-          const tokenId = doc.token_id ?? doc.tokenID ?? doc.id ?? doc.tokenId ?? "unknown";
-          const tokenUri = doc.token_uri ?? doc.tokenURI ?? doc.uri ?? doc.url ?? "";
-
-          if (tokenUri && tokenUri.startsWith("data:application/json;base64,")) {
-            const base64 = tokenUri.split(",")[1];
-            // atob exists in browsers
-            const jsonStr = atob(base64);
+          if (typeof token_uri === "string" && token_uri.startsWith("data:application/json;base64,")) {
+            const jsonStr = atob(token_uri.split(",")[1]);
             const metadata = JSON.parse(jsonStr);
-            return { token_id: tokenId, token_uri: tokenUri, metadata };
-          } else {
-            return {
-              token_id: tokenId,
-              token_uri: tokenUri,
-              metadata: {
-                name: doc.name || `Document ${tokenId}`,
-                description: doc.description || "No description available",
-                attributes: doc.attributes || [],
-              },
-            };
+            return { token_id, token_uri, metadata };
           }
-        } catch (e) {
-          const tokenId = doc.token_id ?? doc.tokenID ?? doc.id ?? doc.tokenId ?? "unknown";
           return {
-            token_id: tokenId,
-            token_uri: "",
+            token_id,
+            token_uri,
             metadata: {
-              name: `Document ${tokenId}`,
+              name: doc.name || `Document ${token_id}`,
+              description: doc.description || "No description available",
+              attributes: doc.attributes || [],
+            },
+          };
+        } catch {
+          return {
+            token_id,
+            token_uri,
+            metadata: {
+              name: `Document ${token_id}`,
               description: "Metadata parsing failed",
               attributes: [],
             },
@@ -163,41 +177,46 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       });
 
+      // success (empty array is a valid success)
       setDocs(docsWithMetadata);
-      console.log(`Docs fetched (endpoint: ${successfulEndpoint}) count=${docsWithMetadata.length}`);
+      console.log(`[DocsContext] Docs fetched (endpoint: ${successfulEndpoint}) count=${docsWithMetadata.length}`);
 
-      // If we ended up with no docs, attempt a few retries with exponential
-      // backoff in case auth cookies/session become available shortly
-      // after the first fetch (common on cold sign-in).
-      if (docsWithMetadata.length === 0) {
-        // schedule next retry if we haven't exceeded the max attempts
-        if (retryRef.current.count < MAX_RETRIES) {
-          const nextDelay = Math.round(BASE_RETRY_MS * Math.pow(2, retryRef.current.count));
-          // clear any previous timer
-          if (retryRef.current.timer) {
-            window.clearTimeout(retryRef.current.timer as number);
-          }
-          console.debug(`Docs fetch returned empty; scheduling retry #${retryRef.current.count + 1} in ${nextDelay}ms`);
-          retryRef.current.timer = window.setTimeout(() => {
-            retryRef.current.count += 1;
-            _fetchDocs();
-          }, nextDelay) as unknown as number;
-        } else {
-          console.debug("Docs fetch retries exhausted");
-          setSyncing(false);
-        }
-      } else {
-        // success: reset retry counter and syncing flag
-        if (retryRef.current.timer) {
-          window.clearTimeout(retryRef.current.timer as number);
-          retryRef.current.timer = null;
-        }
-        retryRef.current.count = 0;
-        setSyncing(false);
+      // clear any pending retry and reset counters
+      if (retryRef.current.timer) {
+        try {
+          clearTimeout(retryRef.current.timer as number);
+        } catch {}
+        retryRef.current.timer = null;
       }
+      retryRef.current.count = 0;
+      setSyncingAndLog(false);
     } catch (err: any) {
+      console.error("[DocsContext] Error fetching docs:", err);
       setError(err?.message ?? String(err));
-      console.error("Error fetching docs:", err);
+
+      // Only schedule retry on real error (network, server, parsing, or no endpoints)
+      if (retryRef.current.count < MAX_RETRIES) {
+        const delay = Math.round(BASE_RETRY_MS * Math.pow(2, retryRef.current.count));
+        console.debug(`[DocsContext] Scheduling retry #${retryRef.current.count + 1} in ${delay}ms`);
+        retryRef.current.count += 1;
+
+        // mark syncing true because we're waiting for a retry
+        setSyncingAndLog(true);
+
+        // clear previous timer if any
+        if (retryRef.current.timer) {
+          try {
+            clearTimeout(retryRef.current.timer as number);
+          } catch {}
+        }
+        retryRef.current.timer = window.setTimeout(() => {
+          // call _fetchDocs again (no increment here — we've already incremented count)
+          _fetchDocs();
+        }, delay) as unknown as number;
+      } else {
+        console.debug("[DocsContext] Retries exhausted — stopping sync");
+        setSyncingAndLog(false);
+      }
     } finally {
       setLoading(false);
     }

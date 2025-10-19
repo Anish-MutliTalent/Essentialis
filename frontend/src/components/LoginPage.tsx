@@ -290,8 +290,8 @@ const LoginPage = () => {
   return (
     <div className="min-h-screen bg-black">
       <Container>
-        <Section padding="xl" className="flex items-center justify-center">
-          <Card variant="premium" className="w-full max-w-md">
+        <Section padding="lg" className="flex items-center justify-center">
+          <Card variant="premium" className="w-full max-w-md mx-4">
             <CardHeader className="text-center">
               <Heading level={2} className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
                 {account ? "PROFILE" : "LOG IN / REGISTER"}

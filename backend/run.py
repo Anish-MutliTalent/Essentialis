@@ -20,15 +20,11 @@ def init_admin():
         return
 
     if User.query.filter_by(email=admin_email).first():
-        print(f"Admin user with email {admin_email} already exists.")
         user = User.query.filter_by(email=admin_email).first()
         if not user.is_admin:
             user.is_admin = True
-            print("Updated existing user to be admin.")
         if not user.otp_secret:
             user.generate_otp_secret()
-            print(f"Generated OTP secret for admin. URI: {user.get_otp_uri()}")
-            print(f"Manual Secret: {user.otp_secret}")
         db.session.commit()
         return
 
@@ -37,11 +33,7 @@ def init_admin():
     admin_user.generate_otp_secret()  # Generate OTP for admin
     db.session.add(admin_user)
     db.session.commit()
-    print(f"Admin user {admin_email} created.")
-    print(f"Please use an authenticator app with this URI: {admin_user.get_otp_uri()}")
-    print(f"Or manually enter this secret: {admin_user.otp_secret}")
-    print("IMPORTANT: Change the default password immediately after first login if set statically.")
 
 
 if __name__ == '__main__':
-    app.run(debug=True)  # debug=False for production
+    app.run(debug=False)  # debug=False for production

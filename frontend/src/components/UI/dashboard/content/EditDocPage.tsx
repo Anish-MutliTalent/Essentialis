@@ -12,8 +12,9 @@ import { ethers } from 'ethers';
 import { Buffer } from 'buffer';
 import { EIP1193 } from 'thirdweb/wallets';
 
-import { LoadingSpinner, Button, Input, Card, CardHeader, CardContent, Heading, Text } from '../../index';
+import { Button, Input, Card, CardHeader, CardContent, Heading, Text } from '../../index';
 import { useDashboardContext } from '../../../../pages/DashboardPage';
+import { useDocs } from '../../../contexts/DocsContext';
 
 import {
     generateDEK,
@@ -33,11 +34,14 @@ const EditDocPage: React.FC = () => {
     const account = useActiveAccount();
     const activeWallet = useActiveWallet();
     const { refreshProfile } = useDashboardContext();
+    const { refreshDocs } = useDocs();
 
     const [initialLoading, setInitialLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
+    const [progress, setProgress] = useState<number | null>(null);
+    const [uploadProgress, setUploadProgress] = useState<number>(0);
 
     const [originalMetadata, setOriginalMetadata] = useState<any>(null);
     const [formData, setFormData] = useState({ name: '', description: '' });
@@ -81,6 +85,7 @@ const EditDocPage: React.FC = () => {
 
             if (sourceFile) {
                 setStatusMessage('New file detected. Starting full re-encryption process...');
+                setProgress(2);
                 const eip = EIP1193.toProvider({ wallet: activeWallet, client, chain: polygonAmoy });
                 const signer = new ethers.providers.Web3Provider(eip).getSigner();
                 const owner = account.address;
@@ -88,16 +93,22 @@ const EditDocPage: React.FC = () => {
                 const counter = Date.now();
 
                 setStatusMessage('Step 1/6: Generating new keys...');
+                // small weight here
+                setProgress(6);
                 const dek = generateDEK();
                 const nonce = await generateNonce(owner, timestamp, counter);
                 const fileDataU8 = new Uint8Array(await sourceFile.arrayBuffer());
                 const encryptedData = await aesGcmEncrypt(dek, fileDataU8, nonce);
 
                 setStatusMessage('Step 2/6: Wrapping keys...');
+                // wrapping keys is quick; small weight
+                setProgress(12);
                 const wrappedDek = await wrapDek(signer, dek, nonce);
                 const wrappedDekHex = wrappedDek;
 
                 setStatusMessage('Step 3/6: Creating metadata chunk...');
+                // chunk/prepare metadata - moderate weight
+                setProgress(30);
                 const metaChunk = {
                     encrypted_data: ethers.utils.hexlify(encryptedData),
                     wrapped_deks: { [owner.toLowerCase()]: wrappedDekHex }
@@ -105,10 +116,46 @@ const EditDocPage: React.FC = () => {
                 const metaChunkFile = new Blob([JSON.stringify(metaChunk)], { type: 'application/json' });
 
                 setStatusMessage('Step 4/6: Uploading to IPFS...');
-                const ipfsForm = new FormData();
-                ipfsForm.append('file', metaChunkFile);
-                const ipfsRes = await fetch('/api/ipfs/file', { method: 'POST', body: ipfsForm });
-                const metachunkCid = (await ipfsRes.json()).replace(/"/g, '');
+                // Upload: use XHR for progress and map upload to overall progress
+                setProgress(45);
+                const metachunkCid = await new Promise<string>((resolve, reject) => {
+                    try {
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('POST', '/api/ipfs/file', true);
+                        const fd = new FormData();
+                        fd.append('file', metaChunkFile);
+
+                        xhr.upload.onprogress = (ev) => {
+                            if (ev.lengthComputable) {
+                                const percent = Math.round((ev.loaded / ev.total) * 100);
+                                setUploadProgress(percent);
+                                // map to overall progress 45..75
+                                const overall = 45 + Math.round((percent / 100) * 30);
+                                setProgress(overall);
+                            }
+                        };
+
+                        xhr.onreadystatechange = () => {
+                            if (xhr.readyState === 4) {
+                                if (xhr.status >= 200 && xhr.status < 300) {
+                                    try {
+                                        const resp = JSON.parse(xhr.responseText);
+                                        resolve((resp as any).replace ? (resp as any).replace(/"/g, '') : resp);
+                                    } catch (e) {
+                                        resolve(xhr.responseText.replace(/"/g, ''));
+                                    }
+                                } else {
+                                    reject(new Error(`Upload failed with status ${xhr.status}`));
+                                }
+                            }
+                        };
+
+                        xhr.onerror = () => reject(new Error('Network error during upload'));
+                        xhr.send(fd);
+                    } catch (e) {
+                        reject(e);
+                    }
+                });
 
                 finalMetadata = {
                     ...originalMetadata,
@@ -134,6 +181,7 @@ const EditDocPage: React.FC = () => {
                 };
             }
 
+            setProgress(90);
             setStatusMessage('Building transaction...');
             const tokenURI = `data:application/json;base64,${Buffer.from(JSON.stringify(finalMetadata)).toString('base64')}`;
 
@@ -142,21 +190,33 @@ const EditDocPage: React.FC = () => {
             const tx = prepareContractCall({ contract, method: 'function updateNFT(uint256,string)', params: [BigInt(tokenId!), tokenURI] });
             const sent = await sendTransaction({ transaction: tx, account });
             await waitForReceipt({ client, chain: polygonAmoy, transactionHash: sent.transactionHash });
-
-            setStatusMessage('Document updated successfully!');
+            setStatusMessage('Document updated successfully — refreshing documents list...');
+            try {
+                await refreshDocs();
+            } catch (e) {
+                console.warn('refreshDocs failed', e);
+            }
+            setProgress(100);
             refreshProfile();
             navigate(`/dashboard/my-docs/${tokenId}/view`);
         } catch (err: any) {
             console.error(err);
             setStatusMessage(`Error: ${err.message}`);
+            if (progress === 100) setProgress(99);
         } finally {
             setIsSubmitting(false);
+            setTimeout(() => {
+                if (!statusMessage || !statusMessage.toLowerCase().includes('success')) setProgress(null);
+            }, 2500);
         }
     };
 
     if (initialLoading) return (
-        <div className="flex justify-center items-center py-12">
-            <LoadingSpinner size="lg" color="gold" />
+        <div className="flex flex-col items-center py-12 space-y-4">
+            <div className="w-48 bg-gray-800 rounded-full h-2 overflow-hidden">
+                <div className="h-2 bg-yellow-400 animate-pulse" style={{ width: '40%' }} />
+            </div>
+            <div className="text-sm text-gray-300">Loading document details…</div>
         </div>
     );
 
@@ -176,7 +236,7 @@ const EditDocPage: React.FC = () => {
         <div className="max-w-2xl mx-auto">
             <Card variant="premium">
                 <CardHeader className="text-center">
-                    <Heading level={2} className="gradient-gold-text">
+                    <Heading level={2} className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent mb-4 text-2xl sm:text-3xl lg:text-4xl">
                         Edit Document #{tokenId}
                     </Heading>
                 </CardHeader>
@@ -259,7 +319,19 @@ const EditDocPage: React.FC = () => {
                             {isSubmitting ? 'Updating Document...' : 'Update Document'}
                         </Button>
 
-                        {/* Status Message */}
+                        {/* Status + Progress */}
+                        {isSubmitting && (
+                            <div className="space-y-2">
+                                <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+                                    <div className="h-2 bg-yellow-400 transition-all duration-300" style={{ width: `${progress ?? 0}%` }} />
+                                </div>
+                                <div className="text-center text-sm text-gray-300">
+                                    {typeof progress === 'number' ? `${Math.round(progress)}%` : 'Processing...'}
+                                    {uploadProgress > 0 && <span className="ml-2 text-xs text-gray-400">(upload: {uploadProgress}%)</span>}
+                                </div>
+                            </div>
+                        )}
+
                         {statusMessage && (
                             <div className={`text-center p-4 rounded-lg ${
                                 statusMessage.startsWith('Error') 

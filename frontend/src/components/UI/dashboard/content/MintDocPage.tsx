@@ -1,7 +1,7 @@
 // MintDocPage.tsx
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useActiveAccount, useActiveWallet } from 'thirdweb/react';
 import { defineChain } from 'thirdweb/chains';
 import { getContract } from 'thirdweb';
@@ -26,7 +26,9 @@ import {
     encode,
 } from '../../../../lib/crypto';
 import { Button, Input, Card, CardHeader, CardContent, Heading, Text } from '../../index';
+import { getFileSize } from '../../../../lib/docs';
 import { useDashboardContext } from '../../../../pages/DashboardPage';
+import { useDocs } from '../../../contexts/DocsContext';
 
 window.Buffer = window.Buffer || Buffer;
 
@@ -38,9 +40,15 @@ const MintDocPage: React.FC = () => {
     const account = useActiveAccount();
     const activeWallet = useActiveWallet();
     const { profile } = useDashboardContext();
+    const { refreshDocs } = useDocs();
+    const location = useLocation();
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
+    // overall progress percentage (0-100). null = indeterminate / idle
+    const [progress, setProgress] = useState<number | null>(null);
+    // internal trackers for fine-grained progress
+    const [uploadProgress, setUploadProgress] = useState<number>(0);
     const [formData, setFormData] = useState({
         name: '',
         description: '',
@@ -54,6 +62,46 @@ const MintDocPage: React.FC = () => {
             setFormData(prev => ({ ...prev, ownerName: profile.name ?? 'Unknown' }));
         }
     }, [profile]);
+
+    // If user came from Quick Upload, populate file and auto-fill name/description
+    useEffect(() => {
+        // React Router may not serialize File objects in history state; allow window fallback
+        const quickFromState = (location.state as any)?.quickFile as File | undefined;
+        const quickFallback = (window as any).__quickUploadFile as File | undefined;
+        const quickFile = quickFromState || quickFallback;
+        if (quickFile) {
+            setSourceFile(quickFile);
+            setFormData(prev => ({
+                ...prev,
+                name: quickFile.name.split('.').slice(0, -1).join('.') || quickFile.name,
+                description: `Auto-generated description for ${quickFile.name.split('.').slice(0, -1).join('.') || quickFile.name}`,
+            }));
+        }
+    }, [location.state]);
+
+    // Auto-submit when quickFile present, wallet/account are ready and sourceFile state is populated
+    useEffect(() => {
+        const quickFromState = (location.state as any)?.quickFile as File | undefined;
+        const quickFallback = (window as any).__quickUploadFile as File | undefined;
+        const quickFile = quickFromState || quickFallback;
+
+        if (quickFile && account && activeWallet && sourceFile && !isSubmitting) {
+            // small delay to allow state updates/UI to settle
+            const t = setTimeout(() => {
+                (async () => {
+                    try {
+                        const fakeEvent = { preventDefault: () => {} } as unknown as React.FormEvent;
+                        await handleSubmit(fakeEvent);
+                    } catch (err) {
+                        console.error('Auto submit failed', err);
+                    }
+                })();
+            }, 300);
+            return () => clearTimeout(t);
+        } else if (quickFile && (!account || !activeWallet)) {
+            setStatusMessage('File ready — waiting for wallet connection to auto-submit.');
+        }
+    }, [account, activeWallet, location.state, sourceFile, isSubmitting]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setFormData(f => ({ ...f, [e.target.name]: e.target.value }));
@@ -69,12 +117,22 @@ const MintDocPage: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!account || !activeWallet || !sourceFile) return setStatusMessage('Please connect wallet and select a file.');
+        // Provide precise guidance depending on what's missing
+        if (!sourceFile) {
+            setStatusMessage('Please select a file to upload.');
+            return;
+        }
+        if (!account || !activeWallet) {
+            setStatusMessage('Please connect your wallet to continue.');
+            return;
+        }
 
         setIsSubmitting(true);
         setStatusMessage(null);
         try {
             setStatusMessage('Step 1/6: Generating encryption keys...');
+            // give small weight to key generation
+            setProgress(2);
             const eip = EIP1193.toProvider({ wallet: activeWallet, client, chain: polygonAmoy });
             const signer = new ethers.providers.Web3Provider(eip).getSigner();
             const owner = account.address;
@@ -82,16 +140,33 @@ const MintDocPage: React.FC = () => {
             const counter = Date.now();
 
             setStatusMessage('Step 2/6: Encrypting file data...');
+            // small weight for encryption
+            setProgress(8);
             const dek = generateDEK();
             const nonce = await generateNonce(owner, timestamp, counter);
             const fileDataU8 = new Uint8Array(await sourceFile.arrayBuffer());
             const encryptedData = await aesGcmEncrypt(dek, fileDataU8, nonce);
 
             setStatusMessage('Step 3/6: Creating verifiable chunks...');
+            // chunking depends on payload size; start at 12% and allow multiply to update
+            setProgress(12);
             const encryptedDataB64 = Buffer.from(encryptedData).toString('base64');
-            const p1 = await multiply(owner, encryptedDataB64);
-            const p2 = await multiply(p1, timestamp);
-            const chunk_a = await multiply(p2, counter.toString());
+            // provide progress callback: multiply will call with processed/total
+            const p1 = await multiply(owner, encryptedDataB64, (p, total) => {
+                // map multiply progress (0..total) to range 12..45
+                const pct = 12 + Math.round((p / total) * (45 - 12));
+                setProgress(pct);
+            });
+            const p2 = await multiply(p1, timestamp, (p, total) => {
+                const base = 45; // small ramp
+                const pct = base + Math.round((p / total) * 5);
+                setProgress(pct);
+            });
+            const chunk_a = await multiply(p2, counter.toString(), (p, total) => {
+                const base = 50;
+                const pct = base + Math.round((p / total) * 5);
+                setProgress(pct);
+            });
 
             const dataHashB64 = Buffer.from(await sha256(fileDataU8)).toString('base64');
             const hmacKey = new TextEncoder().encode(owner + timestamp);
@@ -100,16 +175,56 @@ const MintDocPage: React.FC = () => {
             const chunk_b = await multiply(dataHashB64, hmacHashB64);
             const chunk = merge(chunk_a, chunk_b);
 
+            setProgress(60);
             setStatusMessage('Step 4/6: Securing metadata...');
             const { metachunk } = await encode(chunk);
             
+            // Upload: use XHR so we can get per-byte progress for large files
+            setProgress(70);
             setStatusMessage('Step 5/6: Uploading to IPFS...');
             const metaChunkFile = new File([metachunk], "metachunk.txt", { type: 'text/plain' });
-            const ipfsForm = new FormData();
-            ipfsForm.append('file', metaChunkFile);
-            const ipfsRes = await fetch('/api/ipfs/file', { method: 'POST', body: ipfsForm });
-            const metachunkCid = (await ipfsRes.json()).replace(/"/g, '');
+            const metachunkCid = await new Promise<string>(async (resolve, reject) => {
+                try {
+                    const url = '/api/ipfs/file';
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', url, true);
+                    const fd = new FormData();
+                    fd.append('file', metaChunkFile);
 
+                    xhr.upload.onprogress = (ev) => {
+                        if (ev.lengthComputable) {
+                            const percent = Math.round((ev.loaded / ev.total) * 100);
+                            setUploadProgress(percent);
+                            // map upload percent 0..100 to overall progress 70..88
+                            const overall = 70 + Math.round((percent / 100) * 18);
+                            setProgress(overall);
+                        }
+                    };
+
+                    xhr.onreadystatechange = () => {
+                        if (xhr.readyState === 4) {
+                            if (xhr.status >= 200 && xhr.status < 300) {
+                                try {
+                                    const resp = JSON.parse(xhr.responseText);
+                                    const cid = (resp as any).replace ? (resp as any).replace(/"/g, '') : resp;
+                                    resolve(typeof cid === 'string' ? cid : String(cid));
+                                } catch (e) {
+                                    resolve(xhr.responseText.replace(/"/g, ''));
+                                }
+                            } else {
+                                reject(new Error(`Upload failed with status ${xhr.status}`));
+                            }
+                        }
+                    };
+
+                    xhr.onerror = () => reject(new Error('Network error during upload'));
+                    xhr.send(fd);
+                } catch (e) {
+                    reject(e);
+                }
+            });
+
+            setProgress(90);
             setStatusMessage('Step 6/6: Building transaction...');
             const metadata = {
                 name: formData.name,
@@ -141,16 +256,29 @@ const MintDocPage: React.FC = () => {
             const tx = prepareContractCall({ contract, method: 'function mintNFT(string)', params: [tokenURI] });
             const sent = await sendTransaction({ transaction: tx, account });
             await waitForReceipt({ client, chain: polygonAmoy, transactionHash: sent.transactionHash });
-
-            setStatusMessage('Document minted successfully!');
+            // successful on-chain mint
+            setStatusMessage('Document minted successfully — updating documents list...');
+            try {
+                // refresh the local docs cache so the new NFT appears in My Docs
+                await refreshDocs();
+            } catch (e) {
+                console.warn('refreshDocs failed', e);
+            }
+            setProgress(100);
             setTimeout(() => {
                 navigate('/dashboard/my-docs');
-            }, 2000);
+            }, 1200);
         } catch (err: any) {
             console.error(err);
             setStatusMessage(`Error: ${err.message}`);
+            // Keep progress as-is but do not let it show 100 on error
+            if (progress === 100) setProgress(99);
         } finally {
             setIsSubmitting(false);
+            // reset progress after short delay unless still successful state
+            setTimeout(() => {
+                if (!statusMessage || !statusMessage.toLowerCase().includes('success')) setProgress(null);
+            }, 2500);
         }
     };
 
@@ -158,11 +286,11 @@ const MintDocPage: React.FC = () => {
         <div className="max-w-2xl mx-auto">
             <Card variant="premium">
                 <CardHeader className="text-center">
-                    <Heading level={2} className="gradient-gold-text">
-                        Mint New Document
+                    <Heading level={2} className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent mb-4 text-2xl sm:text-3xl lg:text-4xl">
+                        New Document
                     </Heading>
                     <Text color="muted" className="mt-2">
-                        Create a new encrypted document NFT
+                        Create a new encrypted document
                     </Text>
                 </CardHeader>
 
@@ -212,9 +340,7 @@ const MintDocPage: React.FC = () => {
                             </div>
                             <div>
                                 <Text variant="small" color="muted">File Size</Text>
-                                <Text weight="semibold">
-                                    {sourceFile ? `${(sourceFile.size / 1024).toFixed(2)} KB` : 'N/A'}
-                                </Text>
+                                <Text weight="semibold">{sourceFile ? getFileSize(sourceFile.size) : 'N/A'}</Text>
                             </div>
                         </div>
 
@@ -296,7 +422,19 @@ const MintDocPage: React.FC = () => {
                             {isSubmitting ? 'Minting Document...' : 'Mint Document'}
                         </Button>
 
-                        {/* Status Message */}
+                        {/* Status + Progress */}
+                        {isSubmitting && (
+                            <div className="space-y-2">
+                                <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+                                    <div className="h-2 bg-yellow-400 transition-all duration-300" style={{ width: `${progress ?? 0}%` }} />
+                                </div>
+                                <div className="text-center text-sm text-gray-300">
+                                    {typeof progress === 'number' ? `${Math.round(progress)}%` : 'Processing...'}
+                                    {uploadProgress > 0 && <span className="ml-2 text-xs text-gray-400">(upload: {uploadProgress}%)</span>}
+                                </div>
+                            </div>
+                        )}
+
                         {statusMessage && (
                             <div className={`text-center p-3 rounded-md ${
                                 statusMessage.startsWith('Error') 

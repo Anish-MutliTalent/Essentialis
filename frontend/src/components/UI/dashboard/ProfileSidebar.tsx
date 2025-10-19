@@ -13,16 +13,87 @@ interface ProfileSidebarProps {
 
 const API_BASE_URL = '/api';
 
+/**
+ * Clear everything client-side that we can reach from the browser:
+ * - localStorage
+ * - sessionStorage
+ * - all cookies (best-effort; httpOnly cookies can't be removed from JS)
+ * - Cache Storage
+ * - IndexedDB (uses indexedDB.databases() when available)
+ * - unregisters any service workers
+ * Finally, reloads the page to ensure a clean slate.
+ */
+async function clearAllClientData(): Promise<void> {
+  // Storage
+  try { sessionStorage.clear(); } catch(e) { console.warn('sessionStorage.clear failed', e); }
+  try { localStorage.clear(); } catch(e) { console.warn('localStorage.clear failed', e); }
+
+  // Cookies: iterate and expire each one. Note: httpOnly cookies cannot be removed from JS.
+  try {
+    const cookies = document.cookie ? document.cookie.split(';') : [];
+    for (const cookie of cookies) {
+      const eqPos = cookie.indexOf('=');
+      const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+      // expire cookie for the root path with and without secure flags (best-effort)
+      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;SameSite=None;Secure`;
+      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+    }
+  } catch(e) { console.warn('clearing cookies failed', e); }
+
+  // Cache Storage
+  try {
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+  } catch(e) { console.warn('clearing caches failed', e); }
+
+  // IndexedDB: use indexedDB.databases() if available (modern browsers). Fallback: attempt to delete a few common DB names.
+  try {
+    if ('indexedDB' in window) {
+      const idb: any = indexedDB as any;
+      if (typeof idb.databases === 'function') {
+        const dbs = await idb.databases();
+        await Promise.all(dbs.map((db: any) => db && db.name ? indexedDB.deleteDatabase(db.name) : Promise.resolve()));
+      } else {
+        // best-effort fallback for known libraries
+        const likely = ['firebaseLocalStorageDb', 'localforage'];
+        await Promise.all(likely.map(n => indexedDB.deleteDatabase(n)));
+      }
+    }
+  } catch(e) { console.warn('clearing indexedDB failed', e); }
+
+  // Service workers
+  try {
+    if (navigator && 'serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+  } catch(e) { console.warn('unregistering service workers failed', e); }
+
+  // Final: reload to ensure in-memory state is reset
+  try { window.location.reload(); } catch(e) { console.warn('reload failed', e); }
+}
+
 const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ isOpen, onClose, profileData }) => {
   const activeWallet = useActiveWallet();
 
   return (
-    <aside className={`fixed top-0 right-0 h-full w-80 bg-gray-900/80 backdrop-blur-professional shadow-2xl transform transition-transform duration-300 ease-in-out z-30 overflow-y-auto border-l border-gray-800 ${
-      isOpen ? 'translate-x-0' : 'translate-x-full'
-    }`}>
-      <div className="p-6">
-        <div className="flex justify-between items-center mb-8">
-          <Heading level={3} className="gradient-gold-text">Profile Details</Heading>
+    <>
+      {/* Mobile Overlay */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+          onClick={onClose}
+        />
+      )}
+      
+      <aside className={`fixed top-0 right-0 h-full w-full sm:w-80 bg-gray-900/95 sm:bg-gray-900/80 backdrop-blur-professional shadow-2xl transform transition-transform duration-300 ease-in-out z-50 overflow-y-auto border-l border-gray-800 ${
+        isOpen ? 'translate-x-0' : 'translate-x-full'
+      }`}>
+      <div className="p-4 sm:p-6">
+        <div className="flex justify-between items-center mb-6 sm:mb-8">
+          <Heading level={3} className="gradient-gold-text text-lg sm:text-xl">Profile Details</Heading>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-yellow-400 transition-colors-smooth focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 focus:ring-offset-gray-900 rounded-lg p-1"
@@ -80,22 +151,23 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ isOpen, onClose, profil
              </Card>
 
              {/* Disconnect/Logout Button */}
-             <Button
-                 onClick={async () => {
-                     if (activeWallet) {
-                         await activeWallet.disconnect();
-                     }
-                     try {
-                        await fetch(`${API_BASE_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
-                     } catch(e){ console.error("Backend logout failed", e)}
-                     sessionStorage.clear();
-                     localStorage.clear();
-                 }}
-                 variant="secondary"
-                 className="w-full border-red-500/50 text-red-400 hover:border-red-400 hover:bg-red-500/10"
-               >
-               Disconnect Wallet
-               </Button>
+       <Button
+         onClick={async () => {
+           if (activeWallet) {
+             await activeWallet.disconnect();
+           }
+           try {
+            await fetch(`${API_BASE_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
+           } catch(e){ console.error("Backend logout failed", e)}
+
+           // clear everything we can on the client and reload
+           await clearAllClientData();
+         }}
+         variant="secondary"
+         className="w-full border-red-500/50 text-red-400 hover:border-red-400 hover:bg-red-500/10"
+         >
+         Disconnect Wallet
+         </Button>
           </div>
         ) : (
           <div className="text-center py-12">
@@ -107,6 +179,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ isOpen, onClose, profil
         )}
       </div>
     </aside>
+    </>
   );
 };
 

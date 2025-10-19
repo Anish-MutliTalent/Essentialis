@@ -8,6 +8,7 @@ import { EIP1193 } from 'thirdweb/wallets';
 
 import { Button, Card, CardHeader, CardContent, Heading, Text, LoadingSpinner } from '../../index';
 import { client } from '../../../../lib/thirdweb';
+import { friendlyFileTypeLabel } from '../../../../lib/docs';
 
 import {
     unwrapDek,
@@ -126,7 +127,8 @@ const DocView: React.FC = () => {
       }
 
       setStatusMessage("Verification successful! Displaying file.");
-      const fileType = metadata.attributes.find(a => a.trait_type === "File Type")?.value || 'application/octet-stream';
+  const rawFileType = metadata.attributes.find(a => a.trait_type === "File Type")?.value || 'application/octet-stream';
+  const fileType = rawFileType;
       const blob = new Blob([data as any], { type: fileType });
       setDecryptedFileUrl(URL.createObjectURL(blob));
 
@@ -200,13 +202,20 @@ const DocView: React.FC = () => {
               
               <div>
                 <Text weight="semibold" className="text-yellow-400 mb-2">Attributes</Text>
-                <div className="bg-gray-800 p-4 rounded-lg space-y-4">
-                  {metadata.attributes.map((attr, index) => (
-                    <div key={index} className="flex justify-between items-center py-2 border-b border-gray-700 last:border-b-0">
-                      <Text variant="small" color="muted">{attr.trait_type}</Text>
-                      <Text variant="small" weight="medium">{attr.value}</Text>
-                    </div>
-                  ))}
+                  <div className="bg-gray-800 p-4 rounded-lg space-y-4">
+                  {metadata.attributes.map((attr, index) => {
+                    const traitLower = String(attr.trait_type || '').toLowerCase();
+                    const isFileTypeAttr = traitLower === 'file type' || traitLower === 'filetype' || (traitLower.includes('file') && traitLower.includes('type'));
+                    const displayValue = isFileTypeAttr
+                      ? friendlyFileTypeLabel(attr.value)
+                      : attr.value;
+                    return (
+                      <div key={index} className="flex justify-between items-center py-2 border-b border-gray-700 last:border-b-0">
+                        <Text variant="small" color="muted">{attr.trait_type}</Text>
+                        <Text variant="small" weight="medium">{displayValue}</Text>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </CardContent>

@@ -2,7 +2,8 @@ import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button, Card, CardContent, Heading, Text, LoadingSpinner } from "../../index";
 import { useDocs } from "../../../contexts/DocsContext";
-import { getFileTypeIcon, getFileSize } from "../../../../lib/docs";
+import { getFileTypeIcon, getFileSize, friendlyFileTypeLabel } from "../../../../lib/docs";
+import { FileText } from 'lucide-react';
 
 const MyDocs: React.FC = () => {
   const { docs, fetchDocs, loading, syncing } = useDocs();
@@ -11,7 +12,7 @@ const MyDocs: React.FC = () => {
     if (docs.length === 0) {
       fetchDocs();
     }
-  }, [docs, fetchDocs]);
+  }, []);
 
   if (loading || syncing) {
     return (
@@ -25,12 +26,12 @@ const MyDocs: React.FC = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div className="text-center">
-        <Heading level={2} className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent mb-2">
+    <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
+      <div className="text-center px-4">
+        <Heading level={2} className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent mb-2 text-xl sm:text-2xl lg:text-3xl">
           My Documents
         </Heading>
-        <Text color="muted">
+        <Text color="muted" className="text-sm sm:text-base">
           Manage and view your encrypted document NFTs
         </Text>
       </div>
@@ -39,35 +40,46 @@ const MyDocs: React.FC = () => {
         <Card variant="professional">
           <CardContent className="text-center py-12">
             <div className="w-16 h-16 bg-gray-800/50 rounded-full mx-auto mb-4 flex items-center justify-center">
-              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+              <FileText className="w-8 h-8 text-gray-400" />
             </div>
             <Heading level={3} className="mb-2">No Documents Found</Heading>
             <Text color="muted" className="mb-6">
-              You haven't minted any documents yet. Start by creating your first encrypted document.
+              You dont have any documents yet. Start by creating your first encrypted document.
             </Text>
             <Link to="/dashboard/mint-doc">
               <Button variant="primary" size="lg">
-                Mint Your First Document
+                Create Your First Document
               </Button>
             </Link>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {docs.map((doc) => {
             const metadata = doc.metadata;
-            const fileType = metadata?.attributes?.find(attr => attr.trait_type === 'File Type')?.value || 'Unknown';
-            const fileSize = metadata?.attributes?.find(attr => attr.trait_type === 'File Size')?.value || 'Unknown';
-            const tokenizationDate = metadata?.attributes?.find(attr => attr.trait_type === 'Tokenization Date')?.value || 'Unknown';
+            // Flexible attribute lookup: tolerate variations in trait_type naming
+            const findAttrValue = (matcher: (t: string) => boolean) =>
+              metadata?.attributes?.find((attr: any) => matcher(String(attr.trait_type || '')))?.value;
+
+            const rawFileType = findAttrValue((t) => {
+              const lt = t.toLowerCase();
+              return lt === 'file type' || lt === 'filetype' || (lt.includes('file') && lt.includes('type'));
+            }) || findAttrValue((t) => /file/i.test(t)) || 'Unknown';
+
+            const fileType = friendlyFileTypeLabel(rawFileType);
+            const fileSize = findAttrValue((t) => /file size/i.test(t)) || 'Unknown';
+            const tokenizationDate = findAttrValue((t) => /tokenization date|date/i.test(t)) || 'Unknown';
 
             return (
               <Card key={doc.token_id} variant="professional" hover className="group">
-                <CardContent className="p-6">
+                <CardContent className="p-4 sm:p-6">
                   <div className="flex items-start justify-between mb-4">
-                    <div className="text-3xl">
-                      {getFileTypeIcon(fileType)}
+                    <div className="text-yellow-400">
+                        {(() => {
+                        // Use rawFileType for icon detection so we keep MIME-based icon matching
+                        const IconComponent = getFileTypeIcon(rawFileType);
+                        return <IconComponent className="w-8 h-8" />;
+                      })()}
                     </div>
                     <div className="text-right">
                       <Text variant="small" color="muted" className="font-mono">
@@ -102,7 +114,7 @@ const MyDocs: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex space-x-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Link to={`/dashboard/my-docs/${doc.token_id}/view`} className="flex-1">
                       <Button variant="primary" size="sm" className="w-full">
                         View
@@ -126,13 +138,7 @@ const MyDocs: React.FC = () => {
         </div>
       )}
 
-      <div className="text-center pt-8">
-        <Link to="/dashboard/mint-doc">
-          <Button variant="primary" size="lg">
-            Mint New Document
-          </Button>
-        </Link>
-      </div>
+      {/* CTA moved to the LeftSidebar (desktop) and a floating button on mobile to avoid long scrolling */}
     </div>
   );
 };

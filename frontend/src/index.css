@@ -414,6 +414,24 @@ textarea:focus-visible {
   .text-display-lg {
     font-size: 2rem;
   }
+  
+  /* Mobile touch targets */
+  button, a, input, select, textarea {
+    min-height: 44px;
+  }
+  
+  /* Mobile-friendly spacing */
+  .space-y-4 > * + * {
+    margin-top: 0.75rem;
+  }
+  
+  .space-y-6 > * + * {
+    margin-top: 1rem;
+  }
+  
+  .space-y-8 > * + * {
+    margin-top: 1.25rem;
+  }
 }
 
 /* Professional Print Styles */
@@ -421,6 +439,48 @@ textarea:focus-visible {
   * {
     background: white !important;
     color: black !important;
+  }
+}
+
+/* Mobile-specific enhancements */
+@media (max-width: 768px) {
+  /* Ensure proper viewport behavior */
+  body {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Mobile navigation improvements */
+  .mobile-nav-overlay {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  
+  /* Mobile form improvements */
+  input[type="email"],
+  input[type="password"],
+  input[type="text"],
+  textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  /* Mobile card improvements */
+  .card-mobile {
+    border-radius: 12px;
+    margin: 0 16px;
+  }
+  
+  /* Mobile button improvements */
+  .btn-mobile {
+    min-height: 48px;
+    font-size: 16px;
+  }
+}
+
+/* Tablet-specific adjustments */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .tablet-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 

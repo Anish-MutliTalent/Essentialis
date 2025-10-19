@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button, Card, CardHeader, CardContent, Heading, Text, LoadingSpinner } from '../../index';
+import { friendlyFileTypeLabel } from '../../../../lib/docs';
 
 interface HistoryEntry {
   id: string;
@@ -88,7 +89,7 @@ const DocHistory: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="text-center">
-        <Heading level={2} className="gradient-gold-text mb-2">
+        <Heading level={2} className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent mb-4 text-2xl sm:text-3xl lg:text-4xl mb-2">
           Document History
         </Heading>
         <Text color="muted">
@@ -151,7 +152,26 @@ const DocHistory: React.FC = () => {
                       {selectedEntry === entry && (
                         <div className="mt-3 p-3 rounded bg-gray-900 text-gray-300 font-mono text-xs whitespace-pre-wrap overflow-hidden border border-gray-700">
                           {typeof entry.metadata !== 'undefined' && entry.metadata !== null
-                            ? JSON.stringify(entry.metadata, null, 2)
+                            ? (() => {
+                                try {
+                                  // If metadata has attributes array, replace file type values with friendly labels for readability
+                                  const copy = JSON.parse(JSON.stringify(entry.metadata));
+                                  if (Array.isArray(copy.attributes)) {
+                                    copy.attributes = copy.attributes.map((a: any) => {
+                                      if (!a || !a.trait_type) return a;
+                                      const traitLower = String(a.trait_type).toLowerCase();
+                                      const isFileTypeAttr = traitLower === 'file type' || traitLower === 'filetype' || (traitLower.includes('file') && traitLower.includes('type'));
+                                      if (isFileTypeAttr && a.value) {
+                                        return { ...a, value: friendlyFileTypeLabel(a.value) };
+                                      }
+                                      return a;
+                                    });
+                                  }
+                                  return JSON.stringify(copy, null, 2);
+                                } catch (e) {
+                                  return 'Failed to render metadata.';
+                                }
+                              })()
                             : 'No metadata available.'}
                         </div>
                       )}
