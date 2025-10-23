@@ -4,8 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useActiveAccount, useActiveWallet } from 'thirdweb/react';
 import { defineChain } from 'thirdweb/chains';
-import { getContract } from 'thirdweb';
-import { prepareContractCall, sendTransaction, waitForReceipt } from 'thirdweb';
+// import { getContract } from 'thirdweb';
+// import { prepareContractCall, sendTransaction, waitForReceipt } from 'thirdweb';
 import { ethers } from 'ethers';
 import { Buffer } from 'buffer';
 import { EIP1193 } from "thirdweb/wallets";
@@ -315,7 +315,7 @@ const MintDocPage: React.FC = () => {
                 // give immediate user feedback with tx hash
                 setStatusMessage(`Transaction broadcast (tx: ${txResponse.hash}). Waiting for confirmation...`);
                 // wait for confirmation
-                const receipt = await txResponse.wait();
+                await txResponse.wait();
 
                 // success
                 setStatusMessage('Document minted successfully — updating documents list...');

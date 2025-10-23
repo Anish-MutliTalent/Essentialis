@@ -13,7 +13,7 @@
         monthlyPrice: 0,
         annualPrice: 0,
         features: [
-          '1MB secure storage (Payments based on usage after exceeding limits)',
+          '20GB secure storage (Payments based on usage after exceeding limits)',
           'Advanced encryption',
           'Mobile app access',
           'Basic document preview',
@@ -38,7 +38,7 @@
         annualPrice: 999,
         features: [
           'Everything in free, and...',
-          '300MB Secure Storage (Payments based on usage after exceeding limits)',
+          '100GB Secure Storage (Payments based on usage after exceeding limits)',
           'Email Support',
           'All file types supported',
           'Sharing controls',
@@ -65,7 +65,7 @@
         annualPrice: 3399,
         features: [
           'Everything in personal and...',
-          '1GB secure storage',
+          '500GB secure storage (Payments based on usage after exceeding limits)',
           'Advanced Access control',
           'Team collaboration',
           'Advanced Data redundancy and storage space management (coming up)',

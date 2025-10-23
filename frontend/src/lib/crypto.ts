@@ -208,8 +208,6 @@ export async function divide(product_b64: string, known: string): Promise<string
     throw new Error(`known operand does not match product (or decryption failed). Attempts: ${fallbackErrors.join(' | ')}`);
 }
 
-
-// --- Other functions remain unchanged ---
 export const merge = (...args: string[]): string => args.join('|SPLIT|');
 export const split = (merged: string): string[] => merged.split('|SPLIT|');
 export const generateDEK = (): Uint8Array => crypto.getRandomValues(new Uint8Array(32));
