@@ -10,10 +10,10 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    POLYGON_RPC_URL = os.environ.get('POLYGON_RPC_URL')
+    RPC_URL = os.environ.get('RPC_URL')
 
     # Contract Addresses
-    NFT_LAND_CONTRACT_ADDRESS = os.getenv('NFT_LAND_CONTRACT_ADDRESS')
+    NFT_DOC_CONTRACT_ADDRESS = os.getenv('NFT_DOC_CONTRACT_ADDRESS')
     ACTION_LOGGER_CONTRACT_ADDRESS = os.getenv('ACTION_LOGGER_CONTRACT_ADDRESS')
 
     # ABI Paths - construct full paths
@@ -38,3 +38,12 @@ class Config:
     # Commission percentage for the marketplace (e.g., 10% = 1000)
     # This should match what's set in the NFTMarketplace contract constructor
     MARKETPLACE_COMMISSION_PERCENTAGE_BPS = 4000  # 10% in Basis Points
+
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_pre_ping": True,
+        "pool_recycle": 300,  # recycle connections every 5 mins
+        "pool_size": 5,
+        "max_overflow": 10,
+    }
+
+    MAX_CONTENT_LENGTH = 1024^3

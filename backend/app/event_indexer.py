@@ -47,7 +47,7 @@ if not action_logger_abi:  # Add checks for other ABIs if indexing them
     exit(1)
 
 action_logger_address = Config.ACTION_LOGGER_CONTRACT_ADDRESS
-# nft_land_address = Config.NFT_LAND_CONTRACT_ADDRESS
+# nft_land_address = Config.NFT_DOC_CONTRACT_ADDRESS
 # nft_marketplace_address = Config.NFT_MARKETPLACE_CONTRACT_ADDRESS
 
 if not action_logger_address:  # Add checks for other addresses

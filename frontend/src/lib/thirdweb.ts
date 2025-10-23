@@ -1,7 +1,7 @@
 // src/lib/thirdweb.ts
 import { createThirdwebClient } from "thirdweb";
 
-const clientId = '2983fcb839dcac274ead62facc1aa529';
+const clientId = 'cc209168f439bfb60ef6659d4de3c6d1';
 
 if (!clientId) {
   throw new Error(

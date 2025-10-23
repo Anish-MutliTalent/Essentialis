@@ -32,8 +32,8 @@ import { useDocs } from '../../../contexts/DocsContext';
 
 window.Buffer = window.Buffer || Buffer;
 
-const polygonAmoy = defineChain(2442);
-const CONTRACT_ADDRESS = '0x595A79e5Fe30E14B5383ECef79d72F6B355b71bc';
+const chain = defineChain(84532);
+const CONTRACT_ADDRESS = '0x42F1a118C13083b64b2b775e5Ac01EF1429c51cd';
 
 const MintDocPage: React.FC = () => {
     const navigate = useNavigate();
@@ -133,7 +133,7 @@ const MintDocPage: React.FC = () => {
             setStatusMessage('Step 1/6: Generating encryption keys...');
             // give small weight to key generation
             setProgress(2);
-            const eip = EIP1193.toProvider({ wallet: activeWallet, client, chain: polygonAmoy });
+            const eip = EIP1193.toProvider({ wallet: activeWallet, client, chain: chain });
             const signer = new ethers.providers.Web3Provider(eip).getSigner();
             const owner = account.address;
             const timestamp = formData.tokenizationDate;
@@ -251,23 +251,83 @@ const MintDocPage: React.FC = () => {
             // Debug: log tokenURI length
             console.log('tokenURI length:', tokenURI.length);
 
-            setStatusMessage('Please confirm the transaction in your wallet...');
-            const contract = getContract({ address: CONTRACT_ADDRESS, abi: NFTDocABI as any, client, chain: polygonAmoy });
-            const tx = prepareContractCall({ contract, method: 'function mintNFT(string)', params: [tokenURI] });
-            const sent = await sendTransaction({ transaction: tx, account });
-            await waitForReceipt({ client, chain: polygonAmoy, transactionHash: sent.transactionHash });
-            // successful on-chain mint
-            setStatusMessage('Document minted successfully — updating documents list...');
-            try {
-                // refresh the local docs cache so the new NFT appears in My Docs
-                await refreshDocs();
-            } catch (e) {
-                console.warn('refreshDocs failed', e);
+            // --- ensure wallet is on Base Sepolia (84532 / 0x14a34) & then send tx via ethers ---
+            async function ensureBaseSepolia() {
+                // MetaMask / EIP-1193 expects hex chain id
+                const BASE_SEPOLIA_CHAIN_ID = '0x14a34'; // 84532
+                const baseSepoliaParams = {
+                    chainId: BASE_SEPOLIA_CHAIN_ID,
+                    chainName: 'Base Sepolia',
+                    nativeCurrency: {
+                        name: 'SepoliaETH',
+                        symbol: 'ETH',
+                        decimals: 18,
+                    },
+                    rpcUrls: ['https://sepolia.base.org'],
+                    blockExplorerUrls: ['https://sepolia.basescan.org'],
+                };
+
+                // prefer window.ethereum for switching the chain
+                const w = (window as any).ethereum;
+                if (!w || !w.request) throw new Error('No injected wallet found (window.ethereum)');
+
+                try {
+                    await w.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_SEPOLIA_CHAIN_ID }] });
+                } catch (switchError: any) {
+                    // 4902: Unrecognized chain — ask wallet to add it
+                    if (switchError && (switchError.code === 4902 || switchError.message?.includes('Unrecognized chain'))) {
+                        await w.request({ method: 'wallet_addEthereumChain', params: [baseSepoliaParams] });
+                        // then try switch again — not strictly necessary but safe
+                        await w.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_SEPOLIA_CHAIN_ID }] });
+                    } else {
+                        // rethrow other errors
+                        throw switchError;
+                    }
+                }
+
+                // small safety check: ensure provider reports correct chain
+                const web3Provider = new ethers.providers.Web3Provider(w, 'any');
+                const network = await web3Provider.getNetwork();
+                if (network.chainId !== 84532) {
+                    throw new Error(`Wallet did not switch to Base Sepolia (chainId=${network.chainId})`);
+                }
+                return web3Provider;
             }
-            setProgress(100);
-            setTimeout(() => {
-                navigate('/dashboard/my-docs');
-            }, 1200);
+
+            // inside handleSubmit after tokenURI constructed
+            setStatusMessage('Please confirm the transaction in your wallet (on Base Sepolia)...');
+
+            try {
+                // Ensure chain and get signer
+                const web3Provider = await ensureBaseSepolia();
+                await web3Provider.send('eth_requestAccounts', []); // ensure accounts unlocked
+                const signer = web3Provider.getSigner();
+
+                // Optional: use pending nonce to avoid nonce issues
+                // const nonce = await signer.getTransactionCount('pending');
+
+                // Use ethers Contract connected to signer to make the contract call
+                const nftContract = new ethers.Contract(CONTRACT_ADDRESS, NFTDocABI as any, signer);
+
+                // If your contract function is `function mintNFT(string memory tokenURI) public returns (uint256)`:
+                const txResponse = await nftContract.mintNFT(tokenURI /*, { nonce } if you set it manually */);
+
+                // give immediate user feedback with tx hash
+                setStatusMessage(`Transaction broadcast (tx: ${txResponse.hash}). Waiting for confirmation...`);
+                // wait for confirmation
+                const receipt = await txResponse.wait();
+
+                // success
+                setStatusMessage('Document minted successfully — updating documents list...');
+                setProgress(100);
+                try { await refreshDocs(); } catch (e) { console.warn('refreshDocs failed', e); }
+                setTimeout(() => navigate('/dashboard/my-docs'), 1200);
+            } catch (txErr: any) {
+                console.error('Transaction failed', txErr);
+                // bubble up the message for UI
+                throw txErr;
+            }
+
         } catch (err: any) {
             console.error(err);
             setStatusMessage(`Error: ${err.message}`);

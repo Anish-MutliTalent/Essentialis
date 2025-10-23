@@ -4,7 +4,8 @@ from web3 import Web3  # IMPORT Web3
 from itsdangerous import URLSafeTimedSerializer  # IMPORT URLSafeTimedSerializer
 
 # Import from your app modules using relative imports
-from . import auth, services, models, db, ipfs  # Assuming db is also in app/__init__
+from . import auth, services, models, db, ipfs # Assuming db is also in app/__init__
+from .dbretry import safe_query_get
 from .models import User, ActionLog, AdminLoginToken  # Explicitly import models used
 from functools import wraps
 from datetime import datetime, UTC
@@ -29,8 +30,6 @@ def upload_json_to_ipfs(data: dict) -> str:
 
 bp = Blueprint('main', __name__)
 
-w3 = Web3(Web3.HTTPProvider('https://rpc.cardona.zkevm-rpc.com'))
-
 
 def login_required(f):
     @wraps(f)
@@ -48,7 +47,7 @@ def admin_required(f):
         if 'user_id' not in session or not session.get('is_admin'):
             return jsonify({"error": "Admin privileges required"}), 403
         # Optionally, re-verify against DB for extra security
-        user = User.query.get(session['user_id'])
+        user = safe_query_get(User, session['user_id'])
         if not user or not user.is_admin:
             return jsonify({"error": "Admin privileges required"}), 403
         return f(*args, **kwargs)
@@ -87,7 +86,7 @@ def logout():
 @login_required
 def auth_status():
     user_id = session.get('user_id')
-    user = User.query.get(user_id)
+    user = safe_query_get(User, user_id)
     if user:
         return jsonify({
             "logged_in": True,
@@ -107,7 +106,7 @@ def user_details():
         # This should ideally not be reached if @login_required works
         return jsonify({"error": "Authentication required"}), 401
 
-    user = User.query.get(user_id)
+    user = safe_query_get(User, user_id)
     if not user:
         return jsonify({"error": "User not found"}), 404
 
@@ -175,7 +174,7 @@ def user_details():
 @bp.route('/user/profile', methods=['GET'])
 @login_required
 def get_user_profile():
-    user = User.query.get(session['user_id'])
+    user = safe_query_get(User, session['user_id'])
     # This is where you'd fetch user-specific data, potentially from IPFS links
     # stored against the user, decrypted client-side.
     return jsonify({
@@ -231,19 +230,19 @@ async def _get_my_nfts_async(user_id: int):
             return {"error": "Invalid or unreadable contract ABI on backend"}, 500
 
         # Ensure RPC is reachable and contract address is configured
-        if not w3.is_connected():
+        if not current_app.w3.is_connected():
             current_app.logger.error("Web3 RPC provider not reachable")
             return {"error": "RPC provider not reachable"}, 503
 
-        contract_address = current_app.config.get('NFT_LAND_CONTRACT_ADDRESS')
+        contract_address = current_app.config.get('NFT_DOC_CONTRACT_ADDRESS')
         if not contract_address:
             return {"error": "NFT contract address not configured"}, 503
 
-        nft_land_contract = w3.eth.contract(address=Web3.to_checksum_address(contract_address), abi=contract_abi)
+        nft_land_contract = current_app.w3.eth.contract(address=Web3.to_checksum_address(contract_address), abi=contract_abi)
 
         # Verify that there's contract code at the address on this RPC/node
         try:
-            code = await asyncio.to_thread(lambda: w3.eth.get_code(Web3.to_checksum_address(contract_address)))
+            code = await asyncio.to_thread(lambda: current_app.w3.eth.get_code(Web3.to_checksum_address(contract_address)))
             if not code or code == b"\x00" or code.hex() == '0x':
                 current_app.logger.error(f"No contract code at address {contract_address} on configured RPC")
                 return {"error": "No contract deployed at configured address on RPC"}, 502
@@ -252,12 +251,10 @@ async def _get_my_nfts_async(user_id: int):
             # Continue, but warn the caller
             return {"error": f"Error checking contract deployment: {e}"}, 502
 
-        # Load user from DB (do not access `session` inside coroutine)
-        user = await asyncio.to_thread(User.query.get, user_id)
+        user = await asyncio.to_thread(safe_query_get, User, user_id)
         if not user or not user.wallet_address:
             return {"error": "User wallet address not found"}, 400
 
-        # Ensure owner's address is checksummed when calling contract
         try:
             owner_address = Web3.to_checksum_address(user.wallet_address)
         except Exception:
@@ -323,7 +320,7 @@ def prepare_mint_tx():
         return jsonify({"error": "Missing metadataURI or recipient address"}), 400
 
     if not current_app.config.get(
-            'NFT_LAND_CONTRACT_ADDRESS') or not services.nft_land_contract:  # Check if contract is loaded
+            'NFT_DOC_CONTRACT_ADDRESS') or not services.nft_land_contract:  # Check if contract is loaded
         return jsonify({"error": "NFTDoc contract not configured on backend"}), 503
 
     # Backend prepares transaction data for the client to sign and send This example assumes the `mintNFT` function
@@ -342,7 +339,7 @@ def prepare_mint_tx():
 
     # For now, let's just return what the client needs to call the contract.
     return jsonify({
-        "contract_address": current_app.config['NFT_LAND_CONTRACT_ADDRESS'],
+        "contract_address": current_app.config['NFT_DOC_CONTRACT_ADDRESS'],
         "function_name": "mintNFT",
         "args": [Web3.to_checksum_address(recipient_address), metadata_uri],  # Ensure metadata_uri is encrypted
         "message": "Client should use these details to construct and sign the transaction."
@@ -504,7 +501,7 @@ def get_admin_nfts_overview():
 def get_admin_contract_info():
     return jsonify({
         "nft_land_contract": {
-            "address": current_app.config.get('NFT_LAND_CONTRACT_ADDRESS'),
+            "address": current_app.config.get('NFT_DOC_CONTRACT_ADDRESS'),
             "abi_path": Path(__file__).parent / "abi" / current_app.config.get('NFT_LAND_CONTRACT_ABI_PATH'),
             # Could add more details like owner, specific state variables if needed
         },
@@ -681,8 +678,8 @@ def get_nft_history(token_id):
                             'r').read()
 
         # Set the contract address (replace with your contract's deployed address)
-        contract_address = current_app.config.get('NFT_LAND_CONTRACT_ADDRESS')
-        nft_land_contract = w3.eth.contract(address=Web3.to_checksum_address(contract_address), abi=contract_abi)
+        contract_address = current_app.config.get('NFT_DOC_CONTRACT_ADDRESS')
+        nft_land_contract = current_app.w3.eth.contract(address=Web3.to_checksum_address(contract_address), abi=contract_abi)
         token_id = int(token_id)
 
         # Get total number of updates

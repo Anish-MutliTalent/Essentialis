@@ -25,8 +25,8 @@ import {
 
 window.Buffer = window.Buffer || Buffer;
 
-const polygonAmoy = defineChain(2442);
-const CONTRACT_ADDRESS = '0x595A79e5Fe30E14B5383ECef79d72F6B355b71bc';
+const chain = defineChain(84532);
+const CONTRACT_ADDRESS = '0x42F1a118C13083b64b2b775e5Ac01EF1429c51cd';
 
 const EditDocPage: React.FC = () => {
     const { tokenId } = useParams<{ tokenId: string }>();
@@ -86,7 +86,7 @@ const EditDocPage: React.FC = () => {
             if (sourceFile) {
                 setStatusMessage('New file detected. Starting full re-encryption process...');
                 setProgress(2);
-                const eip = EIP1193.toProvider({ wallet: activeWallet, client, chain: polygonAmoy });
+                const eip = EIP1193.toProvider({ wallet: activeWallet, client, chain: chain });
                 const signer = new ethers.providers.Web3Provider(eip).getSigner();
                 const owner = account.address;
                 const timestamp = originalMetadata.attributes.find((a: any) => a.trait_type === 'Tokenization Date')?.value || new Date().toISOString();
@@ -186,10 +186,10 @@ const EditDocPage: React.FC = () => {
             const tokenURI = `data:application/json;base64,${Buffer.from(JSON.stringify(finalMetadata)).toString('base64')}`;
 
             setStatusMessage('Please confirm the transaction in your wallet...');
-            const contract = getContract({ address: CONTRACT_ADDRESS, abi: NFTDocABI as any, client, chain: polygonAmoy });
+            const contract = getContract({ address: CONTRACT_ADDRESS, abi: NFTDocABI as any, client, chain: chain });
             const tx = prepareContractCall({ contract, method: 'function updateNFT(uint256,string)', params: [BigInt(tokenId!), tokenURI] });
             const sent = await sendTransaction({ transaction: tx, account });
-            await waitForReceipt({ client, chain: polygonAmoy, transactionHash: sent.transactionHash });
+            await waitForReceipt({ client, chain: chain, transactionHash: sent.transactionHash });
             setStatusMessage('Document updated successfully — refreshing documents list...');
             try {
                 await refreshDocs();

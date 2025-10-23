@@ -33,12 +33,13 @@ def create_app(config_class=Config):
 
     global w3, nft_land_contract, action_logger_contract, nft_marketplace_contract
 
-    if not app.config['POLYGON_RPC_URL']:
-        raise ValueError("POLYGON_RPC_URL not set in .env or config")
+    if not app.config['RPC_URL']:
+        raise ValueError("RPC_URL not set in .env or config")
 
-    w3 = Web3(Web3.HTTPProvider(app.config['POLYGON_RPC_URL']))
+    w3 = Web3(Web3.HTTPProvider(app.config['RPC_URL']))
     if not w3.is_connected():
-        raise ConnectionError("Failed to connect to Polygon RPC")
+        raise ConnectionError("Failed to connect to RPC")
+    app.w3 = w3
 
     # Load and parse NFT contract ABI
     cfg_path = app.config.get('NFT_LAND_CONTRACT_ABI_PATH')
@@ -53,10 +54,10 @@ def create_app(config_class=Config):
         raise ValueError(f"Failed to parse NFT contract ABI at {abi_path}: {e}")
 
     # Set the contract address (replace with your contract's deployed address)
-    contract_address = app.config.get('NFT_LAND_CONTRACT_ADDRESS')
+    contract_address = app.config.get('NFT_DOC_CONTRACT_ADDRESS')
     # Check that contract code exists at address
     if not w3.eth.get_code(Web3.to_checksum_address(contract_address)):
-        raise ConnectionError(f"No contract code found at NFT_LAND_CONTRACT_ADDRESS {contract_address} on RPC")
+        raise ConnectionError(f"No contract code found at NFT_DOC_CONTRACT_ADDRESS {contract_address} on RPC")
 
     nft_land_contract = w3.eth.contract(address=Web3.to_checksum_address(contract_address), abi=contract_abi)
 
