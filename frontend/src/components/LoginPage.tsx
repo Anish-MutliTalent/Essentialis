@@ -50,7 +50,7 @@ async function claimFaucetReward(userAddress: string, activeWallet: any) {
       throw new Error(error.error || 'Failed to get claim signature');
     }
 
-    const { amount, _nonce, deadline, signature, contractAddress } = await response.json();
+    const { amount, deadline, signature, contractAddress } = await response.json();
 
     console.log("✅ Got signature, submitting claim...");
 
