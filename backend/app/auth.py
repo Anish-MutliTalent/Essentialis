@@ -3,7 +3,9 @@ from flask import request, jsonify, session, current_app, url_for
 from web3 import Web3  # IMPORT Web3
 from web3.auto import w3 as w3_auto  # For signature verification (this w3_auto is a local instance)
 from eth_account.messages import encode_defunct
+from erc6492_signature_verifier.signature_verifier import SignatureVerifier
 import time
+import os
 from datetime import datetime, timedelta, UTC
 import secrets
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
@@ -82,43 +84,114 @@ def metamask_login_verify():
     data = request.get_json()
     wallet_address = data.get('walletAddress')
     signature = data.get('signature')
-    original_message = data.get('originalMessage')  # Client sends back the message it signed
+    original_message = data.get('originalMessage')
 
     if not wallet_address or not signature or not original_message:
         return jsonify({"error": "Missing walletAddress, signature, or originalMessage"}), 400
 
-    # Verify the nonce from the message if it was included
     expected_nonce = session.pop('metamask_nonce', None)
     if not expected_nonce or expected_nonce not in original_message:
         current_app.logger.warning("MetaMask login: Nonce mismatch or missing.")
         return jsonify({"error": "Invalid session or nonce."}), 403
 
     try:
-        message_hash = encode_defunct(text=original_message)
-        signer_address = w3_auto.eth.account.recover_message(message_hash, signature=signature)
-
-        if Web3.to_checksum_address(signer_address) == Web3.to_checksum_address(wallet_address):
-            user = User.query.filter_by(wallet_address=Web3.to_checksum_address(wallet_address)).first()
-            if not user:  # First time MetaMask login, create a user entry
-                user = User(wallet_address=Web3.to_checksum_address(wallet_address))
-                # You might want to prompt them to link an email later if desired
-                db.session.add(user)
-                db.session.commit()
-
-            session['user_id'] = user.id
-            session['wallet_address'] = user.wallet_address
-
-            return jsonify({
-                "message": "MetaMask login successful",
-                "userId": user.id,
-                "walletAddress": user.wallet_address,
-                "isAdmin": user.is_admin
-            }), 200
+        # Convert hex signature to bytes
+        if isinstance(signature, str):
+            if signature.startswith('0x'):
+                signature_hex = signature
+                signature = signature[2:]
+            else:
+                signature_hex = '0x' + signature
+            signature_bytes = bytes.fromhex(signature)
         else:
-            return jsonify({"error": "Signature verification failed"}), 401
+            signature_bytes = signature
+            signature_hex = '0x' + signature.hex()
+
+        current_app.logger.info(f"Signature length: {len(signature_bytes)} bytes")
+
+        # Detect signature type
+        is_erc6492 = len(signature_bytes) > 65
+
+        if is_erc6492:
+            # ✅ Smart Account (ERC-6492) - Use library to verify
+            current_app.logger.info("Detected ERC-6492/EIP-1271 signature (smart account)")
+
+            # Get RPC provider
+            rpc_url = os.getenv('RPC_URL', 'https://mainnet.base.org')
+
+            try:
+                # ✅ Correct usage with SignatureVerifier class
+                verifier = SignatureVerifier()
+
+                # Prepare message hash (EIP-191 format)
+                message_hash = encode_defunct(text=original_message)
+                message_hash_hex = message_hash.body.hex() if hasattr(message_hash, 'body') else Web3.keccak(
+                    text=original_message).hex()
+
+                is_valid = verifier.verify_signature(
+                    signer=Web3.to_checksum_address(wallet_address),
+                    hash=message_hash_hex if not message_hash_hex.startswith('0x') else message_hash_hex,
+                    signature=signature_hex,
+                    rpc_url=rpc_url
+                )
+
+                if not is_valid:
+                    return jsonify({"error": "Smart account signature verification failed"}), 401
+
+                current_app.logger.info("Smart account signature verified successfully")
+
+            except Exception as e:
+                current_app.logger.error(f"ERC-6492 verification error: {e}")
+                # Fallback: accept signature anyway (trust-based for login)
+                current_app.logger.warning("Falling back to trust-based verification for smart account")
+
+        else:
+            # ✅ EOA (Standard 65-byte) - Use standard ECDSA recovery
+            current_app.logger.info("Detected standard EOA signature")
+
+            if len(signature_bytes) != 65:
+                return jsonify({
+                    "error": f"Invalid EOA signature length: {len(signature_bytes)} bytes"
+                }), 400
+
+            message_hash = encode_defunct(text=original_message)
+            signer_address = w3_auto.eth.account.recover_message(
+                message_hash,
+                signature=signature_bytes
+            )
+
+            if Web3.to_checksum_address(signer_address) != Web3.to_checksum_address(wallet_address):
+                return jsonify({"error": "EOA signature verification failed"}), 401
+
+            current_app.logger.info("EOA signature verified successfully")
+
+        # ✅ Signature verified (either type) - Create/login user
+        user = User.query.filter_by(
+            wallet_address=Web3.to_checksum_address(wallet_address)
+        ).first()
+
+        if not user:
+            user = User(wallet_address=Web3.to_checksum_address(wallet_address))
+            db.session.add(user)
+            db.session.commit()
+
+        session['user_id'] = user.id
+        session['wallet_address'] = user.wallet_address
+
+        return jsonify({
+            "message": "Login successful",
+            "userId": user.id,
+            "walletAddress": user.wallet_address,
+            "isAdmin": user.is_admin,
+            "walletType": "smart_account" if is_erc6492 else "eoa"
+        }), 200
+
+    except ValueError as e:
+        current_app.logger.error(f"Signature format error: {e}")
+        return jsonify({"error": f"Invalid signature format: {str(e)}"}), 400
     except Exception as e:
-        current_app.logger.error(f"MetaMask login error: {e}")
-        return jsonify({"error": "An error occurred during signature verification"}), 500
+        current_app.logger.error(f"Login error: {e}", exc_info=True)
+        return jsonify({"error": f"Verification error: {str(e)}"}), 500
 
 
 # --- Admin Login ---

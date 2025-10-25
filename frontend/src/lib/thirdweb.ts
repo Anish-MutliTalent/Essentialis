@@ -13,3 +13,8 @@ if (!clientId) {
 export const client = createThirdwebClient({
   clientId: clientId,
 });
+
+export const FAUCET_CONTRACT = {
+  address: "0x7ac501bF4CA44A8196B55aD443c97ADA24EDEb20",
+  chainId: 84532,
+};

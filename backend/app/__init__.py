@@ -6,6 +6,7 @@ import json
 from web3 import Web3
 import logging  # Add this at the top
 from pathlib import Path
+from .faucet import faucet_bp
 
 db = SQLAlchemy()
 
@@ -80,6 +81,7 @@ def create_app(config_class=Config):
     # Blueprints
     from .routes import bp as main_bp
     app.register_blueprint(main_bp)
+    app.register_blueprint(faucet_bp, url_prefix='/faucet')
 
     # Create database tables if they don't exist
     with app.app_context():

@@ -1,4 +1,4 @@
-  import React, { useState } from 'react';
+  import { useState } from 'react';
   import Navigation from '../components/Navigation';
   import { Check, X, Star, Shield, Zap, Crown, Gift } from 'lucide-react';
   

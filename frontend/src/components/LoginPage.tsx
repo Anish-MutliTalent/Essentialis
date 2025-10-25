@@ -11,6 +11,8 @@ import { client } from '../lib/thirdweb';
 import { signMessage } from "thirdweb/utils";
 import { FcGoogle } from "react-icons/fc";
 import MetaMaskLogo from "./UI/MetaMaskLogo";
+import { getContract, prepareContractCall, sendTransaction } from "thirdweb";
+import { baseSepolia } from "thirdweb/chains";
 
 // Design System Components
 import { 
@@ -30,6 +32,56 @@ import {
 import Divider from "./UI/Divider";
 
 const API_BASE_URL = '/api';
+
+async function claimFaucetReward(userAddress: string, activeWallet: any) {
+  try {
+    console.log("🎁 Claiming faucet reward for:", userAddress);
+
+    // 1. Get signature from backend
+    const response = await fetch('/api/faucet/get-claim-signature', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ recipient: userAddress }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to get claim signature');
+    }
+
+    const { amount, nonce, deadline, signature, contractAddress } = await response.json();
+
+    console.log("✅ Got signature, submitting claim...");
+
+    // 2. Prepare contract call
+    const contract = getContract({
+      client,
+      chain: baseSepolia, // Match your chain
+      address: contractAddress,
+    });
+
+    const transaction = prepareContractCall({
+      contract,
+      method: "function claim(address recipient, uint256 amount, uint256 deadline, bytes signature)",
+      params: [userAddress, amount, deadline, signature],
+    });
+
+    // 3. Send transaction (gas sponsored for this contract!)
+    const account = activeWallet.getAccount();
+    const result = await sendTransaction({
+      transaction,
+      account,
+    });
+
+    console.log("✅ Claim successful! Tx hash:", result.transactionHash);
+    return result;
+
+  } catch (error: any) {
+    console.error("❌ Faucet claim failed:", error);
+    throw error;
+  }
+}
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -52,7 +104,13 @@ const LoginPage = () => {
 
   // --- Wallet Definitions for Connection ---
   const walletsToUse = {
-      inApp: inAppWallet({ auth: { options: ["email", "google"] } }),
+      inApp: inAppWallet(
+        {executionMode: {
+          mode: "EIP7702",
+          sponsorGas: true,
+        },
+        auth: { options: ["email", "google"] }
+      }),
       metamask: createWallet("io.metamask"),
   };
 
@@ -91,7 +149,7 @@ const LoginPage = () => {
     try {
       await connect(async () => {
         const wallet = walletsToUse.inApp;
-        await wallet.connect({ client, strategy: "email", email, verificationCode: otp });
+        await wallet.connect({ client, strategy: "email", email, verificationCode: otp, chain: baseSepolia });
         return wallet;
       });
     } catch (err: any) {
@@ -106,7 +164,7 @@ const LoginPage = () => {
       try {
           await connect(async () => {
               const wallet = walletsToUse.inApp;
-              await wallet.connect({ client, strategy: strategy });
+              await wallet.connect({ client, strategy: strategy, chain: baseSepolia });
               return wallet;
           });
       } catch (err: any) {
@@ -121,7 +179,7 @@ const LoginPage = () => {
       try {
           await connect(async () => {
               const wallet = walletsToUse.metamask;
-              await wallet.connect({ client });
+              await wallet.connect({ client, chain: baseSepolia });
               return wallet;
           });
       } catch (err: any) {
@@ -131,71 +189,118 @@ const LoginPage = () => {
       }
   }, [connect, walletsToUse.metamask]);
 
-  // --- Backend Wallet Linking ---
   const linkWalletToBackend = useCallback(async (acct: { address: string }, wallet: any) => {
-      if (!acct?.address) return;
-      setIsBackendLoading(true);
-      setBackendLoginStatus(`Linking wallet ${acct.address.substring(0,6)}...`);
+    if (!acct?.address) return;
+    setIsBackendLoading(true);
+    setBackendLoginStatus(`Linking wallet ${acct.address.substring(0,6)}...`);
 
-      try {
-        const challengeRes = await fetch(`${API_BASE_URL}/auth/login/metamask/challenge`, {
-          credentials: "include",
+    try {
+      const challengeRes = await fetch(`${API_BASE_URL}/auth/login/metamask/challenge`, {
+        credentials: "include",
+      });
+      if (!challengeRes.ok) throw new Error(`Challenge fetch failed: ${challengeRes.status}`);
+      const { message_to_sign } = await challengeRes.json();
+
+      let signature;
+
+      // ✅ FIX: Handle different wallet types explicitly
+      if (wallet.id === "io.metamask" || wallet.id === "walletConnect") {
+        // For external wallets (MetaMask, WalletConnect), use EIP-1193 personal_sign
+        const provider = wallet.getProvider();
+        if (!provider) throw new Error("No provider available");
+        
+        signature = await provider.request({
+          method: "personal_sign",
+          params: [
+            // Convert message to hex
+            `0x${Buffer.from(message_to_sign, 'utf8').toString('hex')}`,
+            acct.address
+          ]
         });
-        if (!challengeRes.ok) throw new Error(`Challenge fetch failed: ${challengeRes.status}`);
-        const { message_to_sign } = await challengeRes.json();
-
+      } else if (wallet.id === "inApp") {
+        // For in-app wallets, get the personal wallet (EOA)
+        const personalWallet = wallet.getPersonalWallet?.();
+        const signerAccount = personalWallet 
+          ? personalWallet.getAccount() 
+          : wallet.getAccount();
+        
+        if (!signerAccount) throw new Error("No signer account");
+        
+        signature = await signMessage({
+          account: signerAccount,
+          message: message_to_sign,
+        });
+      } else {
+        // Generic fallback
         const accountObj = wallet.getAccount();
         if (!accountObj) throw new Error("Wallet has no Account");
-
-        const signature = await signMessage({
+        
+        signature = await signMessage({
           account: accountObj,
           message: message_to_sign,
         });
-
-        const verifyRes = await fetch(`${API_BASE_URL}/auth/login/metamask/verify`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            walletAddress: acct.address,
-            signature,
-            originalMessage: message_to_sign,
-          }),
-        });
-        if (!verifyRes.ok) {
-          const err = await verifyRes.json().catch(() => ({}));
-          throw new Error(err.error || `Verify failed: ${verifyRes.status}`);
-        }
-
-  const verifyData = await verifyRes.json();
-  setBackendLoginStatus(`Backend login successful! User ID: ${verifyData.userId}`);
-  sessionStorage.setItem(`backend_linked_${acct.address}`, "true");
-  console.debug('linkWalletToBackend: backend linked, verifyData=', verifyData);
-      } catch (e: any) {
-        console.error("Backend linking error:", e);
-        setBackendLoginStatus(`Backend linking error: ${e.message}`);
-        sessionStorage.removeItem(`backend_linked_${acct.address}`);
-      } finally {
-        setIsBackendLoading(false);
       }
-    }, []);
 
-  
+      const verifyRes = await fetch(`${API_BASE_URL}/auth/login/metamask/verify`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          walletAddress: acct.address,
+          signature,
+          originalMessage: message_to_sign,
+        }),
+      });
+      
+      if (!verifyRes.ok) {
+        const err = await verifyRes.json().catch(() => ({}));
+        throw new Error(err.error || `Verify failed: ${verifyRes.status}`);
+      }
+
+      const verifyData = await verifyRes.json();
+      setBackendLoginStatus(`Backend login successful! User ID: ${verifyData.userId}`);
+      sessionStorage.setItem(`backend_linked_${acct.address}`, "true");
+      console.debug('linkWalletToBackend: backend linked, verifyData=', verifyData);
+    } catch (e: any) {
+      console.error("Backend linking error:", e);
+      setBackendLoginStatus(`Backend linking error: ${e.message}`);
+      sessionStorage.removeItem(`backend_linked_${acct.address}`);
+    } finally {
+      setIsBackendLoading(false);
+    }
+  }, []);
+
   // --- Effect to Link Wallet & Fetch Details ---
   useEffect(() => {
     const processConnection = async (currentAccount: { address: string }, currentActiveWallet: any) => {
-        console.log("processConnection called with account:", currentAccount, "wallet:", currentActiveWallet);
+      console.log("processConnection called with account:", currentAccount);
+
       const alreadyProcessed = sessionStorage.getItem(`backend_linked_${currentAccount.address}`);
+      
       if (!alreadyProcessed) {
+        // Link wallet to backend
         await linkWalletToBackend(currentAccount, currentActiveWallet);
+        
         if (sessionStorage.getItem(`backend_linked_${currentAccount.address}`)) {
-          // Verify backend session explicitly before fetching details
+          // Verify backend session
           try {
             const s = await fetch(`${API_BASE_URL}/auth/status`, { credentials: 'include' });
             if (s.ok) {
               const sd = await s.json();
-              console.debug('post-link auth.status', sd);
               if (sd.logged_in && sd.wallet_address?.toLowerCase() === currentAccount.address.toLowerCase()) {
+                
+                // ✅ NEW: Auto-claim faucet reward
+                try {
+                  setBackendLoginStatus("Claiming welcome reward...");
+                  await claimFaucetReward(currentAccount.address, currentActiveWallet);
+                  setBackendLoginStatus("Welcome reward claimed! 🎉");
+                } catch (claimError: any) {
+                  console.warn("Faucet claim failed:", claimError);
+                  // Don't block login if claim fails
+                  setBackendLoginStatus(`Login successful (claim failed: ${claimError.message})`);
+                }
+                
+                // Navigate to dashboard
                 navigate('/dashboard', { replace: true });
                 return;
               }
@@ -205,13 +310,13 @@ const LoginPage = () => {
           }
         }
       } else {
+        // User already processed, check backend session
         try {
-          const res = await fetch(`${API_BASE_URL}/auth/status`, {credentials: 'include'});
+          const res = await fetch(`${API_BASE_URL}/auth/status`, { credentials: 'include' });
           if (res.ok) {
             const data = await res.json();
             if (data.logged_in && data.wallet_address?.toLowerCase() === currentAccount.address.toLowerCase()) {
               setBackendLoginStatus(`Backend session active.`);
-              setUiState("idle");
               navigate('/dashboard', { replace: true });
               return;
             } else {
@@ -231,7 +336,7 @@ const LoginPage = () => {
     } else if (!account && !isConnecting) {
       setBackendLoginStatus("Awaiting wallet connection...");
     }
-  }, [account, activeWallet, isBackendLoading, isConnecting, linkWalletToBackend]);
+  }, [account, activeWallet, isBackendLoading, isConnecting, linkWalletToBackend, navigate]);
 
   // --- User Details Form Submission Handler ---
   

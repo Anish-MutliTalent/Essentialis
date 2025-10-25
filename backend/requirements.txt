@@ -12,3 +12,5 @@ google-auth
 google-auth-oauthlib
 itsdangerous
 gunicorn
+eth-account
+erc6492-signature-verifier
