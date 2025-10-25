@@ -56,6 +56,7 @@ const MintDocPage: React.FC = () => {
         tokenizationDate: new Date().toISOString().split('T')[0]
     });
     const [sourceFile, setSourceFile] = useState<File | null>(null);
+    const [hasAutoSubmitted, setHasAutoSubmitted] = useState(false); // NEW: Track if auto-submit happened
 
     useEffect(() => {
         if (profile?.name) {
@@ -69,7 +70,7 @@ const MintDocPage: React.FC = () => {
         const quickFromState = (location.state as any)?.quickFile as File | undefined;
         const quickFallback = (window as any).__quickUploadFile as File | undefined;
         const quickFile = quickFromState || quickFallback;
-        if (quickFile) {
+        if (quickFile && !hasAutoSubmitted) { // CHANGED: Check hasAutoSubmitted
             setSourceFile(quickFile);
             setFormData(prev => ({
                 ...prev,
@@ -77,7 +78,7 @@ const MintDocPage: React.FC = () => {
                 description: `Auto-generated description for ${quickFile.name.split('.').slice(0, -1).join('.') || quickFile.name}`,
             }));
         }
-    }, [location.state]);
+    }, [location.state, hasAutoSubmitted]); // CHANGED: Added hasAutoSubmitted dependency
 
     // Auto-submit when quickFile present, wallet/account are ready and sourceFile state is populated
     useEffect(() => {
@@ -85,23 +86,25 @@ const MintDocPage: React.FC = () => {
         const quickFallback = (window as any).__quickUploadFile as File | undefined;
         const quickFile = quickFromState || quickFallback;
 
-        if (quickFile && account && activeWallet && sourceFile && !isSubmitting) {
+        if (quickFile && account && activeWallet && sourceFile && !isSubmitting && !hasAutoSubmitted) { // CHANGED: Check hasAutoSubmitted
             // small delay to allow state updates/UI to settle
             const t = setTimeout(() => {
                 (async () => {
                     try {
+                        setHasAutoSubmitted(true); // CHANGED: Mark as submitted
                         const fakeEvent = { preventDefault: () => {} } as unknown as React.FormEvent;
                         await handleSubmit(fakeEvent);
                     } catch (err) {
                         console.error('Auto submit failed', err);
+                        setHasAutoSubmitted(false); // CHANGED: Reset on error so user can retry
                     }
                 })();
             }, 300);
             return () => clearTimeout(t);
-        } else if (quickFile && (!account || !activeWallet)) {
+        } else if (quickFile && (!account || !activeWallet) && !hasAutoSubmitted) { // CHANGED: Check hasAutoSubmitted
             setStatusMessage('File ready — waiting for wallet connection to auto-submit.');
         }
-    }, [account, activeWallet, location.state, sourceFile, isSubmitting]);
+    }, [account, activeWallet, location.state, sourceFile, isSubmitting, hasAutoSubmitted]); // CHANGED: Added hasAutoSubmitted dependency
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setFormData(f => ({ ...f, [e.target.name]: e.target.value }));
@@ -298,11 +301,16 @@ const MintDocPage: React.FC = () => {
                     await txResponse.wait();
                 }
                 
-                // Success
+                // Success - CLEAN UP QUICK UPLOAD STATE
+                // CHANGED: Clear the quick upload state before navigation
+                delete (window as any).__quickUploadFile;
+                
                 setStatusMessage('Document minted successfully — updating documents list...');
                 setProgress(100);
                 try { await refreshDocs(); } catch (e) { console.warn('refreshDocs failed', e); }
-                setTimeout(() => navigate('/dashboard/my-docs'), 1200);
+                
+                // CHANGED: Navigate with state replacement to clear quickFile
+                setTimeout(() => navigate('/dashboard/my-docs', { replace: true, state: {} }), 1200);
                 
             } catch (txErr: any) {
                 console.error('Transaction failed', txErr);
