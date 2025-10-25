@@ -52,7 +52,7 @@ const Documentation = () => {
         items: [
           {
             title: 'End-to-End Encryption',
-            content: 'All documents are encrypted using AES-256 encryption before leaving your device. Only you have the keys to decrypt your files.'
+            content: 'All documents are encrypted using AES-GCM encryption before leaving your device. Only you have the keys to decrypt your files.'
           },
           {
             title: 'Zero-Knowledge Architecture',
