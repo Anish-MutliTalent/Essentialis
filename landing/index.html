@@ -36,6 +36,15 @@
       ]
     }
     </script>
+    <script>
+    document.addEventListener("click", function(e) {
+      const anchor = e.target.closest("a");
+      if (anchor && anchor.href && !anchor.href.includes("demo.essentialis.cloud")) {
+        e.preventDefault();
+        window.open(anchor.href, "_blank");
+      }
+    });
+    </script>
     <meta property="og:title" content="Essentialis Cloud - Blockchain Cloud Storage">
     <meta property="og:description" content="Discover secure and decentralized cloud storage solutions with Essentialis Cloud. Protect your data with blockchain technology.">
     <meta property="og:image" content="https://essentialis.cloud/favicon.svg">
