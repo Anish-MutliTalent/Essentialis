@@ -13,5 +13,14 @@
   <body>
     <div id="root" style="width:100%"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+    document.addEventListener("click", function(e) {
+      const anchor = e.target.closest("a");
+      if (anchor && anchor.href && !anchor.href.includes("demo.essentialis.cloud")) {
+        e.preventDefault();
+        window.open(anchor.href, "_blank");
+      }
+    });
+    </script>
   </body>
 </html>
