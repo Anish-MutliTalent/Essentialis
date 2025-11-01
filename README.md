@@ -1,7 +1,7 @@
 # ☁️ Essentialis Cloud
 
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)  
-[![Built With](https://img.shields.io/badge/Built%20With-Blockchain%20%7C%20IPFS%20%7C%20React-blue.svg)](#)
+[![Built With](https://img.shields.io/badge/Built%20With-Optimism%20%7C%20IPFS%20%7C%20React-blue.svg)](#)
 
 > A data storage platform built on blockchain and IPFS decentralisation for **personal data ownership, privacy, and simplicity**
 
