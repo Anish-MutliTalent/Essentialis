@@ -232,7 +232,7 @@ const MintDocPage: React.FC = () => {
             const metadata = {
                 name: formData.name,
                 description: formData.description,
-                image: "https://via.placeholder.com/400x400/1f2937/ffffff?text=Document",
+                image: "https://essentialis.cloud/favicon-96x96.png",
                 attributes: [
                     { "trait_type": "Owner", "value": formData.ownerName },
                     { "trait_type": "Tokenization Date", "value": formData.tokenizationDate },

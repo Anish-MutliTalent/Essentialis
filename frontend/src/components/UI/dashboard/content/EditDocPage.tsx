@@ -161,6 +161,7 @@ const EditDocPage: React.FC = () => {
                     ...originalMetadata,
                     name: formData.name,
                     description: formData.description,
+                    image: "https://essentialis.cloud/favicon-96x96.png",
                     attributes: [
                         ...originalMetadata.attributes.filter((a: any) => !['File Size', 'File Type', 'File Extension', 'Counter'].includes(a.trait_type)),
                         { "trait_type": "File Size", "value": `${(sourceFile.size / 1024).toFixed(2)} KB` },
@@ -178,6 +179,7 @@ const EditDocPage: React.FC = () => {
                     ...originalMetadata,
                     name: formData.name,
                     description: formData.description,
+                    image: "https://essentialis.cloud/favicon-96x96.png",
                 };
             }
 

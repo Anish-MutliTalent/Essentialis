@@ -3,7 +3,7 @@ import { Button, Card, CardHeader, CardContent, Heading, Text } from '../../inde
 
 const Settings: React.FC = () => {
   const clearLocal = () => {
-    if (!confirm('Clear local application data?')) return;
+    if (!confirm('Clear local application data? Have you tried disconnecting and reconnecting your wallet?')) return;
     try {
       localStorage.clear();
       sessionStorage.clear();
@@ -20,7 +20,7 @@ const Settings: React.FC = () => {
           <Heading level={2}>Settings</Heading>
         </CardHeader>
         <CardContent>
-          <Text color="muted">All configurable client-side settings have been removed.</Text>
+          <Text color="muted">This is a destructive action so please use carefully. This is only to be used if the Disconnect Wallet function doesn't work as expected.</Text>
           <div className="mt-4">
             <Button variant="secondary" size="sm" onClick={clearLocal}>Clear Local Data</Button>
           </div>

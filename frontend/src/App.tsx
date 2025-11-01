@@ -5,6 +5,7 @@ import LoginPage from './components/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import { useActiveAccount } from 'thirdweb/react';
 import { DocsProvider } from "./components/contexts/DocsContext";
+import { useEffect } from 'react';
 
 // Dashboard content components
 import DashboardHome from './components/UI/dashboard/content/DashboardHome';
@@ -65,7 +66,7 @@ function AppContent() {
 function RootRedirect() {
   const navigate = useNavigate();
 
-  React.useEffect(() => {
+  useEffect(() => {
   let mounted = true;
   console.debug('RootRedirect mounted');
   (async () => {

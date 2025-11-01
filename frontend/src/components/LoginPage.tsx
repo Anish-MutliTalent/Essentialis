@@ -11,7 +11,7 @@ import { client } from '../lib/thirdweb';
 import { signMessage } from "thirdweb/utils";
 import { FcGoogle } from "react-icons/fc";
 import MetaMaskLogo from "./UI/MetaMaskLogo";
-import { getContract, prepareContractCall, sendTransaction } from "thirdweb";
+import { getContract, prepareContractCall, readContract, sendTransaction } from "thirdweb";
 import { baseSepolia } from "thirdweb/chains";
 
 // Design System Components
@@ -35,9 +35,6 @@ const API_BASE_URL = '/api';
 
 async function claimFaucetReward(userAddress: string, activeWallet: any) {
   try {
-    console.log("🎁 Claiming faucet reward for:", userAddress);
-
-    // 1. Get signature from backend
     const response = await fetch('/api/faucet/get-claim-signature', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -54,28 +51,39 @@ async function claimFaucetReward(userAddress: string, activeWallet: any) {
 
     console.log("✅ Got signature, submitting claim...");
 
-    // 2. Prepare contract call
     const contract = getContract({
       client,
       chain: baseSepolia, // Match your chain
       address: contractAddress,
     });
 
-    const transaction = prepareContractCall({
+    const nonce = readContract({
       contract,
-      method: "function claim(address recipient, uint256 amount, uint256 deadline, bytes signature)",
-      params: [userAddress, amount, deadline, signature],
+      method: "function nonces(address user) external view returns (uint256)",
+      params: [userAddress],
     });
 
-    // 3. Send transaction (gas sponsored for this contract!)
-    const account = activeWallet.getAccount();
-    const result = await sendTransaction({
-      transaction,
-      account,
-    });
+    if ((await nonce).toString() === "0") {
+      console.log("🎁 Claiming faucet reward for:", userAddress);
+      
+      const account = activeWallet.getAccount();
 
-    console.log("✅ Claim successful! Tx hash:", result.transactionHash);
-    return result;
+      const transaction = prepareContractCall({
+        contract,
+        method: "function claim(address recipient, uint256 amount, uint256 deadline, bytes signature)",
+        params: [userAddress, amount, deadline, signature],
+      });
+
+      const result = await sendTransaction({
+        transaction,
+        account,
+      });
+
+      console.log("✅ Claim successful! Tx hash:", result.transactionHash);
+      return result;
+    } else {
+      return null; // Already claimed
+    }
 
   } catch (error: any) {
     console.error("❌ Faucet claim failed:", error);
@@ -204,20 +212,21 @@ const LoginPage = () => {
       let signature;
 
       // ✅ FIX: Handle different wallet types explicitly
-      if (wallet.id === "io.metamask" || wallet.id === "walletConnect") {
-        // For external wallets (MetaMask, WalletConnect), use EIP-1193 personal_sign
-        const provider = wallet.getProvider();
-        if (!provider) throw new Error("No provider available");
+      // if (wallet.id === "io.metamask" || wallet.id === "walletConnect") {
+      //   // For external wallets (MetaMask, WalletConnect), use EIP-1193 personal_sign
+      //   const provider = wallet.getProvider();
+      //   if (!provider) throw new Error("No provider available");
         
-        signature = await provider.request({
-          method: "personal_sign",
-          params: [
-            // Convert message to hex
-            `0x${Buffer.from(message_to_sign, 'utf8').toString('hex')}`,
-            acct.address
-          ]
-        });
-      } else if (wallet.id === "inApp") {
+      //   signature = await provider.request({
+      //     method: "personal_sign",
+      //     params: [
+      //       // Convert message to hex
+      //       `0x${Buffer.from(message_to_sign, 'utf8').toString('hex')}`,
+      //       acct.address
+      //     ]
+      //   });
+      // } else 
+      if (wallet.id === "inApp") {
         // For in-app wallets, get the personal wallet (EOA)
         const personalWallet = wallet.getPersonalWallet?.();
         const signerAccount = personalWallet 
@@ -231,7 +240,6 @@ const LoginPage = () => {
           message: message_to_sign,
         });
       } else {
-        // Generic fallback
         const accountObj = wallet.getAccount();
         if (!accountObj) throw new Error("Wallet has no Account");
         
@@ -291,9 +299,11 @@ const LoginPage = () => {
                 
                 // ✅ NEW: Auto-claim faucet reward
                 try {
-                  setBackendLoginStatus("Claiming welcome reward...");
-                  await claimFaucetReward(currentAccount.address, currentActiveWallet);
-                  setBackendLoginStatus("Welcome reward claimed! 🎉");
+                  setBackendLoginStatus("...");
+                  const rewardResult = await claimFaucetReward(currentAccount.address, currentActiveWallet);
+                  if (rewardResult) {
+                    setBackendLoginStatus("Welcome reward claimed! 🎉");
+                  }
                 } catch (claimError: any) {
                   console.warn("Faucet claim failed:", claimError);
                   // Don't block login if claim fails
