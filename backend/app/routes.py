@@ -1,6 +1,11 @@
 # app/routes.py
+import requests
+import rlp
+from eth_account._utils.legacy_transactions import serializable_unsigned_transaction_from_dict
+from eth_keys.datatypes import Signature
 from flask import Blueprint, request, jsonify, current_app, session, render_template
 from web3 import Web3  # IMPORT Web3
+from eth_keys import keys
 from itsdangerous import URLSafeTimedSerializer  # IMPORT URLSafeTimedSerializer
 
 # Import from your app modules using relative imports
@@ -168,6 +173,76 @@ def user_details():
             "email": user.email,  # Include other relevant info
             "wallet_address": user.wallet_address
         }), 200
+
+
+@bp.route("/pubkey", methods=["GET"])
+def get_public_key():
+    address = request.args.get("address", "").lower()
+    if not Web3.is_address(address):
+        return jsonify({"error": "Invalid address"}), 400
+
+    try:
+        # 1️⃣ Fetch recent normal transactions (outgoing) using v2 API
+        url = (
+            f"https://api.etherscan.io/v2/api"
+            f"?module=account&action=txlist"
+            f"&address={address}"
+            f"&sort=desc&apikey=PGBQAJGXWVIKREF5UER6I8227MEGPU8Q66"
+            f"&chainid=84532"
+        )
+        resp = requests.get(url).json()
+        print(resp)
+        if resp.get("status") != "1" or not resp.get("result"):
+            return jsonify({"error": "No transactions found for this address"}), 404
+
+        # 2️⃣ Find first outgoing transaction (from == address)
+        tx = None
+        for t in resp["result"]:
+            if t["from"].lower() == address:
+                tx = t
+                break
+
+        if not tx:
+            return jsonify({"error": "No outgoing transactions found"}), 404
+
+        # 3️⃣ Fetch the raw transaction to recover sender’s public key
+        tx_hash = tx["hash"]
+        tx_data = current_app.w3.eth.get_transaction(tx_hash)
+
+        # Ensure v, r, s are integers, not HexBytes
+        v = current_app.w3.to_int(tx_data.v)
+        r = current_app.w3.to_int(tx_data.r)
+        s = current_app.w3.to_int(tx_data.s)
+
+        # 3️⃣ Build the unsigned transaction
+        unsigned_tx = {
+            "nonce": tx_data.nonce,
+            "gasPrice": tx_data.gasPrice,
+            "gas": tx_data.gas,
+            "to": tx_data.to,
+            "value": tx_data.value,
+            "data": tx_data.input,
+            "chainId": tx_data.chainId,
+        }
+
+        # 4️⃣ Serialize and hash
+        stx = serializable_unsigned_transaction_from_dict(unsigned_tx)
+        encoded = rlp.encode(stx)
+        tx_hash_unsigned = Web3.keccak(encoded)
+
+        # 5️⃣ Recover the public key
+        signature = Signature(vrs=(v, r, s))
+        pubkey_bytes = signature.recover_public_key_from_msg_hash(tx_hash_unsigned)
+        pubkey_hex = pubkey_bytes.to_hex()
+
+        if request.headers.get("Accept") == "text/plain":
+            return pubkey_hex, 200, {"Content-Type": "text/plain"}
+
+        return jsonify({"pubkey": pubkey_hex})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 
 # --- User/Wallet Virtualization (Conceptual - relies on Web3Auth/Magic on client) ---

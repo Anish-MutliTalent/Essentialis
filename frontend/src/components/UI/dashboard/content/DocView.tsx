@@ -11,16 +11,29 @@ import { client } from '../../../../lib/thirdweb';
 import { friendlyFileTypeLabel } from '../../../../lib/docs';
 
 import {
-    unwrapDek,
-    aesGcmDecrypt,
-    decode,
-    split,
-    divide,
-    sha256,
-    hmacSha256
+  unwrapDek,
+  unwrapSharedDek,
+  unwrapSharedDekWithSignature,
+  unwrapSharedDekWithProvider,
+  aesGcmDecrypt,
+  decode,
+  split,
+  divide,
+  sha256,
+  hmacSha256
 } from '../../../../lib/crypto';
+import { shareWithWallet } from '../../../../lib/share';
 
 window.Buffer = window.Buffer || Buffer;
+
+function parseHexToBytes(hexStr: string): Uint8Array {
+  let s = String(hexStr || '').trim();
+  if (!s) throw new Error('Empty hex string for nonce');
+  if (s.startsWith('0x')) s = s.slice(2);
+  if (s.length % 2 === 1) s = '0' + s;
+  if (!/^[0-9a-fA-F]+$/.test(s)) throw new Error('Nonce is not valid hex');
+  return new Uint8Array(Buffer.from(s, 'hex'));
+}
 
 interface DocMetadata {
   name: string;
@@ -32,7 +45,10 @@ interface DocMetadata {
   }>;
   encrypted_file_cid: string;
   nonce: string;
-  wrapped_deks: Record<string, string>;
+  // wrapped_deks entries may be string (hex) or objects with more fields
+  wrapped_deks: Record<string, any>;
+  // optional checksum for encrypted data
+  encrypted_data_sha256_b64?: string;
 }
 
 const DocView: React.FC = () => {
@@ -46,6 +62,9 @@ const DocView: React.FC = () => {
   const [isDecrypting, setIsDecrypting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [decryptedFileUrl, setDecryptedFileUrl] = useState<string | null>(null);
+  const [recipientAddress, setRecipientAddress] = useState('');
+  const [shareStatus, setShareStatus] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
 
   useEffect(() => {
     const fetchDocData = async () => {
@@ -92,31 +111,308 @@ const DocView: React.FC = () => {
       if (subchunks.length < 2) throw new Error("Invalid metadata chunk format.");
       const [chunk_a, chunk_b] = subchunks;
 
-      setStatusMessage("Step 3/6: Reconstructing encrypted data...");
-      const owner = account.address;
+  setStatusMessage("Step 3/6: Reconstructing encrypted data...");
+      const ownerAddress = account.address;
+      const ownerLower = ownerAddress.toLowerCase();
+      const ownerChecksummed = (() => { try { return ethers.utils.getAddress(ownerAddress); } catch { return ownerAddress; } })();
       const timestamp = metadata.attributes.find(a => a.trait_type === "Tokenization Date")?.value;
       const counterStr = metadata.attributes.find(a => a.trait_type === "Counter")?.value;
       if (!timestamp || !counterStr) throw new Error("Missing required attributes (timestamp/counter) for decryption.");
 
-      // Reverse the chained multiplication in the correct order
-      const p2_rec = await divide(chunk_a, counterStr);
-      const p1_rec = await divide(p2_rec, timestamp);
-      const encryptedDataB64 = await divide(p1_rec, owner);
-      const encryptedData = Buffer.from(encryptedDataB64, 'base64');
+      // Resolve wrapped entry up-front to decide owner vs recipient path
+      const w = metadata.wrapped_deks || ({} as any);
+      let rawEntry = w[ownerLower] || w[ownerAddress] || w[ownerChecksummed] || null;
+      if (!rawEntry) {
+        const key = Object.keys(w).find(k => k.toLowerCase() === ownerLower);
+        if (key) rawEntry = w[key];
+      }
+      if (!rawEntry) throw new Error("Access Denied: You do not have a key for this document.");
+
+      // Extract sharing markers
+      let wrappedDekHex: string | null = null;
+      let ownerEphemeralPubKey: string | undefined;
+      let ownerSignature: string | undefined;
+      let providerEncrypted: any = undefined;
+      if (typeof rawEntry === 'string') {
+        wrappedDekHex = rawEntry;
+      } else if (typeof rawEntry === 'object' && rawEntry !== null) {
+        if (rawEntry.wrapped_dek) wrappedDekHex = rawEntry.wrapped_dek;
+        if (rawEntry.wrappedDek) wrappedDekHex = wrappedDekHex || rawEntry.wrappedDek;
+        ownerEphemeralPubKey = rawEntry.owner_ephemeral_pubkey || rawEntry.ownerEphemPubKey || rawEntry.ownerEphemeralPubKey;
+        ownerSignature = rawEntry.owner_signature || rawEntry.ownerSignature || rawEntry.owner_sig;
+        providerEncrypted = rawEntry.provider_encrypted || rawEntry.providerEncrypted || rawEntry.provider;
+      }
+      if (!wrappedDekHex) throw new Error('Wrapped DEK not found in metadata entry; unable to decrypt.');
+
+      // Helper to decode a payload string into bytes (hex/base64/base64url/binary)
+      const base64urlRegex = /^[A-Za-z0-9\-_]+={0,2}$/;
+      const base64Regex = /^[A-Za-z0-9+/]+=*$/;
+      const decodePayloadToBytes = (payloadStr: string): Uint8Array => {
+        const maybeStr = String(payloadStr || '');
+        const strippedHex = maybeStr.replace(/^0x/, '');
+        const isHex = /^([0-9a-fA-F]{2})+$/.test(strippedHex) && (maybeStr.startsWith('0x') || /^[0-9a-fA-F]+$/.test(maybeStr));
+        if (isHex) return new Uint8Array(Buffer.from(strippedHex, 'hex'));
+        if (base64urlRegex.test(maybeStr) || base64Regex.test(maybeStr)) {
+          const b64 = maybeStr.replace(/-/g, '+').replace(/_/g, '/');
+          return new Uint8Array(Buffer.from(b64, 'base64'));
+        }
+        return new Uint8Array(Buffer.from(maybeStr, 'binary'));
+      };
+
+      let encryptedData: Uint8Array;
+      let ownerOperandUsed = ownerAddress;
+
+      const isOwnerMode = !ownerSignature && !providerEncrypted && !ownerEphemeralPubKey;
+      if (isOwnerMode) {
+        // OWNER MODE: restore original reconstruction path (counter -> timestamp -> ownerAddress)
+        const p2_rec = await divide(chunk_a, counterStr);
+        const p1_rec = await divide(p2_rec, timestamp);
+        const encryptedPayloadStr = await divide(p1_rec, ownerAddress);
+        encryptedData = decodePayloadToBytes(encryptedPayloadStr);
+        ownerOperandUsed = ownerAddress;
+      } else {
+        // RECIPIENT MODE: reconstruct using uploader's address (from wrapped_deks keys), prefer entry-level checksum, try standard order first
+        type Cand = { ownerOperand: string; order: string; bytes: Uint8Array; sha?: string };
+        const candidates: Cand[] = [];
+
+        // Build owner operand candidates from wrapped_deks keys and their normalized forms
+        const wd = (metadata.wrapped_deks || {}) as Record<string, any>;
+        const uniq = new Set<string>();
+        for (const k of Object.keys(wd)) {
+          if (!k) continue;
+          uniq.add(k);
+          uniq.add(k.toLowerCase());
+          try { uniq.add(ethers.utils.getAddress(k)); } catch { /* ignore */ }
+        }
+        const ownerCandidates = Array.from(uniq);
+        if (ownerCandidates.length === 0) ownerCandidates.push(ownerAddress, ownerLower, ownerChecksummed);
+
+        // Determine preferred checksum: entry-level (any wrapped entry) first, else metadata-level
+        let targetSha: string | null = null;
+        let checksumSource: 'entry' | 'metadata' | 'none' = 'none';
+        if (typeof rawEntry === 'object' && rawEntry && rawEntry.encrypted_data_sha256_b64) {
+          targetSha = rawEntry.encrypted_data_sha256_b64;
+          checksumSource = 'entry';
+        }
+        if (!targetSha) {
+          for (const key of Object.keys(wd)) {
+            const e = wd[key];
+            if (e && typeof e === 'object' && e.encrypted_data_sha256_b64) { targetSha = e.encrypted_data_sha256_b64; checksumSource = 'entry'; break; }
+          }
+        }
+        if (!targetSha && metadata.encrypted_data_sha256_b64) {
+          targetSha = metadata.encrypted_data_sha256_b64;
+          checksumSource = 'metadata';
+        }
+
+        // Helper to attempt a divide chain for a given order and owner operand
+        const tryOrder = async (orderName: string, ownerOp: string): Promise<Cand | null> => {
+          try {
+            let s1: string;
+            let s2: string;
+            let s3: string;
+            switch (orderName) {
+              case 'counter>timestamp>owner':
+                s1 = await divide(chunk_a, counterStr);
+                s2 = await divide(s1, timestamp!);
+                s3 = await divide(s2, ownerOp);
+                break;
+              case 'owner>timestamp>counter':
+                s1 = await divide(chunk_a, ownerOp);
+                s2 = await divide(s1, timestamp!);
+                s3 = await divide(s2, counterStr);
+                break;
+              case 'timestamp>counter>owner':
+                s1 = await divide(chunk_a, timestamp!);
+                s2 = await divide(s1, counterStr);
+                s3 = await divide(s2, ownerOp);
+                break;
+              case 'timestamp>owner>counter':
+                s1 = await divide(chunk_a, timestamp!);
+                s2 = await divide(s1, ownerOp);
+                s3 = await divide(s2, counterStr);
+                break;
+              case 'counter>owner>timestamp':
+                s1 = await divide(chunk_a, counterStr);
+                s2 = await divide(s1, ownerOp);
+                s3 = await divide(s2, timestamp!);
+                break;
+              case 'owner>counter>timestamp':
+                s1 = await divide(chunk_a, ownerOp);
+                s2 = await divide(s1, counterStr);
+                s3 = await divide(s2, timestamp!);
+                break;
+              default:
+                return null;
+            }
+            const bytes = decodePayloadToBytes(s3);
+            const c: Cand = { ownerOperand: ownerOp, order: orderName, bytes };
+            if (targetSha) {
+              try { c.sha = Buffer.from(await sha256(bytes)).toString('base64'); } catch { /* ignore */ }
+            }
+            return c;
+          } catch (_) { return null; }
+        };
+
+        // 1) Try standard order first across all owner candidates
+        const standardOrder = 'counter>timestamp>owner';
+        for (const ownerOp of ownerCandidates) {
+          const c = await tryOrder(standardOrder, ownerOp);
+          if (c) candidates.push(c);
+        }
+
+        // Prefer checksum match if available; otherwise choose the largest buffer
+        let chosen: Cand | null = null;
+        if (targetSha) {
+          chosen = candidates.find(c => c.sha === targetSha) || null;
+          // If checksum matched but candidate is implausibly small, ignore the match
+          if (chosen && chosen.bytes.length < 64) {
+            console.warn('[DocView] checksum matched tiny ciphertext; ignoring match and choosing largest candidate instead');
+            chosen = null;
+          }
+        }
+        if (!chosen && candidates.length > 0) {
+          chosen = candidates.reduce((a, b) => (b.bytes.length > a.bytes.length ? b : a));
+        }
+
+        // 2) If no good candidate or suspiciously small ciphertext, try alternate orders
+        if (!chosen || (chosen.bytes.length < 64)) {
+          const orders = [
+            'owner>timestamp>counter',
+            'timestamp>counter>owner',
+            'timestamp>owner>counter',
+            'counter>owner>timestamp',
+            'owner>counter>timestamp'
+          ];
+          const more: Cand[] = [];
+          for (const ord of orders) {
+            for (const ownerOp of ownerCandidates) {
+              const c = await tryOrder(ord, ownerOp);
+              if (c) more.push(c);
+            }
+          }
+          if (targetSha) {
+            const m = more.find(c => c.sha === targetSha);
+            if (m) chosen = m;
+          }
+          if (!chosen && more.length > 0) {
+            chosen = more.reduce((a, b) => (b.bytes.length > a.bytes.length ? b : a));
+          }
+        }
+
+        if (!chosen) throw new Error('Failed to reconstruct encrypted payload for recipient.');
+
+        encryptedData = chosen.bytes;
+        ownerOperandUsed = chosen.ownerOperand;
+        const sizes = candidates.map(c => c.bytes.length).slice(0, 10);
+        console.debug('[DocView] candidates len (first 10)=', sizes, 'checksumSource=', checksumSource, 'targetSha?', !!targetSha);
+        console.debug('[DocView] decoded encryptedData length=', encryptedData.length, 'using owner operand=', ownerOperandUsed, 'order=', chosen.order);
+      }
+
+      // Quick sanity check: AES-GCM expects at least 16 bytes of tag
+      if (!encryptedData || encryptedData.length < 16) {
+        throw new Error(
+          `Encrypted payload too small (${encryptedData ? encryptedData.length : 0} bytes). ` +
+          `Possible encoding mismatch (hex vs base64) or truncated data.`
+        );
+      }
 
       setStatusMessage("Step 4/6: Unwrapping access key... Please sign message in wallet.");
-      const wrappedDekHex = metadata.wrapped_deks[owner.toLowerCase()];
-      if (!wrappedDekHex) throw new Error("Access Denied: You do not have a key for this document.");
 
-      const nonce = ethers.utils.arrayify(metadata.nonce);
-      const dek = await unwrapDek(signer, wrappedDekHex, nonce);
+      // wrapped entry and fields resolved earlier
+
+      // Resolve nonce from entry.nonce/nonce_hex or metadata.nonce/nonce_hex; expect 12-byte AES-GCM IV
+      let nonceSource = 'metadata';
+      const entryNonceHex = (typeof rawEntry === 'object' && rawEntry !== null) ? (rawEntry.nonce || (rawEntry as any).nonce_hex) : null;
+      const metaNonceHex = (metadata as any).nonce || (metadata as any).nonce_hex || null;
+      const nonceHexCandidate = entryNonceHex || metaNonceHex;
+      if (!nonceHexCandidate) {
+        throw new Error('Nonce not found in metadata or wrapped entry; cannot decrypt.');
+      }
+      const nonceBytes = parseHexToBytes(String(nonceHexCandidate));
+      if (nonceBytes.length !== 12) {
+        throw new Error(`Invalid nonce length ${nonceBytes.length}; expected 12 bytes. Nonce source=${entryNonceHex ? 'entry' : ((metadata as any).nonce ? 'metadata.nonce' : 'metadata.nonce_hex')}`);
+      }
+      nonceSource = entryNonceHex ? 'entry' : ((metadata as any).nonce ? 'metadata.nonce' : 'metadata.nonce_hex');
+
+      let dek: Uint8Array;
+
+      // Choose unwrapping strategy based on how the owner shared the DEK
+      console.debug('[DocView] unwrap inputs:', {
+        hasOwnerSignature: !!ownerSignature,
+        hasProviderEncrypted: !!providerEncrypted,
+        hasOwnerEphem: !!ownerEphemeralPubKey,
+        wrappedDekHexPreview: wrappedDekHex ? `${wrappedDekHex.slice(0, 10)}... (len=${wrappedDekHex.length})` : null,
+        nonceSource: nonceSource,
+        noncePreview: nonceHexCandidate ? String(nonceHexCandidate).slice(0, 20) : null,
+        nonceLen: nonceBytes.length,
+        encryptedDataLen: encryptedData.length
+      });
+
+      if (isOwnerMode) {
+        dek = await unwrapDek(signer, wrappedDekHex, nonceBytes);
+      } else if (ownerSignature) {
+        dek = await unwrapSharedDekWithSignature(signer, ownerSignature, wrappedDekHex, nonceBytes);
+      } else if (providerEncrypted) {
+        dek = await unwrapSharedDekWithProvider(signer, providerEncrypted);
+      } else if (ownerEphemeralPubKey) {
+        try {
+          dek = await unwrapSharedDek(signer, ownerEphemeralPubKey, wrappedDekHex, nonceBytes);
+        } catch (e) {
+          throw new Error(
+            `Recipient unwrap failed: ${(e instanceof Error) ? e.message : String(e)}. ` +
+            `This usually happens when your wallet provider does not expose the private key for ECDH (e.g. in-page MetaMask). ` +
+            `Ask the owner to re-share using the provider-compatible signature method, or use a signer that exposes a private key.`
+          );
+        }
+      } else {
+        // If recipient path lacks owner_signature/provider/ephemeral, entry is incompatible for recipient unwrap
+        throw new Error('Recipient unwrap unsupported: missing owner_signature/provider/ephemeral in entry. Ask owner to re-share using signature-based method.');
+      }
+
+      // Diagnostic info about decoded DEK/nonce lengths (don't log raw keys)
+
+      let dekHashStr: string | null = null;
+      try {
+        dekHashStr = Buffer.from(await sha256(dek)).toString('base64');
+        console.debug('[DocView] dek derived length=', dek.length, 'sha256(b64)=', dekHashStr);
+      } catch (e) {
+        console.debug('[DocView] dek hash skipped due to error', e);
+      }
+
+      // If owner provided a dek checksum in metadata entry, verify it matches the derived DEK before attempting AES decrypt
+      const wrappedEntryObj = (typeof rawEntry === 'object' && rawEntry !== null) ? rawEntry : null;
+      const ownerDekSha = wrappedEntryObj ? (wrappedEntryObj.dek_sha256_b64 || wrappedEntryObj.dekSha256B64 || wrappedEntryObj.dek_sha) : null;
+      if (ownerDekSha && dekHashStr && ownerDekSha !== dekHashStr) {
+        throw new Error(`Derived DEK mismatch: owner's dek_sha256_b64=${ownerDekSha.slice(0,12)}..., derived dek_sha256_b64=${dekHashStr.slice(0,12)}.... Ask owner to re-share.`);
+      }
+
+      // If owner provided an encrypted_data checksum, verify the reconstructed ciphertext matches before decrypting
+      const ownerEncryptedSha = wrappedEntryObj ? (wrappedEntryObj.encrypted_data_sha256_b64 || metadata.encrypted_data_sha256_b64) : metadata.encrypted_data_sha256_b64;
+      if (ownerEncryptedSha) {
+        const computedEncSha = Buffer.from(await sha256(encryptedData)).toString('base64');
+        console.debug('[DocView] encrypted_data sha check owner vs computed:', { ownerEncryptedShaPreview: ownerEncryptedSha?.slice(0,12), computedEncShaPreview: computedEncSha?.slice(0,12) });
+        if (computedEncSha !== ownerEncryptedSha) {
+          console.warn(`[DocView] Encrypted data checksum mismatch (non-blocking): owner ${ownerEncryptedSha.slice(0,12)}... != computed ${computedEncSha.slice(0,12)}.... Proceeding with decrypt; possible operand-casing or legacy metadata.`);
+        }
+      }
 
       setStatusMessage("Step 5/6: Decrypting file data...");
-      const data = await aesGcmDecrypt(dek, encryptedData, nonce);
+      let data: Uint8Array;
+      try {
+        data = await aesGcmDecrypt(dek, encryptedData, nonceBytes);
+      } catch (aesErr) {
+        // Provide more actionable diagnostics for AES-GCM failure without revealing raw keys
+        const msg = `AES-GCM decrypt failed: ${(aesErr instanceof Error) ? aesErr.message : String(aesErr)}. ` +
+          `Diagnostics: encryptedData.len=${encryptedData.length}, nonce.len=${nonceBytes.length}, wrappedDekHex.len=${wrappedDekHex ? wrappedDekHex.length : 0}, dek.sha256_b64=${dekHashStr}. ` +
+          `Possible causes: incorrect DEK, wrong nonce, or corrupted/truncated ciphertext. Try normalizing metadata encoding or re-sharing the DEK.`;
+        console.error('[DocView] AES decrypt diagnostic:', { encryptedLen: encryptedData.length, nonceLen: nonceBytes.length, wrappedDekHexLen: wrappedDekHex ? wrappedDekHex.length : 0, dekSha256B64: dekHashStr, nonceSource, error: aesErr });
+        throw new Error(msg);
+      }
 
       setStatusMessage("Step 6/6: Verifying data integrity...");
       const a_hash_b64 = Buffer.from(await sha256(data)).toString('base64');
-      const hmacKey = new TextEncoder().encode(owner + timestamp);
+      const hmacKey = new TextEncoder().encode((typeof (ownerOperandUsed) === 'string' ? ownerOperandUsed : ownerLower) + timestamp);
       const b_hash = await hmacSha256(hmacKey, encryptedData);
       const b_hash_b64 = Buffer.from(b_hash).toString('base64');
 
@@ -147,6 +443,34 @@ const DocView: React.FC = () => {
 
   const handleViewHistory = () => {
     navigate(`/dashboard/my-docs/${tokenId}/history`);
+  };
+
+  const handleShare = async () => {
+    if (!activeWallet || !metadata || !account) {
+      setShareStatus('Connect wallet and load metadata first.');
+      return;
+    }
+    if (!recipientAddress || !recipientAddress.startsWith('0x')) {
+      setShareStatus('Enter a valid recipient address (0x...).');
+      return;
+    }
+
+    setIsSharing(true);
+    setShareStatus('Sharing...');
+    try {
+      // Build signer using existing method (EIP-1193 provider)
+      const provider = new ethers.providers.Web3Provider(EIP1193.toProvider({ wallet: activeWallet, client, chain: activeWallet.getChain()! }));
+      const signer = provider.getSigner();
+
+  // We pass the metadata object directly; shareWithWallet will perform an on-chain update and return tx hash
+  const txHash = await shareWithWallet(signer, account, tokenId!, metadata, recipientAddress);
+  setShareStatus(`✅ Shared on-chain. Transaction: ${txHash}`);
+    } catch (e: any) {
+      console.error('Share failed', e);
+      setShareStatus(`Failed to share: ${e?.message || String(e)}`);
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   if (loading) return (
@@ -285,6 +609,26 @@ const DocView: React.FC = () => {
                   View History
                 </Button>
               </div>
+
+              {/* Sharing UI - visible to holders with wrapped DEK (owner/uploader) */}
+              {account && metadata && metadata.wrapped_deks && metadata.wrapped_deks[account.address.toLowerCase()] && (
+                <div className="mt-4 border-t pt-4 w-full">
+                  <Heading level={4} className="mb-2">Share this document</Heading>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={recipientAddress}
+                      onChange={(e) => setRecipientAddress(e.target.value)}
+                      placeholder="Enter recipient wallet address (0x...)"
+                      className="flex-grow border rounded-lg px-3 py-2 bg-gray-900"
+                    />
+                    <Button onClick={handleShare} disabled={isSharing} variant="primary" loading={isSharing}>
+                      {isSharing ? 'Sharing...' : 'Share'}
+                    </Button>
+                  </div>
+                  {shareStatus && <Text variant="small" className="mt-2" color="muted">{shareStatus}</Text>}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

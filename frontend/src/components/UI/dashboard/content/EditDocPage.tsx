@@ -110,7 +110,9 @@ const EditDocPage: React.FC = () => {
                 // chunk/prepare metadata - moderate weight
                 setProgress(30);
                 const metaChunk = {
-                    encrypted_data: ethers.utils.hexlify(encryptedData),
+                    // store encrypted data as base64 to avoid hex/base64 ambiguity
+                    encrypted_data: Buffer.from(encryptedData).toString('base64'),
+                    encrypted_data_format: 'base64',
                     wrapped_deks: { [owner.toLowerCase()]: wrappedDekHex }
                 };
                 const metaChunkFile = new Blob([JSON.stringify(metaChunk)], { type: 'application/json' });
