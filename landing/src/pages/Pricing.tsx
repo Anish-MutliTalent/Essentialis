@@ -274,9 +274,15 @@
                   <button className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-black px-8 py-3 rounded-lg font-semibold hover:from-yellow-500 hover:to-yellow-700 transition-all duration-300">
                     Contact Sales
                   </button>
-                  <button className="border border-yellow-400 text-yellow-400 px-8 py-3 rounded-lg font-semibold hover:bg-yellow-400/10 transition-all duration-300">
-                    Schedule Demo
-                  </button>
+                  <a
+                  href="https://demo.essentialis.cloud"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="border border-yellow-400 text-yellow-400 px-8 py-3 rounded-lg font-semibold hover:bg-yellow-400/10 transition-all duration-300 shadow-yellow-400/30 shadow-lg inline-flex items-center gap-2 animate-pulse hover:scale-105"
+                  style={{fontSize: '1.15rem'}}
+                >
+                  🎉 Experience Demo
+                </a>
                 </div>
               </div>
             </div>

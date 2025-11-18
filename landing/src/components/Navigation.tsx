@@ -65,6 +65,15 @@ const Navigation = () => {
                   {item.name}
                 </a>
               ))}
+              <a
+                  href="https://demo.essentialis.cloud"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="border border-yellow-400 text-yellow-400 px-5 py-3 rounded-lg font-semibold hover:bg-yellow-400/10 transition-all duration-300 shadow-yellow-400/30 shadow-lg inline-flex items-center gap-2 hover:scale-105"
+                  style={{fontSize: '1rem'}}
+                >
+                  🎉 Experience Demo
+                </a>
             </div>
           </div>
 
@@ -97,6 +106,16 @@ const Navigation = () => {
                 </div>
               </a>
             ))}
+            <a
+              href="https://demo.essentialis.cloud"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="border border-yellow-400 text-yellow-400 px-5 py-3 rounded-lg font-semibold hover:bg-yellow-400/10 transition-all duration-300 shadow-yellow-400/30 shadow-lg inline-flex items-center gap-2 w-full justify-center mt-2"
+              style={{fontSize: '1rem'}}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              🎉 Experience Demo
+            </a>
           </div>
         </div>
       )}

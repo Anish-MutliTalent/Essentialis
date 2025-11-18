@@ -14,9 +14,7 @@ const About = () => {
             </span>
           </h1>
           <p className="text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
-            We believe everyone deserves secure, permanent access to their most confidential documents. 
-            Essentialis Cloud is a simple, secure storage solution that gives ordinary people the power 
-            to protect their important files – without needing to understand complex technology.
+            Essentialis Cloud helps you hold onto your most important documents—forever. We make it simple to keep things safe and private, so you don’t have to worry.
           </p>
         </div>
 
@@ -27,14 +25,10 @@ const About = () => {
               <div>
                 <h2 className="text-3xl font-bold mb-6 text-yellow-500">Our Mission</h2>
                 <p className="text-gray-300 text-lg leading-relaxed mb-6">
-                  Everyone deserves secure, permanent access to their most confidential documents. 
-                  Too many people lose critical files like certificates, legal documents, and personal records 
-                  due to failed services, forgotten passwords, or technical problems.
+                  Everyone should be able to keep their personal documents safe and always within reach. Too often, people lose certificates, legal papers, or family records because of a lost password or a failed service.
                 </p>
                 <p className="text-gray-300 text-lg leading-relaxed">
-                  Essentialis Cloud solves this by giving ordinary people true ownership of their confidential documents 
-                  through advanced security and reliable storage – all wrapped in an interface 
-                  as simple as your favorite messaging app.
+                  Essentialis gives you control over your documents with simple, strong security—no tech skills required. If you know how to message, you know how to use this.
                 </p>
               </div>
               <div className="relative">
@@ -63,22 +57,27 @@ const About = () => {
               {
                 title: 'The Idea',
                 date: '2024',
-                description: 'Realized that ordinary people needed a simple way to store confidential documents securely. Too many were losing important files due to service problems.',
+                description: 'We realized that everyday people needed a straightforward way to keep personal documents secure. We set out to make that easy.',
               },
               {
                 title: 'Core Team Formed',
                 date: '2024',
-                description: 'Founders Lakshmi Pavan Kumaar and Anish Bhattacharya teamed up to build a solution that combines advanced security with everyday simplicity.',
+                description: 'We wanted to build something safe and practical for everyone.',
               },
               {
                 title: 'Prototype Development',
                 date: '2025',
-                description: 'Decided to focus on simplicity. Advanced security technology with everyday app simplicity for common people.',
+                description: 'We then focused on making security easy to use, not just strong. Ordinary folks shouldn’t have to study tech to keep things safe.',
               },
               {
-                title: 'User Testing',
-                date: '2025 (By September)',
-                description: 'Planning of Extensive testing with everyday users. To show how simple it is to store and access important documents securely.',
+                title: 'First User Testing',
+                date: '2025',
+                description: 'We tested with early users to make sure anyone could save and find documents without stress.',
+              },
+              {
+                title: 'Beta Launch',
+                date: '2025',
+                description: 'We are launching the beta version of the app to the public. We are currently testing with beta users.',
               },
             ].map((milestone, index) => (
               <div key={index} className={`relative flex items-center mb-12 ${index % 2 === 0 ? 'justify-start' : 'justify-end'}`}>
@@ -131,17 +130,17 @@ const About = () => {
               {
                 icon: Award,
                 title: 'Simplicity First',
-                description: 'Advanced security should be invisible to users. The best protection feels effortless.',
+                description: 'Great security should be simple to use. Our goal is to make it almost invisible.'
               },
               {
                 icon: Users,
                 title: 'People-Centric',
-                description: 'Built for everyday people who need to protect their most important documents.',
+                description: 'We build this for real people—so anyone can keep their important files private.'
               },
               {
                 icon: Target,
                 title: 'True Ownership',
-                description: 'Your confidential data belongs to you alone. No company should have the power to access or lock you out.',
+                description: 'Your documents are always yours. We never lock you out or use your data.'
               },
             ].map((value, index) => (
               <div key={index} className="bg-gray-900/50 backdrop-blur-sm border border-gray-800 rounded-xl p-8 hover:border-yellow-500/50 transition-all duration-300">

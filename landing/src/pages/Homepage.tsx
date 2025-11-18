@@ -11,12 +11,12 @@ const Homepage = memo(() => {
           {/* Status Badge */}
           <div className="inline-flex items-center space-x-2 bg-gray-900/40 border border-gray-800 rounded-full px-6 py-3 mb-12">
             <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
-            <span className="text-sm font-medium text-gray-300">Now Available • Enterprise-Grade Security</span>
+            <span className="text-sm font-medium text-gray-300">Now Available • Private by Design</span>
           </div>
 
           {/* Main Headline */}
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold mb-12 leading-tight">
-            <span className="block text-white mb-4 font-light">Your Confidential Documents</span>
+            <span className="block text-white mb-4 font-light">Your Documents, Your Control</span>
             <span className="block bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent font-black">
               Safe Forever
             </span>
@@ -24,15 +24,18 @@ const Homepage = memo(() => {
           
           {/* Subtitle */}
           <p className="text-xl text-gray-300 mb-16 max-w-3xl mx-auto leading-relaxed font-light">
-            Store your most important documents with bank-level security. No passwords, no worries. 
+            Store your most important documents with bank-level security. No big-tech, no worries. 
             Your confidential files stay private and accessible only to you, forever.
           </p>
           
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-6 justify-center mb-20">
-            <button className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-semibold px-10 py-4 rounded-lg hover:from-yellow-500 hover:to-yellow-600 transition-all duration-300 text-lg">
-              Start Storing Safely
-            </button>
+            <a href="https://demo.essentialis.cloud"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-semibold px-10 py-4 rounded-lg hover:from-yellow-500 hover:to-yellow-600 transition-all duration-300 text-lg inline-flex items-center justify-center space-x-2">
+              <span>Start Storing Safely</span>
+            </a>
             
             <a href="/docs" className="border border-gray-700 text-white font-semibold px-10 py-4 rounded-lg hover:border-yellow-400 hover:text-yellow-400 transition-all duration-300 text-lg inline-flex items-center justify-center space-x-2">
               <span>See How It Works</span>
@@ -43,15 +46,15 @@ const Homepage = memo(() => {
           <div className="flex flex-wrap justify-center items-center gap-8 text-sm text-gray-400">
             <div className="flex items-center space-x-2">
               <Shield className="w-4 h-4 text-yellow-400" />
-              <span className="font-medium">Bank-level security</span>
+              <span className="font-medium">Always Secured</span>
             </div>
             <div className="flex items-center space-x-2">
               <Globe className="w-4 h-4 text-yellow-400" />
-              <span className="font-medium">Access anywhere</span>
+              <span className="font-medium">Always Accessible</span>
             </div>
             <div className="flex items-center space-x-2">
               <CheckCircle className="w-4 h-4 text-yellow-400" />
-              <span className="font-medium">Always available</span>
+              <span className="font-medium">Always Private</span>
             </div>
           </div>
         </div>
@@ -64,13 +67,13 @@ const Homepage = memo(() => {
           {/* Section Header */}
           <div className="text-center mb-24">
             <h2 className="text-4xl sm:text-5xl font-bold mb-8">
-              Made for{' '}
+              Made For{' '}
               <span className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
                 Everyone
               </span>
             </h2>
             <p className="text-xl text-gray-300 max-w-3xl mx-auto font-light">
-              Simple yet powerful features designed for anyone who values their privacy and security.
+              Essentials gives you a safe place for your documents—encrypted, decentralized, and always under your control.
             </p>
           </div>
 
@@ -79,23 +82,23 @@ const Homepage = memo(() => {
             {[
               {
                 icon: Zap,
-                title: 'Instant Access',
-                description: 'Get your documents instantly from anywhere in the world, whenever you need them.'
+                title: 'Immediate Access',
+                description: 'You get to your files wherever you go. No one else (not even us) can look in.'
               },
               {
                 icon: Shield,
-                title: 'Bank-Level Security',
-                description: 'Your documents are encrypted so securely that even we cannot see them. Only you have access.'
+                title: 'Strong Encryption',
+                description: 'Everything is protected before it ever leaves your device. Only you have the key.'
               },
               {
                 icon: Globe,
-                title: 'Access Anywhere',
-                description: 'Your documents follow you everywhere - phone, computer, tablet. Always available when needed.'
+                title: 'Private Sharing',
+                description: 'Share what you want, only with who you want. There’s no hidden data collection.'
               },
               {
                 icon: Smartphone,
-                title: 'Works Everywhere',
-                description: 'Simple apps for your phone and computer that work together seamlessly.'
+                title: 'Blockchain Security',
+                description: 'Your files are stored on a secure network, not some corporate database. You hold the power.'
               },
             ].map((feature, index) => (
               <div
@@ -158,14 +161,17 @@ const Homepage = memo(() => {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-6 justify-center">
-              <button className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-semibold px-10 py-4 rounded-lg hover:from-yellow-500 hover:to-yellow-600 transition-all duration-300 text-lg inline-flex items-center justify-center space-x-2">
+              <a href="https://demo.essentialis.cloud"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-black font-semibold px-10 py-4 rounded-lg hover:from-yellow-500 hover:to-yellow-600 transition-all duration-300 text-lg inline-flex items-center justify-center space-x-2">
                 <span>Start Protecting Now</span>
                 <ArrowRight className="w-5 h-5" />
-              </button>
+              </a>
               
-              <button className="border border-gray-700 text-white font-semibold px-10 py-4 rounded-lg hover:border-yellow-400 hover:text-yellow-400 transition-all duration-300 text-lg">
+              <a href="/docs" className="border border-gray-700 text-white font-semibold px-10 py-4 rounded-lg hover:border-yellow-400 hover:text-yellow-400 transition-all duration-300 text-lg">
                 See How It Works
-              </button>
+              </a>
             </div>
           </div>
         </div>
