@@ -10,9 +10,7 @@
 ##  Overview
 
 **Essentialis Cloud** is built redefine how individuals store, share, and protect their data.  
-Our mission: put **ownership, security, and privacy** back in the hands of users, instead of centralized corporations.  
-
-With **decentralized storage**, **encryption-first architecture**, and a **clean user experience**, Essentialis Cloud makes Web3 **accessible for everyone**.
+Our mission is to put **ownership, security, and privacy** back in the hands of users, instead of centralized corporations.  
 
 ---
 
