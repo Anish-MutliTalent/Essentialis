@@ -9,7 +9,7 @@
 
 ##  Overview
 
-**Essentialis Cloud** is redefining how individuals store, share, and protect their data.  
+**Essentialis Cloud** is built redefine how individuals store, share, and protect their data.  
 Our mission: put **ownership, security, and privacy** back in the hands of users, instead of centralized corporations.  
 
 With **decentralized storage**, **encryption-first architecture**, and a **clean user experience**, Essentialis Cloud makes Web3 **accessible for everyone**.
@@ -49,15 +49,6 @@ With **decentralized storage**, **encryption-first architecture**, and a **clean
 - ✅ DID-based login & identity management  
 - Fiat ↔ Crypto gateway integration  
 - ✅ Public Beta Release 
-
----
-
-## Goals
-
-- Empower individuals to **own and control their data**.  
-- Build a **privacy-first alternative** to Big Tech cloud services.  
-- Make **decentralization simple** for everyday users.  
-- Bridge Web2 -> Web3 with **smooth onboarding**.  
 
 ---
 
