@@ -1,4 +1,4 @@
-# ☁️ Essentialis Cloud
+# Essentialis Cloud
 
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)  
 [![Built With](https://img.shields.io/badge/Built%20With-Optimism%20%7C%20IPFS%20%7C%20React-blue.svg)](#)
@@ -7,16 +7,14 @@
 
 ---
 
-## 🚀 Overview
+##  Overview
 
-**Essentialis Cloud** is redefining how individuals store, share, and protect their data.  
-Our mission: put **ownership, security, and privacy** back in the hands of users, instead of centralized corporations.  
-
-With **decentralized storage**, **encryption-first architecture**, and a **clean user experience**, Essentialis Cloud makes Web3 **accessible for everyone**.
+**Essentialis Cloud** is built redefine how individuals store, share, and protect their data.  
+Our mission is to put **ownership, security, and privacy** back in the hands of users, instead of centralized corporations.  
 
 ---
 
-## 📦 Tech Stack
+##  Tech Stack
 
 | Layer        | Tech/Tools                                         |
 |--------------|----------------------------------------------------|
@@ -52,16 +50,7 @@ With **decentralized storage**, **encryption-first architecture**, and a **clean
 
 ---
 
-## 🎯 Goals
-
-- Empower individuals to **own and control their data**.  
-- Build a **privacy-first alternative** to Big Tech cloud services.  
-- Make **decentralization simple** for everyday users.  
-- Bridge Web2 -> Web3 with **smooth onboarding**.  
-
----
-
-## 🌐 Visit Us
+## Visit Us
 
 Website: [https://essentialis.cloud](https://essentialis.cloud)  
 LinkedIn: [Essentialis Cloud](linkedin.com/company/essentialis-cloud)   
