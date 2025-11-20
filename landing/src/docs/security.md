@@ -1,18 +1,33 @@
-# Advanced Security Features
+# Security at Essentialis
 
-Understand the security measures that protect your confidential documents.
-
----
-
-### End-to-End Encryption
-All documents are encrypted using AES-GCM encryption before leaving your device. Only you have the keys to decrypt your files.
+Protecting your data is our number one priority. Here’s how Essentialis keeps your documents ultra-secure, with no tech jargon required!
 
 ---
 
-### Zero-Knowledge Architecture
-We cannot access your documents or encryption keys. Even our support team cannot view your confidential files.
+## Everything is Encrypted
+- Every document you upload is scrambled (“encrypted”) _before_ leaving your device.
+- Only you hold the keys. No one—not even Essentialis staff—can see your files.
 
 ---
 
-### Secure Sharing
-Share documents securely with time-limited access links and password protection.
+## Private by Design (Zero-Knowledge)
+- We use a “zero-knowledge” approach: even with admin access, we can’t decrypt your documents.
+- Lost access? Our recovery process helps _you_, but keeps your files hidden from everyone else.
+
+---
+
+## Safe Sharing
+- You choose exactly who sees what, for how long, and with what permissions.
+- Turn off links or change permissions at any time.
+
+---
+
+## Optional: Two-Factor Authentication (2FA)
+- Protect your account with both a password and a time-based code from your phone.
+
+---
+
+## Technical Note (for advanced users)
+- We use industry-standard AES-GCM encryption.
+- Secure sharing is built with time-limited, password-protected links.
+- Learn more in the [Architecture](architecture.md) section for a deep dive into our technical design and cryptography.

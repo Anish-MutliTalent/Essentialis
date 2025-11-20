@@ -55,6 +55,36 @@ const sectionList = [
     icon: Users,
     mdFile: 'sharing.md',
   },
+  {
+    id: 'architecture',
+    title: 'System Architecture',
+    icon: FileText,
+    mdFile: 'architecture.md',
+  },
+  {
+    id: 'development',
+    title: 'Development Guide',
+    icon: FileText,
+    mdFile: 'development.md',
+  },
+  {
+    id: 'code-walkthrough',
+    title: 'Code Walkthrough',
+    icon: FileText,
+    mdFile: 'code-walkthrough.md',
+  },
+  {
+    id: 'api-reference',
+    title: 'API Reference',
+    icon: FileText,
+    mdFile: 'api-reference.md',
+  },
+  {
+    id: 'deployment',
+    title: 'Deployment Guide',
+    icon: FileText,
+    mdFile: 'deployment.md',
+  },
 ];
 
 const quickLinks = [
