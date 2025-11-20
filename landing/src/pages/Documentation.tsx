@@ -16,6 +16,8 @@ import {
   ExternalLink
 } from 'lucide-react';
 
+const docs = import.meta.glob('../docs/*.md', { as: 'raw' });
+
 const sectionList = [
   {
     id: 'getting-started',
@@ -75,10 +77,16 @@ const Documentation = () => {
   useEffect(() => {
     const section = sectionList.find(s => s.id === activeSection);
     if (!section) return;
-    fetch(`/src/docs/${section.mdFile}`)
-      .then(res => res.text())
-      .then(setMarkdown);
+  
+    const matching = Object.keys(docs).find(k => k.endsWith(section.mdFile));
+  
+    if (matching) {
+      docs[matching]().then(raw => setMarkdown(raw));
+    } else {
+      setMarkdown("## File Not Found");
+    }
   }, [activeSection]);
+  
 
   const section = sectionList.find(s => s.id === activeSection);
 
