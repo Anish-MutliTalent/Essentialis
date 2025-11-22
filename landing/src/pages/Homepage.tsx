@@ -1,15 +1,9 @@
 // Homepage.tsx — Fully interactive, cinematic, no placeholders
-import { memo, useRef, useState, useEffect } from 'react';
+import { memo, useState } from 'react';
 import {
   motion,
-  useScroll,
-  useTransform,
-  useMotionValue,
-  useSpring,
-  animate,
   useAnimation,
   cubicBezier,
-  useInView
 } from 'framer-motion';
 import {
   ArrowRight,
@@ -21,10 +15,7 @@ import {
   CheckCircle,
   FileText,
   Clock,
-  Eye,
   Key,
-  Server,
-  Users,
   LinkIcon,
   Copy,
   User,
@@ -32,7 +23,6 @@ import {
   UserX,
   HardDrive,
   Globe2,
-  Terminal,
   EyeOff,
 } from 'lucide-react';
 import {BlurWords, ParallaxGlow, Counter, MagneticButton, FeatureCard, GlassCard} from "../components/Interactive"
@@ -46,7 +36,7 @@ const InteractiveVault = () => {
   const controls = useAnimation();
   const [locked, setLocked] = useState(false);
   const [progress, setProgress] = useState(0);
-  const fileRef = useRef(null);
+  // const fileRef = useRef(null);
 
   const runEncrypt = async () => {
     if (locked) return;

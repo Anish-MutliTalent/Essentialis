@@ -1,4 +1,4 @@
-import { memo, useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import {
   motion,
   useScroll,
@@ -6,16 +6,15 @@ import {
   useMotionValue,
   useSpring,
   animate,
-  useAnimation,
   cubicBezier,
   useInView
 } from 'framer-motion';
 
 const ease = cubicBezier(0.16, 1, 0.3, 1);
 
-const BlurWords = ({ text, className = '', delay = 0 }) => (
+const BlurWords = ({ text, className = '', delay = 0 }: {text: any, className?: string, delay?: number}) => (
   <span>
-    {text.split(' ').map((word, i) => (
+    {text.split(' ').map((word:any, i:any) => (
       <motion.span
         key={i}
         initial={{ filter: 'blur(12px)', opacity: 0 }}
@@ -53,14 +52,14 @@ const ParallaxGlow = () => {
 
 // ========== Reusable Glass Card ==========
 const GlassCard = ({ children, delay = 0, tilt = true }: {children:any, delay?: number, tilt?: boolean}) => {
-  const ref = useRef(null);
+  const ref = useRef<HTMLDivElement | null>(null);
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
 
   const rotateY = useTransform(mouseX, [-100, 100], [-6, 6]);
   const rotateX = useTransform(mouseY, [-100, 100], [6, -6]);
 
-  const handleMouseMove = (e) => {
+  const handleMouseMove = (e:any) => {
     if (!ref.current || !tilt) return;
     const rect = ref.current.getBoundingClientRect();
     mouseX.set(e.clientX - (rect.left + rect.width / 2));
@@ -89,15 +88,15 @@ const GlassCard = ({ children, delay = 0, tilt = true }: {children:any, delay?: 
 /**
  * Feature Card with tilt on pointer move
  */
-const FeatureCard = ({ icon: Icon, title, description }) => {
-  const ref = useRef(null);
+const FeatureCard = ({ icon: Icon, title, description }:{icon:any, title:string, description:string}) => {
+  const ref = useRef<HTMLDivElement | null>(null);
   const mx = useMotionValue(0);
   const my = useMotionValue(0);
   const rotateX = useTransform(my, [-20, 20], [8, -8]);
   const rotateY = useTransform(mx, [-20, 20], [-8, 8]);
-  const shadowY = useTransform(my, [-20, 20], [12, -12]);
-  function handleMove(e) {
-    const rect = ref.current.getBoundingClientRect();
+  // const shadowY = useTransform(my, [-20, 20], [12, -12]);
+  function handleMove(e:any) {
+    const rect = ref.current!.getBoundingClientRect();
     const dx = (e.clientX - rect.left) / rect.width;
     const dy = (e.clientY - rect.top) / rect.height;
     mx.set((dx - 0.5) * 40);
@@ -132,14 +131,14 @@ const FeatureCard = ({ icon: Icon, title, description }) => {
 };
 
 // ========== Magnetic Button (Enhanced) ==========
-const MagneticButton = ({ href, children, className = '', ariaLabel, icon }) => {
+const MagneticButton = ({ href, children, className = '', ariaLabel, icon }:{href:string, children:any, className?:string, ariaLabel?:string, icon?:any}) => {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const springX = useSpring(x, { stiffness: 300, damping: 15 });
   const springY = useSpring(y, { stiffness: 300, damping: 15 });
-  const ref = useRef(null);
+  const ref = useRef<HTMLAnchorElement | null>(null);
 
-  const onMove = (e) => {
+  const onMove = (e:any) => {
     if (!ref.current) return;
     const rect = ref.current.getBoundingClientRect();
     const dx = e.clientX - (rect.left + rect.width / 2);
