@@ -1,4 +1,4 @@
-import React from 'react'; // force import for JSX/React hook
+import * as React from 'react'; // force import for JSX/React hook
 import Navigation from '../components/Navigation';
 import { Calendar, User, Tag, ArrowRight } from 'lucide-react';
 import fm from 'front-matter';

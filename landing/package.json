@@ -10,13 +10,22 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@studio-freight/lenis": "^1.0.0",
     "@supabase/supabase-js": "^2.52.0",
+    "@react-three/drei": "^9.105.4",
+    "@react-three/fiber": "^8.16.2",
+    "@react-three/postprocessing": "^2.0.0",
+    "@types/three": "^0.156.0",
+    "framer-motion": "^12.23.24",
     "front-matter": "^4.0.2",
+    "gsap": "^3.10.4",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "^9.1.0",
-    "react-router-dom": "^7.7.0"
+    "react-router-dom": "^6.23.1",
+    "three": "^0.156.0",
+    "tunnel-rat": "0.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",

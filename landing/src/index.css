@@ -435,3 +435,17 @@ textarea:focus-visible {
     scroll-behavior: auto !important;
   }
 }
+
+html.lenis {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis-smooth {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
