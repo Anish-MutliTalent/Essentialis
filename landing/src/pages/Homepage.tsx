@@ -1,5 +1,5 @@
 // Homepage.tsx — Fully interactive, cinematic, no placeholders
-import { memo, useState } from 'react';
+import { memo, useState, useEffect } from 'react';
 import {
   motion,
   useAnimation,
@@ -420,12 +420,33 @@ const NodeNetwork = () => {
 
 // ========== Main Homepage ==========
 const Homepage = memo(() => {
+  // Fade sections on scroll
+  useEffect(() => {
+    const sections = document.querySelectorAll('.section');
+ 
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('section-visible');
+          } else {
+            entry.target.classList.remove('section-visible');
+          }
+        });
+     },
+      { threshold: 0.5 }
+    );
+ 
+    sections.forEach((sec) => observer.observe(sec));
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div className="bg-black text-white overflow-x-hidden relative font-sans">
       <ParallaxGlow />
 
       {/* Hero */}
-      <section className="min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 pt-48 lg:pt-32">
+      <section className="section min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 pt-48 lg:pt-32">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
           <div className="text-center lg:text-left">
             <motion.div
@@ -488,7 +509,7 @@ const Homepage = memo(() => {
       </section>
 
       {/* Section: Zero Knowledge */}
-      <section className="py-28 px-4 sm:px-6 lg:px-8">
+      <section className="section py-28 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <BlurWords
@@ -505,7 +526,7 @@ const Homepage = memo(() => {
         </div>
       </section>
 
-      <section className="py-28 px-6 lg:px-8 relative">
+      <section className="section py-28 px-6 lg:px-8 relative">
         <div className="max-w-7xl mx-auto">
           {/* Section Header */}
           <motion.div
@@ -559,7 +580,7 @@ const Homepage = memo(() => {
       </section>
 
       {/* Section: Secure Sharing */}
-      <section className="py-28 px-4 sm:px-6 lg:px-8 bg-gradient-to-b">
+      <section className="section py-28 px-4 sm:px-6 lg:px-8 bg-gradient-to-b">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <BlurWords
@@ -576,7 +597,7 @@ const Homepage = memo(() => {
         </div>
       </section>
 
-      <section className="py-24 px-6 lg:px-8 bg-white/5 backdrop-blur-xl border-y border-white/10 relative">
+      <section className="section py-24 px-6 lg:px-8 bg-white/5 backdrop-blur-xl border-y border-white/10 relative">
         <div className="max-w-7xl mx-auto">
           <div className="grid md:grid-cols-3 gap-16 text-center">
             {[
@@ -615,7 +636,7 @@ const Homepage = memo(() => {
       </section>
 
       {/* Section: Permissions */}
-      <section className="py-28 px-4 sm:px-6 lg:px-8">
+      <section className="section py-28 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <BlurWords
@@ -633,7 +654,7 @@ const Homepage = memo(() => {
       </section>
 
       {/* Section: Terminal */}
-      <section className="py-28 px-4 sm:px-6 lg:px-8 bg-gradient-to-b">
+      <section className="section py-28 px-4 sm:px-6 lg:px-8 bg-gradient-to-b">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <BlurWords
@@ -651,7 +672,7 @@ const Homepage = memo(() => {
       </section>
 
       {/* Section: Decentralized Network */}
-      <section className="py-28 px-4 sm:px-6 lg:px-8">
+      <section className="section py-28 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <BlurWords
@@ -669,7 +690,7 @@ const Homepage = memo(() => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-28 px-6 lg:px-8">
+      <section className="section py-48 px-6 lg:px-8">
         <div className="max-w-4xl mx-auto text-center">
           <GlassCard>
           <motion.div

@@ -449,3 +449,12 @@ html.lenis {
   transform: translateZ(0);
   backface-visibility: hidden;
 }
+
+.section {
+  opacity: 0.15;
+  transition: opacity 0.6s ease;
+}
+
+.section-visible {
+  opacity: 1;
+}
