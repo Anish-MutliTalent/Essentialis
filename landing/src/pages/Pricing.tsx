@@ -1,5 +1,6 @@
   import { useState } from 'react';
   import Navigation from '../components/Navigation';
+  // import { motion } from 'framer-motion';
   import { Check, X, Star, Shield, Zap, Crown, Gift } from 'lucide-react';
   
   const Pricing = () => {
@@ -13,7 +14,7 @@
         monthlyPrice: 0,
         annualPrice: 0,
         features: [
-          '20GB secure storage (Payments based on usage after exceeding limits)',
+          '10000 Credits (1 credit = 1 document action)',
           'Advanced encryption',
           'Mobile app access',
           'Basic document preview',
@@ -38,7 +39,7 @@
         annualPrice: 999,
         features: [
           'Everything in free, and...',
-          '100GB Secure Storage (Payments based on usage after exceeding limits)',
+          '200000 Credits (1 credit = 1 document action)',
           'Email Support',
           'All file types supported',
           'Sharing controls',
@@ -65,7 +66,7 @@
         annualPrice: 3399,
         features: [
           'Everything in personal and...',
-          '500GB secure storage (Payments based on usage after exceeding limits)',
+          '500000 Credits (1 credit = 1 document action)',
           'Advanced Access control',
           'Team collaboration',
           'Advanced Data redundancy and storage space management (coming up)',
@@ -125,7 +126,13 @@
     ];
   
     return (
-      <div className="min-h-screen bg-black text-white pt-20">
+      <div className="min-h-screen bg-black text-white pt-20 relative overflow-hidden">
+        {/* subtle background gradients */}
+        <div className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute -top-40 left-0 h-[40rem] w-[40rem] rounded-full blur-3xl opacity-20" style={{background: 'radial-gradient(closest-side, rgba(212,175,55,0.2), transparent)'}} />
+          <div className="absolute bottom-0 -right-40 h-[48rem] w-[48rem] rounded-full blur-3xl opacity-10" style={{background: 'radial-gradient(closest-side, rgba(255,255,255,0.15), transparent)'}} />
+        </div>
+
         <Navigation />
         
         <div className="pt-24 pb-16">
@@ -174,8 +181,8 @@
               {plans.map((plan) => (
                 <div
                   key={plan.name}
-                  className={`relative bg-gray-900/30 border rounded-xl p-8 transition-all duration-300 hover:border-yellow-400/50 ${
-                    plan.popular ? 'border-yellow-400/50' : 'border-gray-800'
+                  className={`relative bg-white/5 backdrop-blur-xl border rounded-2xl p-8 transition-all hover:border-yellow-400/40 hover:shadow-gold ${
+                    plan.popular ? 'border-yellow-400/50' : 'border-white/10'
                   }`}
                 >
                   {plan.popular && (
@@ -210,10 +217,10 @@
                       )}
                     </div>
   
-                    <button className={`w-full py-2 px-4 rounded-lg font-semibold transition-all duration-300 text-sm ${
+                    <button className={`w-full py-2 px-4 rounded-xl font-semibold transition-transform text-sm will-change-transform ${
                       plan.popular
-                        ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 text-black hover:from-yellow-500 hover:to-yellow-700'
-                        : 'bg-gray-900/50 text-white hover:bg-gray-800/50 border border-gray-700 hover:border-yellow-400'
+                        ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 text-black hover:scale-[1.02] active:scale-[0.98]'
+                        : 'bg-white/5 text-white hover:bg-white/10 border border-white/10 hover:scale-[1.02] active:scale-[0.98]'
                     }`}>
                       {plan.cta}
                     </button>
@@ -255,7 +262,7 @@
               
               <div className="space-y-6">
                 {faqs.map((faq, index) => (
-                  <div key={index} className="bg-gray-900/30 border border-gray-800 rounded-xl p-6">
+                  <div key={index} className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
                     <h3 className="text-xl font-semibold text-yellow-400 mb-3">{faq.question}</h3>
                     <p className="text-gray-300 leading-relaxed">{faq.answer}</p>
                   </div>
@@ -265,20 +272,21 @@
   
             {/* CTA Section */}
             <div className="text-center mt-20">
-              <div className="bg-gradient-to-r from-yellow-400/10 to-yellow-600/10 border border-yellow-400/20 rounded-xl p-8">
+              <div className="bg-gradient-to-r from-yellow-400/10 to-yellow-600/10 border border-yellow-400/20 rounded-2xl p-8">
                 <h3 className="text-2xl font-bold mb-4">Still have questions?</h3>
                 <p className="text-gray-300 mb-6">
                   Our team is here to help you choose the right plan for your needs.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <button className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-black px-8 py-3 rounded-lg font-semibold hover:from-yellow-500 hover:to-yellow-700 transition-all duration-300">
-                    Contact Sales
+                  <button className="relative group px-8 py-3 rounded-xl font-semibold text-black">
+                    <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-400 to-yellow-600 transition-transform group-hover:scale-[1.02]" />
+                    <span className="relative">Contact Sales</span>
                   </button>
                   <a
                   href="https://demo.essentialis.cloud"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="border border-yellow-400 text-yellow-400 px-8 py-3 rounded-lg font-semibold hover:bg-yellow-400/10 transition-all duration-300 shadow-yellow-400/30 shadow-lg inline-flex items-center gap-2 animate-pulse hover:scale-105"
+                  className="border border-yellow-400 text-yellow-400 px-8 py-3 rounded-xl font-semibold hover:bg-yellow-400/10 transition-transform shadow-yellow-400/30 shadow-lg inline-flex items-center gap-2 hover:scale-[1.02]"
                   style={{fontSize: '1.15rem'}}
                 >
                   🎉 Experience Demo
