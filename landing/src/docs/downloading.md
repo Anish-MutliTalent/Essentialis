@@ -8,7 +8,7 @@ With Essentialis, you’re always in control of your files. Here’s how to acce
 1. **Log in and go to your dashboard.**
 2. Find your document — use search, tags, or browse by folder.
 3. Click to preview your document right in your browser (no download needed for most PDFs and images).
-4. When you’re ready, click “Download.”
+4. When you’re ready, click “Decrypt.”
    - The document will be decrypted _on your device_ before saving. Only you see the unencrypted file.
 
 ---
