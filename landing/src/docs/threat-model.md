@@ -47,6 +47,27 @@ Essentialis Cloud includes the following core components:
 ### **Zero-Trust Architecture**
 Backend infrastructure is assumed untrusted by design. A server compromise must not expose user data.
 
+'''mermaid
+
+flowchart LR
+    UserDevice[Client Device\n(Encryption, Key Derivation, File Processing)]
+    APIGateway[API Gateway\n(Auth, Routing, Token Validation)]
+    AuthService[Authentication Service\n(PBKDF2/Argon2 Validation)]
+    MetadataStore[Metadata Store\n(Encrypted Metadata)]
+    ObjectStorage[Object Storage\n(Encrypted File Blobs)]
+
+    UserDevice -- Encrypted Metadata --> APIGateway
+    UserDevice -- Encrypted Files --> APIGateway
+
+    APIGateway -- Auth Requests --> AuthService
+    AuthService -- Tokens --> APIGateway
+
+    APIGateway -- Store/Retrieve Metadata --> MetadataStore
+    APIGateway -- Store/Retrieve Blobs --> ObjectStorage
+
+    UserDevice <-- Encrypted Metadata/Blobs -- APIGateway
+    
+    '''
 ---
 
 ## 3. Security Goals
