@@ -1,4 +1,4 @@
-# THREAT_MODEL.md  
+# Threat Model
 ### Essentialis Cloud — Security Threat Model  
 **Version:** 1.0  
 **Last Updated:** 2025  
