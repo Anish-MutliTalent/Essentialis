@@ -223,7 +223,7 @@ Backend infrastructure is assumed untrusted by design. A server compromise must 
 | Area | Risk Level | Reason |
 |------|------------|--------|
 | Weak KDF or encryption misuse | **Critical** | Entire confidentiality model collapses |
-| Metadata inference | **High** | Structural patterns leak info even if encrypted |
+| Metadata inference | **Low** | Structural patterns leak info even if encrypted |
 | API auth flaws | **High** | Possible account takeover |
 | Server misconfigurations | **Medium** | Cannot expose plaintext but can break availability |
 
