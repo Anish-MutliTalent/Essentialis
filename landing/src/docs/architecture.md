@@ -11,10 +11,10 @@ graph TD
 
     User((User or Developer))
 
-    A["Frontend Web App\nReact, Vite, TypeScript"]
-    B["Backend API\nFlask, Python, Web3"]
-    C["Blockchain\nOptimism, Smart Contracts"]
-    D["Storage\nEncrypted, IPFS or Cloud"]
+    A["Frontend Web App (React, Vite, TypeScript)"]
+    B["Backend API (Flask, Python, Web3)"]
+    C["Blockchain (Optimism, Smart Contracts)"]
+    D["Storage (Encrypted, IPFS or Cloud)"]
 
     A -->|"HTTP(S) Requests"| B
     B -->|Web3 / JSON-RPC| C
