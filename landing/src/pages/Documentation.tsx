@@ -62,6 +62,12 @@ const sectionList = [
     mdFile: 'architecture.md',
   },
   {
+    id: 'threat-model',
+    title: 'Threat Model',
+    icon: Shield,
+    mdFile: 'threat-model.md',
+  },
+  {
     id: 'development',
     title: 'Development Guide',
     icon: FileText,
