@@ -8,10 +8,12 @@ Essentialis uses modern, secure, and privacy-preserving architecture, blending w
 
 ```mermaid
 graph TD
+
     User((User or Developer))
+
     A["Frontend Web App\nReact, Vite, TypeScript"]
     B["Backend API\nFlask, Python, Web3"]
-    C["Blockchain\nPolygon, Smart Contracts"]
+    C["Blockchain\nOptimism, Smart Contracts"]
     D["Storage\nEncrypted, IPFS or Cloud"]
 
     A -->|HTTP(S) Requests| B
