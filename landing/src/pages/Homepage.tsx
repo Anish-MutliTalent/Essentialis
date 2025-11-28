@@ -708,9 +708,7 @@ const Homepage = memo(() => {
               </span>
             </h2>
 
-            <p className="text-lg text-gray-300 mb-8 max-w-2xl mx-auto font-light leading-relaxed">
-              Join thousands of people who trust Essentialis with their most confidential documents.
-            </p>
+            
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <MagneticButton href="https://demo.essentialis.cloud" ariaLabel="Start protecting now" className="shadow-xl" icon={<ArrowRight className="w-4 h-4" />}>
