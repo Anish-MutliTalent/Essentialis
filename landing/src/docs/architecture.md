@@ -16,7 +16,7 @@ graph TD
     C["Blockchain\nOptimism, Smart Contracts"]
     D["Storage\nEncrypted, IPFS or Cloud"]
 
-    A -->|HTTP(S) Requests| B
+    A -->|"HTTP(S) Requests"| B
     B -->|Web3 / JSON-RPC| C
     B -->|Encrypted Documents| D
     A -->|Direct IPFS for Public Files| D
