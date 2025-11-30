@@ -7,17 +7,20 @@ Essentialis uses modern, secure, and privacy-preserving architecture, blending w
 ## High-Level Overview
 
 ```mermaid
-graph TD;
+graph TD
+
     User((User or Developer))
-    A[Frontend Web App<br/>(React, Vite, TypeScript)]
-    B[Backend API<br/>(Flask, Python, Web3)]
-    C[Blockchain<br/>(Polygon, Smart Contracts)]
-    D[Storage<br/>(Encrypted, IPFS/cloud)]
-    A-- HTTP(S) Requests -->B
-    B-- Web3 / JSON-RPC -->C
-    B-- Encrypted Documents -->D
-    A-- Direct IPFS for Public Files -->D
-    User-- Browser -->A
+
+    A["Frontend Web App (React, Vite, TypeScript)"]
+    B["Backend API (Flask, Python, Web3)"]
+    C["Blockchain (Optimism, Smart Contracts)"]
+    D["Storage (Encrypted, IPFS or Cloud)"]
+
+    A -->|"HTTP(S) Requests"| B
+    B -->|Web3 / JSON-RPC| C
+    B -->|Encrypted Documents| D
+    A -->|Direct IPFS for Public Files| D
+    User -->|Browser| A
 ```
 
 - **Frontend**: Runs in your web browser. Handles user interaction, local encryption, viewing, and wallet connection.
