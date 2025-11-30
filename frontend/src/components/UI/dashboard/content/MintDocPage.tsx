@@ -32,8 +32,8 @@ import { useDocs } from '../../../contexts/DocsContext';
 
 window.Buffer = window.Buffer || Buffer;
 
-const chain = defineChain(84532);
-const CONTRACT_ADDRESS = '0x42F1a118C13083b64b2b775e5Ac01EF1429c51cd';
+const chain = defineChain(11155420);
+const CONTRACT_ADDRESS = '0x920521b56547D1FF83fA3D835a6d11D1380C62A5';
 
 const MintDocPage: React.FC = () => {
     const navigate = useNavigate();
@@ -309,7 +309,7 @@ const MintDocPage: React.FC = () => {
                 // Check current chain
                 const network = await provider.getNetwork();
                 
-                if (network.chainId !== 84532) {
+                if (network.chainId !== 11155420) {
                     if (isCancelled) throw new Error('Operation cancelled');
                     setStatusMessage('Switching to Base Sepolia network...');
                     

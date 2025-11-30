@@ -188,7 +188,7 @@ def get_public_key():
             f"?module=account&action=txlist"
             f"&address={address}"
             f"&sort=desc&apikey=PGBQAJGXWVIKREF5UER6I8227MEGPU8Q66"
-            f"&chainid=84532"
+            f"&chainid=11155420"
         )
         resp = requests.get(url).json()
         print(resp)

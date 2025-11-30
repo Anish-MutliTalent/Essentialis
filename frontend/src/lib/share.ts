@@ -9,8 +9,8 @@ import { Buffer } from 'buffer';
 
 window.Buffer = window.Buffer || Buffer;
 
-const CHAIN = defineChain(84532);
-const CONTRACT_ADDRESS = '0x42F1a118C13083b64b2b775e5Ac01EF1429c51cd';
+const CHAIN = defineChain(11155420);
+const CONTRACT_ADDRESS = '0x920521b56547D1FF83fA3D835a6d11D1380C62A5';
 
 // Helper: load metadata JSON from IPFS gateway or accept a passed object
 export async function loadMetadata(metadataCidOrObj: string | object): Promise<any> {

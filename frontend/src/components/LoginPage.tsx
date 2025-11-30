@@ -9,10 +9,11 @@ import {
 } from "thirdweb/wallets";
 import { client } from '../lib/thirdweb';
 import { signMessage } from "thirdweb/utils";
+import { ethers } from "ethers";
 import { FcGoogle } from "react-icons/fc";
 import MetaMaskLogo from "./UI/MetaMaskLogo";
 import { getContract, prepareContractCall, readContract, sendTransaction } from "thirdweb";
-import { baseSepolia } from "thirdweb/chains";
+import { optimismSepolia } from "thirdweb/chains";
 
 // Design System Components
 import { 
@@ -53,7 +54,7 @@ async function claimFaucetReward(userAddress: string, activeWallet: any) {
 
     const contract = getContract({
       client,
-      chain: baseSepolia, // Match your chain
+      chain: optimismSepolia, // Match your chain
       address: contractAddress,
     });
 
@@ -65,13 +66,41 @@ async function claimFaucetReward(userAddress: string, activeWallet: any) {
 
     if ((await nonce).toString() === "0") {
       console.log("🎁 Claiming faucet reward for:", userAddress);
-      
+
       const account = activeWallet.getAccount();
+
+      // Normalize amount into a BigNumber in wei to match contract's `payoutAmount`
+      let amountParam: any = amount;
+      try {
+        if (typeof amount === 'string') {
+          // If it's a decimal string like "0.0005", parse as ether string.
+          if (amount.includes('.')) {
+            amountParam = ethers.utils.parseEther(amount);
+          } else if (/^0x[0-9a-fA-F]+$/.test(amount)) {
+            // already hex-encoded wei
+            amountParam = ethers.BigNumber.from(amount);
+          } else {
+            // integer string in wei
+            amountParam = ethers.BigNumber.from(amount);
+          }
+        } else if (typeof amount === 'number') {
+          // numeric value, assume ether amount (rare) — convert to string first
+          amountParam = ethers.utils.parseEther(amount.toString());
+        } else {
+          // leave as-is (maybe already a BigNumber)
+          amountParam = amount;
+        }
+      } catch (e) {
+        console.warn('Failed to parse amount from faucet response, using raw value', amount, e);
+        amountParam = amount;
+      }
+
+      console.debug('claimFaucetReward: amount (raw) =', amount, 'amountParam =', amountParam?.toString?.() ?? amountParam);
 
       const transaction = prepareContractCall({
         contract,
         method: "function claim(address recipient, uint256 amount, uint256 deadline, bytes signature)",
-        params: [userAddress, amount, deadline, signature],
+        params: [userAddress, amountParam, deadline, signature],
       });
 
       const result = await sendTransaction({
@@ -157,7 +186,7 @@ const LoginPage = () => {
     try {
       await connect(async () => {
         const wallet = walletsToUse.inApp;
-        await wallet.connect({ client, strategy: "email", email, verificationCode: otp, chain: baseSepolia });
+        await wallet.connect({ client, strategy: "email", email, verificationCode: otp, chain: optimismSepolia });
         return wallet;
       });
     } catch (err: any) {
@@ -172,7 +201,7 @@ const LoginPage = () => {
       try {
           await connect(async () => {
               const wallet = walletsToUse.inApp;
-              await wallet.connect({ client, strategy: strategy, chain: baseSepolia });
+              await wallet.connect({ client, strategy: strategy, chain: optimismSepolia });
               return wallet;
           });
       } catch (err: any) {
@@ -187,7 +216,7 @@ const LoginPage = () => {
       try {
           await connect(async () => {
               const wallet = walletsToUse.metamask;
-              await wallet.connect({ client, chain: baseSepolia });
+              await wallet.connect({ client, chain: optimismSepolia });
               return wallet;
           });
       } catch (err: any) {
