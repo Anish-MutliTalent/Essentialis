@@ -58,6 +58,10 @@ const MintDocPage: React.FC = () => {
     const [sourceFile, setSourceFile] = useState<File | null>(null);
     const [hasAutoSubmitted, setHasAutoSubmitted] = useState(false); // NEW: Track if auto-submit happened
 
+    // cancellation & upload controller refs
+    const [isCancelled, setIsCancelled] = useState(false);
+    const xhrRef = React.useRef<XMLHttpRequest | null>(null);
+
     useEffect(() => {
         if (profile?.name) {
             setFormData(prev => ({ ...prev, ownerName: profile.name ?? 'Unknown' }));
@@ -70,41 +74,63 @@ const MintDocPage: React.FC = () => {
         const quickFromState = (location.state as any)?.quickFile as File | undefined;
         const quickFallback = (window as any).__quickUploadFile as File | undefined;
         const quickFile = quickFromState || quickFallback;
-        if (quickFile && !hasAutoSubmitted) { // CHANGED: Check hasAutoSubmitted
+        // If the user previously cancelled this quick-upload, don't auto-submit it later.
+        let cancelledObj: { name?: string; size?: number; lastModified?: number } | null = null;
+        try {
+            const raw = sessionStorage.getItem('essentialis.quickUploadCancelled');
+            cancelledObj = raw ? JSON.parse(raw) : null;
+        } catch (e) { cancelledObj = null; }
+        if (quickFile) {
             setSourceFile(quickFile);
             setFormData(prev => ({
                 ...prev,
                 name: quickFile.name.split('.').slice(0, -1).join('.') || quickFile.name,
                 description: `Auto-generated description for ${quickFile.name.split('.').slice(0, -1).join('.') || quickFile.name}`,
             }));
+            // If this file was cancelled earlier, mark UI so auto-submit won't trigger.
+            if (cancelledObj && cancelledObj.name === quickFile.name && cancelledObj.size === quickFile.size && cancelledObj.lastModified === quickFile.lastModified) {
+                setStatusMessage('Auto-submit for this file was cancelled previously. Ready to submit manually.');
+            }
         }
-    }, [location.state, hasAutoSubmitted]); // CHANGED: Added hasAutoSubmitted dependency
+    }, [location.state]);
 
     // Auto-submit when quickFile present, wallet/account are ready and sourceFile state is populated
     useEffect(() => {
         const quickFromState = (location.state as any)?.quickFile as File | undefined;
         const quickFallback = (window as any).__quickUploadFile as File | undefined;
         const quickFile = quickFromState || quickFallback;
+        let cancelledObj: { name?: string; size?: number; lastModified?: number } | null = null;
+        try {
+            const raw = sessionStorage.getItem('essentialis.quickUploadCancelled');
+            cancelledObj = raw ? JSON.parse(raw) : null;
+        } catch (e) { cancelledObj = null; }
 
-        if (quickFile && account && activeWallet && sourceFile && !isSubmitting && !hasAutoSubmitted) { // CHANGED: Check hasAutoSubmitted
+        // Only auto-submit if there is no cancelled marker for this exact file (name+size+lastModified)
+        const canAutoSubmit = quickFile && !(cancelledObj && cancelledObj.name === quickFile.name && cancelledObj.size === quickFile.size && cancelledObj.lastModified === quickFile.lastModified);
+
+        if (canAutoSubmit && account && activeWallet && sourceFile && !isSubmitting && !hasAutoSubmitted && !isCancelled) {
             // small delay to allow state updates/UI to settle
             const t = setTimeout(() => {
                 (async () => {
                     try {
-                        setHasAutoSubmitted(true); // CHANGED: Mark as submitted
+                        setHasAutoSubmitted(true); // mark as submitted so we don't auto-run twice in same mount
                         const fakeEvent = { preventDefault: () => {} } as unknown as React.FormEvent;
                         await handleSubmit(fakeEvent);
                     } catch (err) {
                         console.error('Auto submit failed', err);
-                        setHasAutoSubmitted(false); // CHANGED: Reset on error so user can retry
+                        setHasAutoSubmitted(false); // Reset on error so user can retry
                     }
                 })();
             }, 300);
             return () => clearTimeout(t);
-        } else if (quickFile && (!account || !activeWallet) && !hasAutoSubmitted) { // CHANGED: Check hasAutoSubmitted
-            setStatusMessage('File ready — waiting for wallet connection to auto-submit.');
+        } else if (quickFile && (!account || !activeWallet) && !hasAutoSubmitted && !isCancelled) {
+            if (cancelledObj && cancelledObj.name === quickFile.name && cancelledObj.size === quickFile.size && cancelledObj.lastModified === quickFile.lastModified) {
+                setStatusMessage('Auto-submit for this file was cancelled previously. Connect wallet to submit manually.');
+            } else {
+                setStatusMessage('File ready — waiting for wallet connection to auto-submit.');
+            }
         }
-    }, [account, activeWallet, location.state, sourceFile, isSubmitting, hasAutoSubmitted]); // CHANGED: Added hasAutoSubmitted dependency
+    }, [account, activeWallet, location.state, sourceFile, isSubmitting, hasAutoSubmitted, isCancelled]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setFormData(f => ({ ...f, [e.target.name]: e.target.value }));
@@ -120,6 +146,8 @@ const MintDocPage: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        // reset cancellation state
+        setIsCancelled(false);
         // Provide precise guidance depending on what's missing
         if (!sourceFile) {
             setStatusMessage('Please select a file to upload.');
@@ -133,6 +161,7 @@ const MintDocPage: React.FC = () => {
         setIsSubmitting(true);
         setStatusMessage(null);
         try {
+            if (isCancelled) throw new Error('Operation cancelled');
             setStatusMessage('Step 1/6: Generating encryption keys...');
             // give small weight to key generation
             setProgress(2);
@@ -142,6 +171,7 @@ const MintDocPage: React.FC = () => {
             const timestamp = formData.tokenizationDate;
             const counter = Date.now();
 
+            if (isCancelled) throw new Error('Operation cancelled');
             setStatusMessage('Step 2/6: Encrypting file data...');
             // small weight for encryption
             setProgress(8);
@@ -150,27 +180,34 @@ const MintDocPage: React.FC = () => {
             const fileDataU8 = new Uint8Array(await sourceFile.arrayBuffer());
             const encryptedData = await aesGcmEncrypt(dek, fileDataU8, nonce);
 
+            if (isCancelled) throw new Error('Operation cancelled');
             setStatusMessage('Step 3/6: Creating verifiable chunks...');
             // chunking depends on payload size; start at 12% and allow multiply to update
             setProgress(12);
             const encryptedDataB64 = Buffer.from(encryptedData).toString('base64');
             // provide progress callback: multiply will call with processed/total
             const p1 = await multiply(owner, encryptedDataB64, (p, total) => {
+                if (isCancelled) return; // don't update state further
                 // map multiply progress (0..total) to range 12..45
                 const pct = 12 + Math.round((p / total) * (45 - 12));
                 setProgress(pct);
             });
+            if (isCancelled) throw new Error('Operation cancelled');
             const p2 = await multiply(p1, timestamp, (p, total) => {
+                if (isCancelled) return;
                 const base = 45; // small ramp
                 const pct = base + Math.round((p / total) * 5);
                 setProgress(pct);
             });
+            if (isCancelled) throw new Error('Operation cancelled');
             const chunk_a = await multiply(p2, counter.toString(), (p, total) => {
+                if (isCancelled) return;
                 const base = 50;
                 const pct = base + Math.round((p / total) * 5);
                 setProgress(pct);
             });
 
+            if (isCancelled) throw new Error('Operation cancelled');
             const dataHashB64 = Buffer.from(await sha256(fileDataU8)).toString('base64');
             const hmacKey = new TextEncoder().encode(owner + timestamp);
             const hmacHash = await hmacSha256(hmacKey, encryptedData);
@@ -178,11 +215,13 @@ const MintDocPage: React.FC = () => {
             const chunk_b = await multiply(dataHashB64, hmacHashB64);
             const chunk = merge(chunk_a, chunk_b);
 
+            if (isCancelled) throw new Error('Operation cancelled');
             setProgress(60);
             setStatusMessage('Step 4/6: Securing metadata...');
             const { metachunk } = await encode(chunk);
             
             // Upload: use XHR so we can get per-byte progress for large files
+            if (isCancelled) throw new Error('Operation cancelled');
             setProgress(70);
             setStatusMessage('Step 5/6: Uploading to IPFS...');
             const metaChunkFile = new File([metachunk], "metachunk.txt", { type: 'text/plain' });
@@ -190,11 +229,16 @@ const MintDocPage: React.FC = () => {
                 try {
                     const url = '/api/ipfs/file';
                     const xhr = new XMLHttpRequest();
+                    xhrRef.current = xhr;
                     xhr.open('POST', url, true);
                     const fd = new FormData();
                     fd.append('file', metaChunkFile);
 
                     xhr.upload.onprogress = (ev) => {
+                        if (isCancelled) {
+                            try { xhr.abort(); } catch {}
+                            return;
+                        }
                         if (ev.lengthComputable) {
                             const percent = Math.round((ev.loaded / ev.total) * 100);
                             setUploadProgress(percent);
@@ -221,12 +265,14 @@ const MintDocPage: React.FC = () => {
                     };
 
                     xhr.onerror = () => reject(new Error('Network error during upload'));
+                    xhr.onabort = () => reject(new Error('Upload cancelled'));
                     xhr.send(fd);
                 } catch (e) {
                     reject(e);
                 }
             });
 
+            if (isCancelled) throw new Error('Operation cancelled');
             setProgress(90);
             setStatusMessage('Step 6/6: Building transaction...');
             const metadata = {
@@ -250,6 +296,7 @@ const MintDocPage: React.FC = () => {
             // Debug: log tokenURI length
             console.log('tokenURI length:', tokenURI.length);
 
+            if (isCancelled) throw new Error('Operation cancelled');
             // --- Mint using Thirdweb wallet (no window.ethereum) ---
             setStatusMessage('Step 6/6: Minting on Base Sepolia...');
             setProgress(90);
@@ -263,6 +310,7 @@ const MintDocPage: React.FC = () => {
                 const network = await provider.getNetwork();
                 
                 if (network.chainId !== 84532) {
+                    if (isCancelled) throw new Error('Operation cancelled');
                     setStatusMessage('Switching to Base Sepolia network...');
                     
                     try {
@@ -280,6 +328,7 @@ const MintDocPage: React.FC = () => {
                         // Use the new signer for the contract
                         const nftContract = new ethers.Contract(CONTRACT_ADDRESS, NFTDocABI as any, newSigner);
                         
+                        if (isCancelled) throw new Error('Operation cancelled');
                         setStatusMessage('Please confirm the transaction...');
                         const txResponse = await nftContract.mintNFT(tokenURI);
                         
@@ -294,6 +343,7 @@ const MintDocPage: React.FC = () => {
                     // Already on correct chain
                     const nftContract = new ethers.Contract(CONTRACT_ADDRESS, NFTDocABI as any, currentSigner);
                     
+                    if (isCancelled) throw new Error('Operation cancelled');
                     setStatusMessage('Please confirm the transaction...');
                     const txResponse = await nftContract.mintNFT(tokenURI);
                     
@@ -304,6 +354,7 @@ const MintDocPage: React.FC = () => {
                 // Success - CLEAN UP QUICK UPLOAD STATE
                 // CHANGED: Clear the quick upload state before navigation
                 delete (window as any).__quickUploadFile;
+                try { sessionStorage.removeItem('essentialis.quickUploadCancelled'); } catch (e) {}
                 
                 setStatusMessage('Document minted successfully — updating documents list...');
                 setProgress(100);
@@ -319,11 +370,24 @@ const MintDocPage: React.FC = () => {
 
         } catch (err: any) {
             console.error(err);
-            setStatusMessage(`Error: ${err.message}`);
+            if (err?.message === 'Operation cancelled' || err?.message === 'Upload cancelled') {
+                setStatusMessage('Operation cancelled.');
+            } else {
+                setStatusMessage(`Error: ${err.message}`);
+            }
             // Keep progress as-is but do not let it show 100 on error
             if (progress === 100) setProgress(99);
         } finally {
+            // if user cancelled, keep UI clean: no lingering cancel/status/progress
+            if (isCancelled) {
+                setIsSubmitting(false);
+                xhrRef.current = null;
+                setProgress(null);
+                setUploadProgress(0);
+                return;
+            }
             setIsSubmitting(false);
+            xhrRef.current = null;
             // reset progress after short delay unless still successful state
             setTimeout(() => {
                 if (!statusMessage || !statusMessage.toLowerCase().includes('success')) setProgress(null);
@@ -459,17 +523,51 @@ const MintDocPage: React.FC = () => {
                             />
                         </div>
 
-                        {/* Submit Button */}
-                        <Button
-                            type="submit"
-                            disabled={isSubmitting || !sourceFile}
-                            variant="primary"
-                            size="lg"
-                            className="w-full"
-                            loading={isSubmitting}
-                        >
-                            {isSubmitting ? 'Minting Document...' : 'Mint Document'}
-                        </Button>
+                        {/* Submit/Cancel Buttons */}
+                        <div className="flex gap-3">
+                            <Button
+                                type="submit"
+                                disabled={isSubmitting || !sourceFile}
+                                variant="primary"
+                                size="lg"
+                                className="flex-1"
+                                loading={isSubmitting}
+                            >
+                                {isSubmitting ? 'Minting Document...' : 'Mint Document'}
+                            </Button>
+                            {isSubmitting && (
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    size="lg"
+                                    className="w-36"
+                                    onClick={() => {
+                                        // mark cancelled and abort any in-flight upload
+                                        setIsCancelled(true);
+                                        try { xhrRef.current?.abort(); } catch {}
+                                        xhrRef.current = null;
+                                        // reset UI state immediately
+                                        setUploadProgress(0);
+                                        setProgress(null);
+                                        setIsSubmitting(false);
+                                        // prevent auto re-submit on quick upload across navigation
+                                        try {
+                                            const name = sourceFile?.name || (window as any).__quickUploadFile?.name;
+                                            if (name) sessionStorage.setItem('essentialis.quickUploadCancelled', name);
+                                        } catch (e) {}
+                                        // also clear the global quick-file so returning won't rehydrate it
+                                        try { delete (window as any).__quickUploadFile; } catch (e) {}
+                                        // show a short-lived cancellation message then hide it
+                                        setStatusMessage('Operation cancelled.');
+                                        setTimeout(() => {
+                                            setStatusMessage(null);
+                                        }, 1200);
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                            )}
+                        </div>
 
                         {/* Status + Progress */}
                         {isSubmitting && (
