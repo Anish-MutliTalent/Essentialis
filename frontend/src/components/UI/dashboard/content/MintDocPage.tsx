@@ -298,7 +298,7 @@ const MintDocPage: React.FC = () => {
 
             if (isCancelled) throw new Error('Operation cancelled');
             // --- Mint using Thirdweb wallet (no window.ethereum) ---
-            setStatusMessage('Step 6/6: Minting on Base Sepolia...');
+            setStatusMessage('Step 6/6: Minting on OP Testnet...');
             setProgress(90);
 
             try {
