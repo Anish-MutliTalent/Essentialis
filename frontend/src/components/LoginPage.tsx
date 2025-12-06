@@ -13,6 +13,7 @@ import { ethers } from "ethers";
 import { FcGoogle } from "react-icons/fc";
 import MetaMaskLogo from "./UI/MetaMaskLogo";
 import { getContract, prepareContractCall, readContract, sendTransaction } from "thirdweb";
+import DocTokenAbi from '../abi/DocToken.json';
 import { optimismSepolia } from "thirdweb/chains";
 
 // Design System Components
@@ -52,19 +53,40 @@ async function claimFaucetReward(userAddress: string, activeWallet: any) {
 
     console.log("✅ Got signature, submitting claim...");
 
-    const contract = getContract({
+    if (!contractAddress) {
+      console.warn('No contractAddress returned from faucet endpoint, skipping claim');
+      return null;
+    }
+
+    const contract = await getContract({
       client,
       chain: optimismSepolia, // Match your chain
       address: contractAddress,
+      // Cast to `any` to satisfy thirdweb/viem ABI typing for imported JSON
+      abi: DocTokenAbi as any,
     });
 
-    const nonce = readContract({
-      contract,
-      method: "function nonces(address user) external view returns (uint256)",
-      params: [userAddress],
-    });
+    let nonce;
+    try {
+      // Use the simple method name — thirdweb/viem will handle the ABI behind the scenes
+      nonce = await readContract({
+        contract,
+        method: "function nonces(address user) external view returns (uint256)",
+        params: [userAddress],
+      });
+    } catch (err: any) {
+      // Handle viem's common "decode zero data" error when the contract address
+      // is empty / wrong chain / missing code. In that case, skip claiming
+      // rather than throwing an unhandled error.
+      const msg = String(err?.message || err);
+      if (msg.includes('Cannot decode zero data') || msg.includes('AbiDecodingZeroDataError')) {
+        console.warn('Faucet contract call returned zero data (no code / wrong address or chain). Skipping claim.', err);
+        return null;
+      }
+      throw err;
+    }
 
-    if ((await nonce).toString() === "0") {
+    if (nonce?.toString() === "0") {
       console.log("🎁 Claiming faucet reward for:", userAddress);
 
       const account = activeWallet.getAccount();
@@ -97,7 +119,7 @@ async function claimFaucetReward(userAddress: string, activeWallet: any) {
 
       console.debug('claimFaucetReward: amount (raw) =', amount, 'amountParam =', amountParam?.toString?.() ?? amountParam);
 
-      const transaction = prepareContractCall({
+      const transaction = await prepareContractCall({
         contract,
         method: "function claim(address recipient, uint256 amount, uint256 deadline, bytes signature)",
         params: [userAddress, amountParam, deadline, signature],
