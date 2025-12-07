@@ -45,5 +45,8 @@ class Config:
         "pool_size": 5,
         "max_overflow": 10,
     }
-
-    MAX_CONTENT_LENGTH = 1024^3
+    # Maximum upload size in bytes. Default to 1 GiB (can be overridden via env UPLOAD_MAX_BYTES)
+    try:
+        MAX_CONTENT_LENGTH = int(os.environ.get('UPLOAD_MAX_BYTES', str(100 * 1024 * 1024 * 1024)))
+    except Exception:
+        MAX_CONTENT_LENGTH = 100 * 1024 * 1024 * 1024

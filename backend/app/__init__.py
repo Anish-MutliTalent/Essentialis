@@ -20,7 +20,7 @@ nft_marketplace_contract = None
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
-    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+    # Use configured MAX_CONTENT_LENGTH from Config (default in Config.py). Do not override here.
 
     CORS(app, supports_credentials=True)
 

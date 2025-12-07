@@ -160,7 +160,14 @@ export async function divide(product_b64: string, known: string): Promise<string
     const tag2 = cap2.slice(0, 8);
 
     // helper to attempt decryption and validate the recovered length-prefix
-    const MAX_ACCEPTABLE_PAYLOAD = 10 * 1024 * 1024; // 10 MB guard
+    // Allow payloads larger than 10MB for real-world files. Use the incoming
+    // blob size as a guide so we accept reasonable payloads up to the size
+    // of the product itself. Also enforce an upper safety cap to avoid
+    // pathological allocations in the browser.
+    const INCOMING_BLOB_LIMIT = blob.length || (50 * 1024 * 1024);
+    const DEFAULT_MIN_ACCEPTABLE = 10 * 1024 * 1024; // 10 MB
+    const ABSOLUTE_MAX = 5 * 1024 * 1024 * 1024; // 200 MB safety cap
+    const MAX_ACCEPTABLE_PAYLOAD = Math.min(Math.max(INCOMING_BLOB_LIMIT, DEFAULT_MIN_ACCEPTABLE), ABSOLUTE_MAX);
 
     const tryDecryptWithSeed = async (seed: Uint8Array, cap: Uint8Array): Promise<string> => {
         // extract encrypted payload (the capsule layout is: 8-tag || 4-len || payload)

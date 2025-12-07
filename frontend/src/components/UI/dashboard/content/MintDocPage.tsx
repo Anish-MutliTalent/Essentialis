@@ -533,7 +533,7 @@ const MintDocPage: React.FC = () => {
                                 className="flex-1"
                                 loading={isSubmitting}
                             >
-                                {isSubmitting ? 'Minting Document...' : 'Mint Document'}
+                                {isSubmitting ? 'Uploading Document...' : 'Upload Document'}
                             </Button>
                             {isSubmitting && (
                                 <Button
