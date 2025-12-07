@@ -166,7 +166,7 @@ export async function divide(product_b64: string, known: string): Promise<string
     // pathological allocations in the browser.
     const INCOMING_BLOB_LIMIT = blob.length || (50 * 1024 * 1024);
     const DEFAULT_MIN_ACCEPTABLE = 10 * 1024 * 1024; // 10 MB
-    const ABSOLUTE_MAX = 5 * 1024 * 1024 * 1024; // 200 MB safety cap
+    const ABSOLUTE_MAX = 5 * 1024 * 1024 * 1024; // 5 GB safety cap
     const MAX_ACCEPTABLE_PAYLOAD = Math.min(Math.max(INCOMING_BLOB_LIMIT, DEFAULT_MIN_ACCEPTABLE), ABSOLUTE_MAX);
 
     const tryDecryptWithSeed = async (seed: Uint8Array, cap: Uint8Array): Promise<string> => {
