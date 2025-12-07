@@ -430,8 +430,8 @@ const MintDocPage: React.FC = () => {
                                         </svg>
                                         <div className="text-sm text-gray-400">
                                             <span className="font-medium text-yellow-400 hover:text-yellow-300">
-                                                Click to upload
-                                            </span> or drag and drop
+                                                Click to upload: Upto 5GB
+                                            </span> (Files above 16MB are unstable)
                                         </div>
                                         <Text variant="small" color="muted">
                                             {sourceFile ? `Selected: ${sourceFile.name}` : 'No file selected'}
