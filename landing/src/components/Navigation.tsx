@@ -1,6 +1,6 @@
 import  { useState, useEffect, useRef } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { Menu, X, User, FileText, DollarSign, BookOpen, Home } from 'lucide-react';
+import { Menu, X, User, FileText, DollarSign, BookOpen, Home, Mail } from 'lucide-react';
 import { MagneticButton } from './Interactive';
 
 const Navigation = () => {
@@ -34,6 +34,7 @@ const Navigation = () => {
     { name: 'Pricing', href: '/pricing', icon: DollarSign },
     { name: 'Documentation', href: '/docs', icon: FileText },
     { name: 'Blog', href: '/blog', icon: BookOpen },
+    { name: 'Contact', href: '/contact', icon: Mail },
   ];
 
   return (
@@ -74,7 +75,7 @@ const Navigation = () => {
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:block">
+          <div className="hidden lg:block">
             <div className="ml-10 flex items-center space-x-2">
               {navItems.map((item) => (
                 <a
@@ -97,7 +98,7 @@ const Navigation = () => {
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden">
+          <div className="lg:hidden">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="text-gray-300 hover:text-yellow-400 p-2 rounded-lg hover:bg-yellow-400/5 transition-colors"
@@ -115,7 +116,7 @@ const Navigation = () => {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          className="relative md:hidden bg-black/95 backdrop-blur-professional border-b border-gray-800/50"
+          className="relative lg:hidden bg-black/95 backdrop-blur-professional border-b border-gray-800/50"
         >
           <div className="px-4 pt-4 pb-6 space-y-2">
             {navItems.map((item) => (
