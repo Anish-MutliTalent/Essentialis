@@ -475,7 +475,7 @@ const Homepage = memo(() => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8, ease, delay: 0.4 }}
-              className="text-lg text-gray-300 mb-10 px-24 lg:px-0 leading-relaxed font-light"
+              className="text-lg text-gray-300 mb-10 px-4 lg:px-0 leading-relaxed font-light"
             >
               Store your most important documents with bank-level security. No big-tech, no tracking — just pure privacy.
             </motion.p>
@@ -528,7 +528,7 @@ const Homepage = memo(() => {
         </div>
       </section>
 
-      <section className="section py-28 px-6 lg:px-8 relative">
+      <section className="section py-28 px-4 sm:px-6 lg:px-8 relative">
         <div className="max-w-7xl mx-auto">
           {/* Section Header */}
           <motion.div
@@ -599,7 +599,7 @@ const Homepage = memo(() => {
         </div>
       </section>
 
-      <section className="section py-24 px-6 lg:px-8 bg-white/5 backdrop-blur-xl border-y border-white/10 relative">
+      <section className="section py-24 px-4 sm:px-6 lg:px-8 bg-white/5 backdrop-blur-xl border-y border-white/10 relative">
         <div className="max-w-7xl mx-auto">
           <div className="grid md:grid-cols-3 gap-16 text-center">
             {[
@@ -692,7 +692,7 @@ const Homepage = memo(() => {
       </section>
 
       {/* CTA Section */}
-      <section className="section py-48 px-6 lg:px-8">
+      <section className="section py-48 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto text-center">
           <GlassCard>
           <motion.div
