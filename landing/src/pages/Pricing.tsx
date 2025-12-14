@@ -28,18 +28,18 @@
           'No sharing (only you)',
           'No guaranteed data integrity'
         ],
-        popular: false,
+        popular: true,
         cta: 'Get Started Free'
       },
       {
         name: 'Personal',
         icon: Shield,
         description: 'Perfect for all sorts of personal documents, including passwords, confidential documents and records, etc.',
-        monthlyPrice: 90,
-        annualPrice: 999,
+        monthlyPrice: 1,
+        annualPrice: 10,
         features: [
           'Everything in free, and...',
-          '100000 Credits (1 credit = 1 document action)',
+          '50000 Credits (1 credit = 1 document action)',
           'Email Support',
           'All file types supported',
           'Sharing controls',
@@ -55,18 +55,18 @@
           'No API access',
           'No access control (Sharing to anyone gives them same access as yourself)'
         ],
-        popular: true,
+        popular: false,
         cta: 'Start Personal'
       },
       {
         name: 'Professional',
         icon: Zap,
         description: 'Ideal for professionals and small businesses with sensitive documents',
-        monthlyPrice: 299,
-        annualPrice: 3399,
+        monthlyPrice: 5,
+        annualPrice: 50,
         features: [
           'Everything in personal and...',
-          '50000 Credits (1 credit = 1 document action)',
+          '200000 Credits (1 credit = 1 document action)',
           'Advanced Access control',
           'Team collaboration',
           'Advanced Data redundancy and storage space management (coming up)',
@@ -81,7 +81,7 @@
         icon: Crown,
         description: 'For organizations that need maximum security and advanced features',
         monthlyPrice: 'Contact for price',
-        annualPrice: 'Starting at ₹599/month',
+        annualPrice: 'Starting at $29/month',
         features: [
           'Everything in professional, and...',
           'Up to unlimited storage',
@@ -203,12 +203,12 @@
                       {plan.name === 'Enterprise' ? (
                         <div>
                           <div className="text-lg font-bold text-yellow-400 mb-1">Contact for price</div>
-                          <div className="text-sm text-gray-400">Starting at ₹599/month</div>
+                          <div className="text-sm text-gray-400">Starting at $29/month</div>
                         </div>
                       ) : (
                         <>
                           <span className="text-2xl font-bold">
-                            ₹{isAnnual ? plan.annualPrice : plan.monthlyPrice}
+                            ${isAnnual ? plan.annualPrice : plan.monthlyPrice}
                           </span>
                           <span className="text-gray-400">
                             {plan.monthlyPrice === 0 ? '' : isAnnual ? '/year' : '/month'}
