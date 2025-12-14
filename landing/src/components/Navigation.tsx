@@ -6,6 +6,7 @@ import { MagneticButton } from './Interactive';
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrollPos, setScrollPos] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
   const navRef = useRef<HTMLDivElement | null>(null);
   const { scrollY } = useScroll();
   const bgOpacity = useTransform(scrollY, [0, 200], [0, 0.9]);
@@ -14,8 +15,16 @@ const Navigation = () => {
     const handleScroll = () => {
       setScrollPos(window.scrollY);
     };
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    handleResize(); // Set initial value
     window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   // Compute fraction from 0 to 1 based on max scroll threshold (200)
@@ -25,8 +34,9 @@ const Navigation = () => {
   const navHeight = 7 - 2 * fraction;
   // Container top padding: from 2rem (p-8) to 0.25rem (pt-1); difference = 1.75
   const containerPaddingTop = 2 - 1.75 * fraction;
-  // Logo image size: from 12rem (h-48/w-48) to 10rem (h-40/w-40)
-  const imageSize = 12 - 2 * fraction;
+  // Logo image size: from 12rem (h-48/w-48) to 10rem (h-40/w-40) on desktop
+  // On mobile, cap at 3rem to prevent overflow
+  const imageSize = isMobile ? 3 : 12 - 2 * fraction;
 
   const navItems = [
     { name: 'Home', href: '/', icon: Home },
@@ -59,15 +69,19 @@ const Navigation = () => {
 
       {/* Foreground content - always visible */}
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" style={{ paddingTop: `${containerPaddingTop}rem` }}>
-        <div className="flex justify-between items-center transition-all" style={{ height: `${navHeight}rem` }}>
+        <div className="flex justify-between items-center transition-all overflow-hidden" style={{ height: `${navHeight}rem` }}>
           {/* Logo */}
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 min-w-0">
             <a href="/" className="flex items-center space-x-3 group">
               <span className="text-2xl font-bold gradient-gold-text">
                 <img 
                   src="./essentialis.svg" 
                   alt="Logo" 
-                  style={{ height: `${imageSize}rem`, width: `${imageSize}rem`, transition: 'all 1s ease-in-out' }}
+                  style={{ 
+                    height: `${imageSize}rem`, 
+                    width: `${imageSize}rem`, 
+                    transition: 'all 1s ease-in-out'
+                  }}
                   className="rounded-full group-hover:scale-105 will-change-transform"
                 />
               </span>
@@ -98,7 +112,7 @@ const Navigation = () => {
           </div>
 
           {/* Mobile menu button */}
-          <div className="lg:hidden">
+          <div className="lg:hidden flex-shrink-0">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="text-gray-300 hover:text-yellow-400 p-2 rounded-lg hover:bg-yellow-400/5 transition-colors"

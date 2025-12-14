@@ -434,7 +434,9 @@ const Homepage = memo(() => {
           }
         });
      },
-      { threshold: 0.5 }
+      { 
+        threshold: window.innerWidth < 768 ? 0.1 : 0.4 
+      }
     );
  
     sections.forEach((sec) => observer.observe(sec));

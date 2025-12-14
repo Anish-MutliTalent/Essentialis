@@ -67,7 +67,7 @@ html, body, #root {
   font-weight: 600;
 }
 
-/* Professional Scrollbar */
+/* Professional Scrollbar - Hidden by default, visible when scrolling */
 ::-webkit-scrollbar {
   width: 4px;
 }
@@ -77,16 +77,29 @@ html, body, #root {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #d4af37, #b8941f);
+  background: transparent;
   border-radius: 2px;
+  transition: background 0.3s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #b8941f, #9a7b1a);
 }
 
-/* Firefox scrollbar */
+/* Show scrollbar when scrolling is active */
+html.scrolling ::-webkit-scrollbar-thumb,
+body.scrolling ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #d4af37, #b8941f);
+}
+
+/* Firefox scrollbar - Hidden by default */
 html {
+  scrollbar-width: none;
+  scrollbar-color: transparent transparent;
+}
+
+/* Show Firefox scrollbar when scrolling */
+html.scrolling {
   scrollbar-width: thin;
   scrollbar-color: #d4af37 transparent;
 }

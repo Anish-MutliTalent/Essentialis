@@ -2,7 +2,7 @@ import { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Navigation from './components/Navigation';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { initSmoothScroll } from './lib/lenis';
 
 
@@ -29,8 +29,91 @@ const FastLoader = () => (
 );
 
 function App() {
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lenisRef = useRef<any>(null);
+  const isScrollingRef = useRef(false);
+
   useEffect(() => {
-    initSmoothScroll();
+    // Initialize smooth scroll
+    const lenis = initSmoothScroll();
+    lenisRef.current = lenis;
+
+    // Function to show scrollbar
+    const showScrollbar = () => {
+      if (!isScrollingRef.current) {
+        isScrollingRef.current = true;
+        document.documentElement.classList.add('scrolling');
+        document.body.classList.add('scrolling');
+      }
+      
+      // Clear existing timeout
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+
+    // Function to hide scrollbar after scrolling stops
+    const hideScrollbar = () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      
+      scrollTimeoutRef.current = setTimeout(() => {
+        isScrollingRef.current = false;
+        document.documentElement.classList.remove('scrolling');
+        document.body.classList.remove('scrolling');
+      }, 600); // Hide scrollbar 600ms after scrolling stops
+    };
+
+    // Listen to Lenis scroll events (primary method)
+    const handleLenisScroll = () => {
+      showScrollbar();
+      hideScrollbar();
+    };
+
+    // Listen to wheel events to detect scroll intent
+    const handleWheel = () => {
+      showScrollbar();
+      hideScrollbar();
+    };
+
+    // Listen to touch events for mobile
+    const handleTouchStart = () => {
+      showScrollbar();
+    };
+
+    const handleTouchEnd = () => {
+      hideScrollbar();
+    };
+
+    // Listen to native scroll events as fallback
+    const handleNativeScroll = () => {
+      showScrollbar();
+      hideScrollbar();
+    };
+
+    if (lenis) {
+      lenis.on('scroll', handleLenisScroll);
+    }
+
+    // Add event listeners
+    window.addEventListener('scroll', handleNativeScroll, { passive: true });
+    window.addEventListener('wheel', handleWheel, { passive: true });
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+      if (lenis) {
+        lenis.off('scroll', handleLenisScroll);
+      }
+      window.removeEventListener('scroll', handleNativeScroll);
+      window.removeEventListener('wheel', handleWheel);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
   }, []);
   return (
     <Router future={{ v7_relativeSplatPath: true }}>
