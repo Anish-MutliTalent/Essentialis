@@ -486,7 +486,7 @@ const Homepage = memo(() => {
               className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
             >
               <MagneticButton
-                href="https://demo.essentialis.cloud"
+                href="/open-beta"
                 ariaLabel="Start storing safely"
                 className="shadow-2xl flex items-center justify-center gap-2"
                 icon={<ArrowRight className="w-4 h-4" />}
@@ -711,7 +711,7 @@ const Homepage = memo(() => {
             
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <MagneticButton href="https://demo.essentialis.cloud" ariaLabel="Start protecting now" className="shadow-xl" icon={<ArrowRight className="w-4 h-4" />}>
+              <MagneticButton href="/open-beta" ariaLabel="Start protecting now" className="shadow-xl" icon={<ArrowRight className="w-4 h-4" />}>
                 Start Protecting Now
               </MagneticButton>
 

@@ -101,7 +101,7 @@ const DocView: React.FC = () => {
       const signer = provider.getSigner();
 
       setStatusMessage("Step 1/6: Fetching secure metadata bundle from IPFS...");
-      const metachunkRes = await fetch(`https://ipfs.io/ipfs/${metadata.encrypted_file_cid}`);
+      const metachunkRes = await fetch(`/api/ipfs/${metadata.encrypted_file_cid}`);
       if (!metachunkRes.ok) throw new Error("Could not fetch metadata bundle from IPFS.");
       const metachunk = await metachunkRes.text();
 

@@ -3,7 +3,7 @@ import requests
 import rlp
 from eth_account._utils.legacy_transactions import serializable_unsigned_transaction_from_dict
 from eth_keys.datatypes import Signature
-from flask import Blueprint, request, jsonify, current_app, session, render_template
+from flask import Blueprint, request, jsonify, current_app, session, render_template, Response, stream_with_context
 from web3 import Web3  # IMPORT Web3
 from eth_keys import keys
 from itsdangerous import URLSafeTimedSerializer  # IMPORT URLSafeTimedSerializer
@@ -282,6 +282,19 @@ def upload_ipfs(content):
         return jsonify(result)
 
     return 404
+
+@bp.route("/ipfs/<path:ipfs_hash>", methods=["GET"])
+def ipfs_proxy(ipfs_hash: str):
+    from .ipfs import stream_file_from_ipfs
+    stream, headers = stream_file_from_ipfs(ipfs_hash)
+
+    response = Response(
+        stream_with_context(stream),
+        headers={k: v for k, v in headers.items() if v is not None},
+        direct_passthrough=True,
+    )
+
+    return response
 
 
 async def _get_my_nfts_async(user_id: int):

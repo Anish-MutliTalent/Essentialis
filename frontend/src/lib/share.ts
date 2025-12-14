@@ -20,12 +20,12 @@ export async function loadMetadata(metadataCidOrObj: string | object): Promise<a
   // Accept ipfs:// prefix, plain CID, or gateway url
   let url = s;
   if (s.startsWith('ipfs://')) {
-    url = 'https://ipfs.io/ipfs/' + s.replace(/^ipfs:\/\//, '');
+    url = '/api/ipfs/' + s.replace(/^ipfs:\/\//, '');
   } else if (/^https?:\/\//.test(s)) {
     url = s;
   } else {
     // assume CID
-    url = 'https://ipfs.io/ipfs/' + s;
+    url = '/api/ipfs/' + s;
   }
 
   const res = await fetch(url);
@@ -109,7 +109,7 @@ export async function shareWithWallet(
     try {
       if (metadata.encrypted_file_cid) {
         const cid = String(metadata.encrypted_file_cid).replace(/^ipfs:\/\//, '');
-        const metachunkResp = await fetch(`https://ipfs.io/ipfs/${cid}`);
+        const metachunkResp = await fetch(`/api/ipfs/${cid}`);
         if (metachunkResp.ok) {
           const metachunkText = await metachunkResp.text();
           try {

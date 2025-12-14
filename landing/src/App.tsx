@@ -13,6 +13,8 @@ const Pricing = lazy(() => import('./pages/Pricing'));
 const Documentation = lazy(() => import('./pages/Documentation'));
 const Blog = lazy(() => import('./pages/Blog'));
 const BlogPost = lazy(() => import('./pages/BlogPost'));
+const OpenBeta = lazy(() => import('./pages/OpenBeta'));
+const Waitlist = lazy(() => import('./pages/Waitlist'));
 
 // Fast loading component
 const FastLoader = () => (
@@ -57,6 +59,8 @@ function App() {
             <Route path="/docs" element={<Documentation />} />
             <Route path="/blog" element={<Blog />} />
             <Route path="/blog/:slug" element={<BlogPost />} />
+            <Route path="/open-beta" element={<OpenBeta />} />
+            <Route path="/waitlist" element={<Waitlist />} />
           </Routes>
         </Suspense>
       </div>

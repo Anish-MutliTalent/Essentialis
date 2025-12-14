@@ -2,6 +2,7 @@ import requests
 from werkzeug.datastructures import FileStorage
 from dotenv import load_dotenv
 import os
+from typing import Iterator, Tuple
 
 load_dotenv()
 
@@ -59,3 +60,22 @@ def download_json(ipfs_hash: str) -> dict:
     response = requests.get(gateway_url)
     response.raise_for_status()
     return response.json()
+
+def stream_file_from_ipfs(ipfs_hash: str) -> Tuple[Iterator[bytes], dict]:
+    """
+    Streams a file directly from IPFS and returns an iterator and headers.
+
+    :param ipfs_hash: IPFS CID
+    :return: (byte iterator, response headers)
+    """
+    gateway_url = f"https://ipfs.io/ipfs/{ipfs_hash}"
+    response = requests.get(gateway_url, stream=True)
+    response.raise_for_status()
+
+    headers = {
+        "Content-Type": response.headers.get("Content-Type", "application/octet-stream"),
+        "Content-Length": response.headers.get("Content-Length"),
+        "Content-Disposition": response.headers.get("Content-Disposition"),
+    }
+
+    return response.iter_content(chunk_size=8192), headers
