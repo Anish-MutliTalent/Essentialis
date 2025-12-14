@@ -14,7 +14,7 @@
         monthlyPrice: 0,
         annualPrice: 0,
         features: [
-          '10000 Credits (1 credit = 1 document action)',
+          '3000 Credits (1 credit = 1 document action)',
           'Advanced encryption',
           'Mobile app access',
           'Basic document preview',
