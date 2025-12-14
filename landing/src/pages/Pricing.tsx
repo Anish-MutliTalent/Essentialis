@@ -39,7 +39,7 @@
         annualPrice: 999,
         features: [
           'Everything in free, and...',
-          '200000 Credits (1 credit = 1 document action)',
+          '100000 Credits (1 credit = 1 document action)',
           'Email Support',
           'All file types supported',
           'Sharing controls',
@@ -66,7 +66,7 @@
         annualPrice: 3399,
         features: [
           'Everything in personal and...',
-          '500000 Credits (1 credit = 1 document action)',
+          '50000 Credits (1 credit = 1 document action)',
           'Advanced Access control',
           'Team collaboration',
           'Advanced Data redundancy and storage space management (coming up)',
