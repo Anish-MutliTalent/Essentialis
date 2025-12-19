@@ -45,7 +45,7 @@ const Waitlist = () => {
         </div>
 
         <div className="flex justify-center">
-          <MagneticButton href="/open-beta" ariaLabel="Join the open beta">
+          <MagneticButton href="https://demo.essentialis.cloud" ariaLabel="Join the open beta">
             Join the open beta
           </MagneticButton>
         </div>
