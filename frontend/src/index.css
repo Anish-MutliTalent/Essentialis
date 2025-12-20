@@ -495,3 +495,26 @@ textarea:focus-visible {
     scroll-behavior: auto !important;
   }
 }
+
+/* Viewer background */
+.docx-wrapper {
+  background: #e5e7eb;
+  padding: 32px 0;
+  width: 100%;
+}
+
+/* Individual pages */
+.docx {
+  background: #ffffff !important;
+  width: min(100%, 816px);   /* Fit container but cap at page width */
+  min-height: unset;         /* ← critical */
+  margin: 0 auto 32px auto;
+  padding: 40px 60px;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.2);
+  box-sizing: border-box;
+}
+
+/* Text color safety */
+.docx * {
+  color: #000 !important;
+}

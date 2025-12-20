@@ -79,11 +79,11 @@ export const getFileSize = (size: string | number | undefined | null) : string =
  */
 export const friendlyFileTypeLabel = (fileType?: string | null): string => {
   if (!fileType) return 'Unknown';
-  const ft = fileType.toString().toLowerCase();
+  const ft = fileType.toLowerCase();
 
-  // If it's an extension without a slash, map directly
+  // ===== Extension-only inputs =====
   if (!ft.includes('/')) {
-    switch(ft) {
+    switch (ft) {
       case 'pdf': return 'PDF';
       case 'svg': return 'SVG image';
       case 'jpg':
@@ -96,48 +96,95 @@ export const friendlyFileTypeLabel = (fileType?: string | null): string => {
       case 'xls':
       case 'xlsx': return 'Spreadsheet';
       case 'txt': return 'Plain text';
-      default: return ft.toUpperCase();
+
+      // Audio
+      case 'mp3': return 'MP3 audio';
+      case 'wav': return 'WAV audio';
+      case 'ogg': return 'OGG audio';
+      case 'flac': return 'FLAC audio';
+      case 'aac':
+      case 'm4a': return 'Audio file';
+
+      // Archives
+      case 'zip': return 'ZIP archive';
+      case 'rar': return 'RAR archive';
+      case '7z': return '7-Zip archive';
+      case 'tar':
+      case 'gz': return 'Compressed archive';
+
+      default:
+        return ft.toUpperCase();
     }
   }
 
-  // Exact or common mappings
-  if (ft.includes('application/vnd.openxmlformats-officedocument.presentationml.presentation')) return 'PowerPoint presentation';
-  if (ft.includes('application/pdf') || ft === 'pdf') return 'PDF';
-  if (ft.includes('image/svg+xml') || ft === 'svg') return 'SVG image';
+  // ===== Office formats (specific → general) =====
+
+  // Spreadsheet FIRST
+  if (
+    ft.includes('spreadsheetml') ||
+    ft.includes('ms-excel') ||
+    ft.includes('excel') ||
+    ft.includes('sheet')
+  ) {
+    return 'Spreadsheet';
+  }
+
+  // PowerPoint
+  if (
+    ft.includes('presentationml') ||
+    ft.includes('powerpoint') ||
+    ft.includes('ms-powerpoint')
+  ) {
+    return 'PowerPoint presentation';
+  }
+
+  // Word (no generic "doc")
+  if (
+    ft.includes('wordprocessingml') ||
+    ft.includes('msword')
+  ) {
+    return 'Word document';
+  }
+
+  // ===== PDF =====
+  if (ft === 'application/pdf') return 'PDF';
+
+  // ===== Images =====
   if (ft.startsWith('image/')) {
-    // image/png, image/jpeg, etc
-    const subtype = ft.split('/')[1] || 'image';
+    const subtype = ft.split('/')[1] ?? 'image';
     if (subtype.includes('jpeg') || subtype.includes('jpg')) return 'JPEG image';
     if (subtype.includes('png')) return 'PNG image';
+    if (subtype.includes('svg')) return 'SVG image';
     return `${subtype.toUpperCase()} image`;
   }
-  if (ft.includes('presentationml') || ft.includes('powerpoint') || ft.includes('ppt')) return 'PowerPoint presentation';
-  if (ft.includes('wordprocessingml') || ft.includes('msword') || ft.includes('word') || ft.includes('doc')) return 'Word document';
-  if (ft.includes('spreadsheet') || ft.includes('excel') || ft.includes('sheet') || ft.includes('xls')) return 'Spreadsheet';
-  if (ft.includes('text/plain') || ft === 'txt' || ft.includes('text')) return 'Plain text';
+
+  // ===== Audio =====
+  if (ft.startsWith('audio/')) {
+    if (ft.includes('mpeg')) return 'MP3 audio';
+    if (ft.includes('wav')) return 'WAV audio';
+    if (ft.includes('ogg')) return 'OGG audio';
+    if (ft.includes('flac')) return 'FLAC audio';
+    return 'Audio file';
+  }
+
+  // ===== Archives =====
+  if (
+    ft === 'application/zip' ||
+    ft.includes('zip') ||
+    ft.includes('x-zip-compressed')
+  ) {
+    return 'ZIP archive';
+  }
+
+  if (ft.includes('x-rar-compressed')) return 'RAR archive';
+  if (ft.includes('x-7z-compressed')) return '7-Zip archive';
+  if (ft.includes('gzip')) return 'GZIP archive';
+
+  // ===== Text & misc =====
+  if (ft.startsWith('text/')) return 'Plain text';
   if (ft.includes('json')) return 'JSON';
   if (ft.includes('octet-stream')) return 'Binary file';
 
-  // Fallback: if the string contains a recognizable extension in its content (like .pdf, etc.)
-  const extMatch = ft.match(/\.(pdf|png|jpe?g|svg|docx?|xlsx?|pptx?)$/);
-  if (extMatch) {
-    const ext = extMatch[1];
-    switch (ext) {
-      case 'pdf': return 'PDF';
-      case 'png': return 'PNG image';
-      case 'jpg':
-      case 'jpeg': return 'JPEG image';
-      case 'svg': return 'SVG image';
-      case 'doc':
-      case 'docx': return 'Word document';
-      case 'xls':
-      case 'xlsx': return 'Spreadsheet';
-      case 'pptx':
-      case 'ppt': return 'PowerPoint presentation';
-      default: break;
-    }
-  }
-
-  // Last resort: capitalize and return a cleaned up version
   return fileType.toString();
 };
+

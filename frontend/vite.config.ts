@@ -8,9 +8,10 @@ export default defineConfig({
     ],
     optimizeDeps: {
       include: ['@metamask/jazzicon'],
+      exclude: ['@pdftron/webviewer'],
     },
     ssr: {
-    noExternal: ['@metamask/jazzicon'],
+    noExternal: ['@metamask/jazzicon', '@pdftron/webviewer'],
     },
     server: {
     port: 5173, // Your frontend port

@@ -9,6 +9,7 @@ import { EIP1193 } from 'thirdweb/wallets';
 import { Button, Card, CardHeader, CardContent, Heading, Text, LoadingSpinner } from '../../index';
 import { client } from '../../../../lib/thirdweb';
 import { friendlyFileTypeLabel } from '../../../../lib/docs';
+import MediaViewer from './MediaViewer';
 
 import {
   unwrapDek,
@@ -45,9 +46,7 @@ interface DocMetadata {
   }>;
   encrypted_file_cid: string;
   nonce: string;
-  // wrapped_deks entries may be string (hex) or objects with more fields
   wrapped_deks: Record<string, any>;
-  // optional checksum for encrypted data
   encrypted_data_sha256_b64?: string;
 }
 
@@ -111,7 +110,7 @@ const DocView: React.FC = () => {
       if (subchunks.length < 2) throw new Error("Invalid metadata chunk format.");
       const [chunk_a, chunk_b] = subchunks;
 
-  setStatusMessage("Step 3/6: Reconstructing encrypted data...");
+      setStatusMessage("Step 3/6: Reconstructing encrypted data...");
       const ownerAddress = account.address;
       const ownerLower = ownerAddress.toLowerCase();
       const ownerChecksummed = (() => { try { return ethers.utils.getAddress(ownerAddress); } catch { return ownerAddress; } })();
@@ -119,7 +118,6 @@ const DocView: React.FC = () => {
       const counterStr = metadata.attributes.find(a => a.trait_type === "Counter")?.value;
       if (!timestamp || !counterStr) throw new Error("Missing required attributes (timestamp/counter) for decryption.");
 
-      // Resolve wrapped entry up-front to decide owner vs recipient path
       const w = metadata.wrapped_deks || ({} as any);
       let rawEntry = w[ownerLower] || w[ownerAddress] || w[ownerChecksummed] || null;
       if (!rawEntry) {
@@ -128,7 +126,6 @@ const DocView: React.FC = () => {
       }
       if (!rawEntry) throw new Error("Access Denied: You do not have a key for this document.");
 
-      // Extract sharing markers
       let wrappedDekHex: string | null = null;
       let ownerEphemeralPubKey: string | undefined;
       let ownerSignature: string | undefined;
@@ -144,7 +141,6 @@ const DocView: React.FC = () => {
       }
       if (!wrappedDekHex) throw new Error('Wrapped DEK not found in metadata entry; unable to decrypt.');
 
-      // Helper to decode a payload string into bytes (hex/base64/base64url/binary)
       const base64urlRegex = /^[A-Za-z0-9\-_]+={0,2}$/;
       const base64Regex = /^[A-Za-z0-9+/]+=*$/;
       const decodePayloadToBytes = (payloadStr: string): Uint8Array => {
@@ -164,18 +160,15 @@ const DocView: React.FC = () => {
 
       const isOwnerMode = !ownerSignature && !providerEncrypted && !ownerEphemeralPubKey;
       if (isOwnerMode) {
-        // OWNER MODE: restore original reconstruction path (counter -> timestamp -> ownerAddress)
         const p2_rec = await divide(chunk_a, counterStr);
         const p1_rec = await divide(p2_rec, timestamp);
         const encryptedPayloadStr = await divide(p1_rec, ownerAddress);
         encryptedData = decodePayloadToBytes(encryptedPayloadStr);
         ownerOperandUsed = ownerAddress;
       } else {
-        // RECIPIENT MODE: reconstruct using uploader's address (from wrapped_deks keys), prefer entry-level checksum, try standard order first
         type Cand = { ownerOperand: string; order: string; bytes: Uint8Array; sha?: string };
         const candidates: Cand[] = [];
 
-        // Build owner operand candidates from wrapped_deks keys and their normalized forms
         const wd = (metadata.wrapped_deks || {}) as Record<string, any>;
         const uniq = new Set<string>();
         for (const k of Object.keys(wd)) {
@@ -187,7 +180,6 @@ const DocView: React.FC = () => {
         const ownerCandidates = Array.from(uniq);
         if (ownerCandidates.length === 0) ownerCandidates.push(ownerAddress, ownerLower, ownerChecksummed);
 
-        // Determine preferred checksum: entry-level (any wrapped entry) first, else metadata-level
         let targetSha: string | null = null;
         let checksumSource: 'entry' | 'metadata' | 'none' = 'none';
         if (typeof rawEntry === 'object' && rawEntry && rawEntry.encrypted_data_sha256_b64) {
@@ -205,7 +197,6 @@ const DocView: React.FC = () => {
           checksumSource = 'metadata';
         }
 
-        // Helper to attempt a divide chain for a given order and owner operand
         const tryOrder = async (orderName: string, ownerOp: string): Promise<Cand | null> => {
           try {
             let s1: string;
@@ -254,18 +245,15 @@ const DocView: React.FC = () => {
           } catch (_) { return null; }
         };
 
-        // 1) Try standard order first across all owner candidates
         const standardOrder = 'counter>timestamp>owner';
         for (const ownerOp of ownerCandidates) {
           const c = await tryOrder(standardOrder, ownerOp);
           if (c) candidates.push(c);
         }
 
-        // Prefer checksum match if available; otherwise choose the largest buffer
         let chosen: Cand | null = null;
         if (targetSha) {
           chosen = candidates.find(c => c.sha === targetSha) || null;
-          // If checksum matched but candidate is implausibly small, ignore the match
           if (chosen && chosen.bytes.length < 64) {
             console.warn('[DocView] checksum matched tiny ciphertext; ignoring match and choosing largest candidate instead');
             chosen = null;
@@ -275,7 +263,6 @@ const DocView: React.FC = () => {
           chosen = candidates.reduce((a, b) => (b.bytes.length > a.bytes.length ? b : a));
         }
 
-        // 2) If no good candidate or suspiciously small ciphertext, try alternate orders
         if (!chosen || (chosen.bytes.length < 64)) {
           const orders = [
             'owner>timestamp>counter',
@@ -309,7 +296,6 @@ const DocView: React.FC = () => {
         console.debug('[DocView] decoded encryptedData length=', encryptedData.length, 'using owner operand=', ownerOperandUsed, 'order=', chosen.order);
       }
 
-      // Quick sanity check: AES-GCM expects at least 16 bytes of tag
       if (!encryptedData || encryptedData.length < 16) {
         throw new Error(
           `Encrypted payload too small (${encryptedData ? encryptedData.length : 0} bytes). ` +
@@ -319,9 +305,6 @@ const DocView: React.FC = () => {
 
       setStatusMessage("Step 4/6: Unwrapping access key... Please sign message in wallet.");
 
-      // wrapped entry and fields resolved earlier
-
-      // Resolve nonce from entry.nonce/nonce_hex or metadata.nonce/nonce_hex; expect 12-byte AES-GCM IV
       let nonceSource = 'metadata';
       const entryNonceHex = (typeof rawEntry === 'object' && rawEntry !== null) ? (rawEntry.nonce || (rawEntry as any).nonce_hex) : null;
       const metaNonceHex = (metadata as any).nonce || (metadata as any).nonce_hex || null;
@@ -337,7 +320,6 @@ const DocView: React.FC = () => {
 
       let dek: Uint8Array;
 
-      // Choose unwrapping strategy based on how the owner shared the DEK
       console.debug('[DocView] unwrap inputs:', {
         hasOwnerSignature: !!ownerSignature,
         hasProviderEncrypted: !!providerEncrypted,
@@ -366,11 +348,8 @@ const DocView: React.FC = () => {
           );
         }
       } else {
-        // If recipient path lacks owner_signature/provider/ephemeral, entry is incompatible for recipient unwrap
         throw new Error('Recipient unwrap unsupported: missing owner_signature/provider/ephemeral in entry. Ask owner to re-share using signature-based method.');
       }
-
-      // Diagnostic info about decoded DEK/nonce lengths (don't log raw keys)
 
       let dekHashStr: string | null = null;
       try {
@@ -380,14 +359,12 @@ const DocView: React.FC = () => {
         console.debug('[DocView] dek hash skipped due to error', e);
       }
 
-      // If owner provided a dek checksum in metadata entry, verify it matches the derived DEK before attempting AES decrypt
       const wrappedEntryObj = (typeof rawEntry === 'object' && rawEntry !== null) ? rawEntry : null;
       const ownerDekSha = wrappedEntryObj ? (wrappedEntryObj.dek_sha256_b64 || wrappedEntryObj.dekSha256B64 || wrappedEntryObj.dek_sha) : null;
       if (ownerDekSha && dekHashStr && ownerDekSha !== dekHashStr) {
         throw new Error(`Derived DEK mismatch: owner's dek_sha256_b64=${ownerDekSha.slice(0,12)}..., derived dek_sha256_b64=${dekHashStr.slice(0,12)}.... Ask owner to re-share.`);
       }
 
-      // If owner provided an encrypted_data checksum, verify the reconstructed ciphertext matches before decrypting
       const ownerEncryptedSha = wrappedEntryObj ? (wrappedEntryObj.encrypted_data_sha256_b64 || metadata.encrypted_data_sha256_b64) : metadata.encrypted_data_sha256_b64;
       if (ownerEncryptedSha) {
         const computedEncSha = Buffer.from(await sha256(encryptedData)).toString('base64');
@@ -402,7 +379,6 @@ const DocView: React.FC = () => {
       try {
         data = await aesGcmDecrypt(dek, encryptedData, nonceBytes);
       } catch (aesErr) {
-        // Provide more actionable diagnostics for AES-GCM failure without revealing raw keys
         const msg = `AES-GCM decrypt failed: ${(aesErr instanceof Error) ? aesErr.message : String(aesErr)}. ` +
           `Diagnostics: encryptedData.len=${encryptedData.length}, nonce.len=${nonceBytes.length}, wrappedDekHex.len=${wrappedDekHex ? wrappedDekHex.length : 0}, dek.sha256_b64=${dekHashStr}. ` +
           `Possible causes: incorrect DEK, wrong nonce, or corrupted/truncated ciphertext. Try normalizing metadata encoding or re-sharing the DEK.`;
@@ -423,8 +399,8 @@ const DocView: React.FC = () => {
       }
 
       setStatusMessage("Verification successful! Displaying file.");
-  const rawFileType = metadata.attributes.find(a => a.trait_type === "File Type")?.value || 'application/octet-stream';
-  const fileType = rawFileType;
+      const rawFileType = metadata.attributes.find(a => a.trait_type === "File Type")?.value || 'application/octet-stream';
+      const fileType = rawFileType;
       const blob = new Blob([data as any], { type: fileType });
       setDecryptedFileUrl(URL.createObjectURL(blob));
 
@@ -458,13 +434,11 @@ const DocView: React.FC = () => {
     setIsSharing(true);
     setShareStatus('Sharing...');
     try {
-      // Build signer using existing method (EIP-1193 provider)
       const provider = new ethers.providers.Web3Provider(EIP1193.toProvider({ wallet: activeWallet, client, chain: activeWallet.getChain()! }));
       const signer = provider.getSigner();
 
-  // We pass the metadata object directly; shareWithWallet will perform an on-chain update and return tx hash
-  const txHash = await shareWithWallet(signer, account, tokenId!, metadata, recipientAddress);
-  setShareStatus(`✅ Shared on-chain. Transaction: ${txHash}`);
+      const txHash = await shareWithWallet(signer, account, tokenId!, metadata, recipientAddress);
+      setShareStatus(`✅ Shared on-chain. Transaction: ${txHash}`);
     } catch (e: any) {
       console.error('Share failed', e);
       setShareStatus(`Failed to share: ${e?.message || String(e)}`);
@@ -498,6 +472,9 @@ const DocView: React.FC = () => {
   );
 
   const userHasAccess = account && metadata.wrapped_deks && metadata.wrapped_deks[account.address.toLowerCase()];
+  const fileType = metadata.attributes.find(a =>
+    a.trait_type.toLowerCase().includes('file type')
+  )?.value || '';
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -526,7 +503,7 @@ const DocView: React.FC = () => {
               
               <div>
                 <Text weight="semibold" className="text-yellow-400 mb-2">Attributes</Text>
-                  <div className="bg-gray-800 p-4 rounded-lg space-y-4">
+                <div className="bg-gray-800 p-4 rounded-lg space-y-4">
                   {metadata.attributes.map((attr, index) => {
                     const traitLower = String(attr.trait_type || '').toLowerCase();
                     const isFileTypeAttr = traitLower === 'file type' || traitLower === 'filetype' || (traitLower.includes('file') && traitLower.includes('type'));
@@ -552,7 +529,7 @@ const DocView: React.FC = () => {
             </CardHeader>
             <CardContent>
               {decryptedFileUrl ? (
-                <iframe src={decryptedFileUrl} className="w-full h-96 border border-gray-700 rounded" title="Document Preview" />
+                <MediaViewer fileUrl={decryptedFileUrl} fileType={fileType} />
               ) : (
                 <div className="text-center p-8 border-2 border-dashed border-gray-600 rounded-lg">
                   <Heading level={4} className="mb-2">This document is encrypted.</Heading>
