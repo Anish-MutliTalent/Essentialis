@@ -4,12 +4,12 @@
 
 /zetaoffice/*
     Cross-Origin-Resource-Policy: cross-origin
-    Access-Control-Allow-Origin: *
 
 /zetaoffice/soffice.js
-    Cross-Origin-Embedder-Policy: require-corp
+    Cross-Origin-Resource-Policy: cross-origin
 
 /zetajs/*
     Cross-Origin-Resource-Policy: cross-origin
-    Access-Control-Allow-Origin: *
-    Cross-Origin-Embedder-Policy: require-corp
+
+/zetajs/index.html
+    Cross-Origin-Resource-Policy: cross-origin
