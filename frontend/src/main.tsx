@@ -52,12 +52,12 @@ async function restoreAndRenderApp() {
     console.warn('restoreAndRenderApp failed', e);
   } finally {
     root.render(
-      <React.StrictMode>
+      //<React.StrictMode>
         <ThirdwebProvider>
           <AutoConnect client={client} wallets={walletsToUse} />
           <App />
         </ThirdwebProvider>
-      </React.StrictMode>
+      //</React.StrictMode>
     );
   }
 }

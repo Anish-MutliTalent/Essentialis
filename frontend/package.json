@@ -37,7 +37,8 @@
     "react-quill-new": "^3.4.6",
     "react-router-dom": "^7.7.0",
     "thirdweb": "^5.97.2",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zetajs": "^1.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",

@@ -104,7 +104,7 @@ const DocView: React.FC = () => {
       if (!metachunkRes.ok) throw new Error("Could not fetch metadata bundle from IPFS.");
       const metachunk = await metachunkRes.text();
 
-      setStatusMessage("Step 2/6: Decrypting metadata with Lit Protocol...");
+      setStatusMessage("Step 2/6: Fetching metadata...");
       const chunk = await decode(metachunk);
       const subchunks = split(chunk);
       if (subchunks.length < 2) throw new Error("Invalid metadata chunk format.");
@@ -406,7 +406,7 @@ const DocView: React.FC = () => {
 
     } catch (err: any) {
       console.error("Decryption failed:", err);
-      setError(`Decryption failed: ${err.message}`);
+      setError(`Decryption failed: ${err}`);
       setStatusMessage(null);
     } finally {
       setIsDecrypting(false);
@@ -527,9 +527,9 @@ const DocView: React.FC = () => {
             <CardHeader>
               <Heading level={3}>Document Viewer</Heading>
             </CardHeader>
-            <CardContent>
+            <CardContent className="h-full w-full">
               {decryptedFileUrl ? (
-                <MediaViewer fileUrl={decryptedFileUrl} fileType={fileType} />
+                <MediaViewer fileUrl={decryptedFileUrl} fileType={fileType} containerClassName="h-[600px]"/>
               ) : (
                 <div className="text-center p-8 border-2 border-dashed border-gray-600 rounded-lg">
                   <Heading level={4} className="mb-2">This document is encrypted.</Heading>

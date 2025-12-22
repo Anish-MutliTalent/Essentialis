@@ -5,7 +5,6 @@ import * as monaco from 'monaco-editor';
 import { renderAsync } from 'docx-preview';
 import JSZip from 'jszip';
 import * as XLSX from 'xlsx';
-import PptxGenJS from 'pptxgenjs';
 import { 
   FaPlay, 
   FaPause, 
@@ -21,8 +20,9 @@ import {
   FaFile,
   FaDownload,
   FaChevronLeft,
-  FaChevronRight
+  FaChevronRight,
 } from 'react-icons/fa';
+import { LoadingSpinner } from '../../index';
 
 import 'luckysheet/dist/plugins/css/pluginsCss.css';
 import 'luckysheet/dist/plugins/plugins.css';
@@ -46,64 +46,202 @@ const MediaViewer: React.FC<MediaViewerProps> = ({
   fileType,
   containerClassName = 'w-full h-96 border border-gray-700 rounded bg-black/5'
 }) => {
-  const viewerContainerRef = useRef<HTMLDivElement | null>(null);
-  const fileTypeLower = fileType.toLowerCase();
+  const type = fileType.toLowerCase().trim();
 
-  // Render based on file type
-  if (fileTypeLower.includes('pdf')) {
-    return <PDFViewer fileUrl={fileUrl} containerClassName={containerClassName} />;
-  }
-
-  if (fileTypeLower.startsWith('image/')) {
+  // Images
+  if (type.startsWith('image/')) {
     return <ImageViewer fileUrl={fileUrl} containerClassName={containerClassName} />;
   }
 
-  if (fileTypeLower.startsWith('audio/')) {
-    return <AudioViewer fileUrl={fileUrl} containerClassName={containerClassName} />;
-  }
-
-  if (fileTypeLower.startsWith('video/')) {
+  // Videos
+  if (type.startsWith('video/')) {
     return <VideoViewer fileUrl={fileUrl} containerClassName={containerClassName} />;
   }
 
-  if (fileTypeLower.includes('docx') ||
-      fileTypeLower.includes('wordprocessing') ||
-      fileTypeLower.includes('ms-word') ||
-      fileTypeLower.includes('msword') 
+  // Audio
+  if (type.startsWith('audio/')) {
+    return <AudioViewer fileUrl={fileUrl} containerClassName={containerClassName} />;
+  }
+
+  // PDF
+  if (type === 'application/pdf') {
+    return <PDFViewer fileUrl={fileUrl} containerClassName={containerClassName} />;
+  }
+
+  // Word Documents
+  if (
+    type === 'application/msword' ||
+    type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    type === 'application/vnd.oasis.opendocument.text'
   ) {
     return <DocxViewer fileUrl={fileUrl} containerClassName={containerClassName} />;
   }
 
+  // Spreadsheets
   if (
-    fileTypeLower.includes('spreadsheet') ||
-    fileTypeLower.includes('csv') ||
-    fileTypeLower.includes('xlsx') ||
-    fileTypeLower.includes('ms-excel')
+    type === 'application/vnd.ms-excel' ||
+    type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+    type === 'application/vnd.oasis.opendocument.spreadsheet' ||
+    type === 'text/csv' ||
+    type === 'application/csv'
   ) {
     return <SpreadsheetViewer fileUrl={fileUrl} containerClassName={containerClassName} />;
   }
 
+  // Presentations
   if (
-    fileTypeLower.includes('zip') ||
-    fileTypeLower === 'application/zip' ||
-    fileTypeLower === 'application/x-zip-compressed'
-  ) {
-    return <ZipViewer fileUrl={fileUrl} containerClassName={containerClassName} />;
-  }
-
-  if (
-    fileTypeLower.includes('presentation') ||
-    fileTypeLower.includes('ppt') ||
-    fileTypeLower.includes('pptx') ||
-    fileTypeLower === 'application/vnd.ms-powerpoint' ||
-    fileTypeLower === 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    type === 'application/vnd.ms-powerpoint' ||
+    type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
+    type === 'application/vnd.oasis.opendocument.presentation'
   ) {
     return <PptViewer fileUrl={fileUrl} containerClassName={containerClassName} />;
   }
 
-  // Default: Text/Code viewer
-  return <CodeViewer fileUrl={fileUrl} containerClassName={containerClassName} />;
+  // Archives
+  if (
+    type === 'application/zip' ||
+    type === 'application/x-zip-compressed' ||
+    type === 'application/x-rar-compressed' ||
+    type === 'application/x-7z-compressed' ||
+    type === 'application/x-tar' ||
+    type === 'application/gzip' ||
+    type === 'application/x-gzip' ||
+    type === 'application/x-bzip2'
+  ) {
+    return <ZipViewer fileUrl={fileUrl} containerClassName={containerClassName} />;
+  }
+
+  // Code/Text files (viewable)
+  if (
+    type.startsWith('text/') ||
+    type === 'application/javascript' ||
+    type === 'application/typescript' ||
+    type === 'application/json' ||
+    type === 'application/xml' ||
+    type === 'application/x-yaml' ||
+    type === 'application/sql'
+  ) {
+    return <CodeViewer fileUrl={fileUrl} containerClassName={containerClassName} />;
+  }
+
+  // E-books (unsupported for now)
+  if (
+    type === 'application/epub+zip' ||
+    type === 'application/x-mobipocket-ebook' ||
+    type === 'application/vnd.amazon.ebook'
+  ) {
+    return <UnsupportedViewer fileUrl={fileUrl} fileType={type} containerClassName={containerClassName} />;
+  }
+
+  // Fonts (unsupported)
+  if (
+    type.startsWith('font/') ||
+    type === 'application/font-woff' ||
+    type === 'application/x-font-ttf' ||
+    type === 'application/x-font-otf'
+  ) {
+    return <UnsupportedViewer fileUrl={fileUrl} fileType={type} containerClassName={containerClassName} />;
+  }
+
+  // Default fallback
+  return <UnsupportedViewer fileUrl={fileUrl} fileType={type} containerClassName={containerClassName} />;
 };
+
+// Unsupported File Viewer
+const UnsupportedViewer: React.FC<{ 
+  fileUrl: string; 
+  fileType: string; 
+  containerClassName: string 
+}> = ({ fileUrl, fileType, containerClassName }) => {
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [forceTextView, setForceTextView] = useState(false);
+
+  if (forceTextView) {
+    return (
+      <CodeViewer
+        fileUrl={fileUrl}
+        containerClassName={containerClassName}
+      />
+    );
+  }
+
+  const getFileTypeName = (type: string) => {
+    if (type.includes('msdownload') || type.includes('msdos')) return 'Executable';
+    if (type.includes('android')) return 'Android App';
+    if (type.includes('apple-diskimage')) return 'Mac Disk Image';
+    if (type.includes('debian')) return 'Debian Package';
+    if (type.includes('epub')) return 'EPUB Book';
+    if (type.includes('mobipocket') || type.includes('amazon.ebook')) return 'E-book';
+    if (type.includes('pgp')) return 'Encrypted File';
+    if (type.includes('photoshop')) return 'Photoshop File';
+    if (type.includes('illustrator') || type.includes('postscript')) return 'Illustrator File';
+    if (type.startsWith('font/')) return 'Font File';
+    if (type.includes('octet-stream')) return 'Binary File';
+    return 'File';
+  };
+
+  return (
+    <div className={containerClassName}>
+      <div className="w-full h-full flex flex-col items-center justify-center gap-6 bg-gray-900 text-white p-8">
+
+        <div className="text-center space-y-4">
+          <div className="flex justify-center">
+            <FaFile className="w-20 h-20 text-gray-600" />
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="text-xl font-semibold text-gray-300">
+              We still don't support previewing this file type.
+            </h3>
+            <p className="text-sm text-gray-400">
+              {getFileTypeName(fileType)} cannot be previewed in the browser
+            </p>
+            <p className="text-xs text-gray-600 font-mono">
+              {fileType}
+            </p>
+          </div>
+        </div>
+
+        {/* Primary action */}
+        <a
+          href={fileUrl}
+          download
+          className="flex items-center gap-3 px-6 py-3 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-lg transition-colors font-medium shadow-lg"
+        >
+          <FaDownload className="w-5 h-5" />
+          <span>Download File</span>
+        </a>
+
+        {/* Advanced options */}
+        <div className="w-full max-w-sm">
+          <button
+            onClick={() => setShowAdvanced(v => !v)}
+            className="w-full flex items-center justify-between px-4 py-2 text-sm bg-gray-800 hover:bg-gray-700 rounded-md transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <FaChevronRight
+                className={`transition-transform ${showAdvanced ? 'rotate-90' : ''}`}
+              />
+              Advanced options
+            </span>
+          </button>
+
+          {showAdvanced && (
+            <div className="mt-2 bg-gray-800 border border-gray-700 rounded-md overflow-hidden">
+              <button
+                onClick={() => setForceTextView(true)}
+                className="w-full text-left px-4 py-3 text-sm hover:bg-gray-700 transition-colors"
+              >
+                Open as text (may be garbled)
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 // PDF Viewer Component
 const PDFViewer: React.FC<{ fileUrl: string; containerClassName: string }> = ({ fileUrl, containerClassName }) => {
@@ -114,7 +252,7 @@ const PDFViewer: React.FC<{ fileUrl: string; containerClassName: string }> = ({ 
           <a 
             href={fileUrl} 
             download 
-            className="flex items-center gap-2 px-3 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-md transition-colors"
+            className="flex items-center gap-2 px-3 py-3 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-md transition-colors"
           >
             <FaDownload />
             <span className="text-sm font-medium">Download</span>
@@ -141,8 +279,6 @@ const ImageViewer: React.FC<{ fileUrl: string; containerClassName: string }> = (
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [lastTap, setLastTap] = useState(0);
-  const [lastDistance, setLastDistance] = useState(0);
-  const [pinchCenter, setPinchCenter] = useState({ x: 0, y: 0 });
 
   const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
@@ -899,10 +1035,11 @@ const ZipViewer: React.FC<{ fileUrl: string; containerClassName: string }> = ({ 
         const files: any[] = [];
         
         zip.forEach((relativePath, zipEntry) => {
+          const internal = zipEntry as any;
           files.push({
             name: relativePath,
             isDirectory: zipEntry.dir,
-            size: zipEntry._data?.uncompressedSize || 0,
+            size: internal._data?.uncompressedSize || 0,
             date: zipEntry.date
           });
         });
@@ -1053,108 +1190,154 @@ const ZipViewer: React.FC<{ fileUrl: string; containerClassName: string }> = ({ 
   );
 };
 
-const PptViewer: React.FC<{ fileUrl: string; containerClassName: string }> = ({ fileUrl, containerClassName }) => {
+const PptViewer: React.FC<{ fileUrl: string, containerClassName?: string }> = ({ fileUrl, containerClassName }) => {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [slides, setSlides] = useState<string[]>([]);
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const [_, setIsFullscreen] = useState(false);
+  const [currentSlide, setCurrentSlide] = useState(1);
+  const [totalSlides, setTotalSlides] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadPresentation = async () => {
-      try {
-        const response = await fetch(fileUrl);
-        const arrayBuffer = await response.arrayBuffer();
+    const channel = new BroadcastChannel('zeta_channel');
+    
+    channel.onmessage = async (event) => {
+      if (event.data.type === 'ZETA_READY') {
+        console.log("React: Worker is ready. Fetching file...");
+        setLoading(false);
         
-        // Use JSZip to extract the presentation
-        const zip = await JSZip.loadAsync(arrayBuffer);
-        
-        // Get the presentation XML files
-        const slideFiles: { name: string; content: string }[] = [];
-        
-        // Extract slide files from ppt/slides/
-        const slidePromises: Promise<void>[] = [];
-        zip.folder('ppt/slides')?.forEach((relativePath, file) => {
-          if (relativePath.match(/slide\d+\.xml$/)) {
-            slidePromises.push(
-              file.async('text').then(content => {
-                slideFiles.push({ name: relativePath, content });
-              })
-            );
-          }
-        });
-        
-        await Promise.all(slidePromises);
-        
-        // Sort slides by number
-        slideFiles.sort((a, b) => {
-          const numA = parseInt(a.name.match(/\d+/)?.[0] || '0');
-          const numB = parseInt(b.name.match(/\d+/)?.[0] || '0');
-          return numA - numB;
-        });
-
-        if (slideFiles.length === 0) {
-          throw new Error('No slides found in presentation');
+        try {
+          const res = await fetch(fileUrl);
+          const buffer = await res.arrayBuffer();
+          iframeRef.current?.contentWindow?.postMessage(
+            { type: 'LOAD_PPT', data: buffer },
+            '*'
+          );
+          console.log("React: File data sent to iframe window");
+        } catch (e) {
+          console.error("React: Fetch error", e);
         }
-
-        // Parse slides and extract text content
-        const parsedSlides = slideFiles.map(slide => {
-          // Simple XML parsing to extract text
-          const parser = new DOMParser();
-          const xmlDoc = parser.parseFromString(slide.content, 'text/xml');
-          
-          // Extract all text elements
-          const textElements = xmlDoc.getElementsByTagName('a:t');
-          const texts: string[] = [];
-          
-          for (let i = 0; i < textElements.length; i++) {
-            const text = textElements[i].textContent;
-            if (text && text.trim()) {
-              texts.push(text.trim());
-            }
-          }
-          
-          return texts.join('\n');
-        });
-
-        setSlides(parsedSlides);
-        setLoading(false);
-      } catch (err: any) {
-        console.error('Error loading presentation:', err);
-        setError(err.message || 'Failed to load presentation');
-        setLoading(false);
       }
     };
 
-    loadPresentation();
+    return () => channel.close();
   }, [fileUrl]);
 
-  const nextSlide = () => {
-    if (currentSlide < slides.length - 1) {
-      setCurrentSlide(currentSlide + 1);
-    }
-  };
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
 
-  const prevSlide = () => {
-    if (currentSlide > 0) {
-      setCurrentSlide(currentSlide - 1);
-    }
-  };
-
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'ArrowRight') nextSlide();
-    if (e.key === 'ArrowLeft') prevSlide();
-  };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentSlide, slides.length]);
+    const channel = new BroadcastChannel('zeta_channel');
+    
+    const handleMessage = (event:any) => {
+      if (event.data.type === 'SLIDE_UPDATE') {
+        setCurrentSlide(event.data.current);
+        setTotalSlides(event.data.total);
+      }
+    };
+
+    channel.addEventListener('message', handleMessage);
+    return () => {
+      channel.removeEventListener('message', handleMessage);
+      channel.close();
+    };
+  }, []);
+
+  useEffect(() => {
+    // Inject dark mode styles into iframe
+    if (iframeRef.current?.contentDocument) {
+      const style = iframeRef.current.contentDocument.createElement('style');
+      style.textContent = `
+        html, body {
+          background-color: #000 !important;
+          color: #fff !important;
+        }
+        * {
+          background-color: #000 !important;
+          border-color: #000 !important;
+        }
+        canvas {
+          background-color: #000 !important;
+        }
+      `;
+      iframeRef.current.contentDocument.head.appendChild(style);
+    }
+  }, []);
+
+  const handleNavPrev = () => {
+    const channel = new BroadcastChannel('zeta_channel');
+    channel.postMessage({ type: 'NAV_SLIDE', direction: 'PREV' });
+  };
+
+  const handleNavNext = () => {
+    const channel = new BroadcastChannel('zeta_channel');
+    channel.postMessage({ type: 'NAV_SLIDE', direction: 'NEXT' });
+  };
+
+  const handleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen().then(() => {
+        setIsFullscreen(true);
+      }).catch(err => console.log('Fullscreen error:', err));
+    } else {
+      document.exitFullscreen().then(() => {
+        setIsFullscreen(false);
+      });
+    }
+  };
 
   return (
-    <div className={containerClassName}>
-      <div className="w-full h-full relative bg-gray-900">
-        <div className="absolute top-2 right-2 z-10">
+    <div 
+      ref={containerRef}
+      className={`relative overflow-hidden ${containerClassName || 'w-full h-full'}`}
+    >
+      {loading && (
+        <div className="absolute inset-0 z-50 flex justify-center items-center bg-black">
+          <LoadingSpinner size="lg" color="gold" />
+        </div>
+      )}
+
+      {/* Navigation Bar */}
+      <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-center gap-2 p-2 bg-black">
+        {/* Navigation Controls - Center */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleNavPrev}
+            className="px-3 py-1.5 rounded-md border-none cursor-pointer bg-gray-800 hover:bg-gray-700 text-white transition-colors"
+            title="Previous Slide"
+          >
+            <FaChevronLeft />
+          </button>
+
+          <div className="text-white text-sm font-medium px-3 py-1.5 min-w-fit">
+            {totalSlides > 0 ? `${currentSlide} / ${totalSlides}` : '-- / --'}
+          </div>
+
+          <button
+            onClick={handleNavNext}
+            className="px-3 py-1.5 rounded-md border-none cursor-pointer bg-gray-800 hover:bg-gray-700 text-white transition-colors"
+            title="Next Slide"
+          >
+            <FaChevronRight />
+          </button>
+
+          <button
+            onClick={handleFullscreen}
+            className="px-3 py-1.5 rounded-md border-none cursor-pointer bg-gray-800 hover:bg-gray-700 text-white transition-colors"
+            title="Toggle Fullscreen"
+          >
+            <FaExpand />
+          </button>
+        </div>
+
+        {/* Download Button - Right */}
+        <div className="ml-auto">
           <a 
             href={fileUrl} 
             download 
@@ -1164,93 +1347,23 @@ const PptViewer: React.FC<{ fileUrl: string; containerClassName: string }> = ({ 
             <span className="text-sm font-medium">Download</span>
           </a>
         </div>
-
-        {loading && (
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="text-center text-gray-400">
-              Loading presentation...
-            </div>
-          </div>
-        )}
-
-        {error && (
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="text-center text-red-400">
-              <p className="mb-2">Error loading presentation</p>
-              <p className="text-sm">{error}</p>
-              <p className="text-xs text-gray-500 mt-4">
-                Note: Complex presentations with images and formatting may not display correctly.
-                Please download the file for full viewing experience.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {!loading && !error && slides.length > 0 && (
-          <div className="w-full h-full flex flex-col">
-            {/* Slide Counter */}
-            <div className="absolute top-2 left-2 z-10 bg-gray-800/90 px-3 py-1.5 rounded-md">
-              <span className="text-sm text-white font-medium">
-                Slide {currentSlide + 1} / {slides.length}
-              </span>
-            </div>
-
-            {/* Slide Content */}
-            <div 
-              ref={containerRef}
-              className="flex-1 flex items-center justify-center p-16 overflow-auto"
-            >
-              <div className="bg-white w-full max-w-4xl aspect-video rounded-lg shadow-2xl p-12 relative">
-                <div className="text-gray-900 whitespace-pre-wrap text-lg leading-relaxed">
-                  {slides[currentSlide] || 'No content'}
-                </div>
-              </div>
-            </div>
-
-            {/* Navigation Controls */}
-            <div className="flex items-center justify-center gap-4 p-4 bg-gray-800/90">
-              <button
-                onClick={prevSlide}
-                disabled={currentSlide === 0}
-                className="flex items-center gap-2 px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <FaChevronLeft />
-                <span className="text-sm font-medium">Previous</span>
-              </button>
-
-              {/* Slide Thumbnails/Dots */}
-              <div className="flex gap-2">
-                {slides.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setCurrentSlide(index)}
-                    className={`w-2 h-2 rounded-full transition-all ${
-                      index === currentSlide
-                        ? 'bg-yellow-400 w-8'
-                        : 'bg-gray-600 hover:bg-gray-500'
-                    }`}
-                    aria-label={`Go to slide ${index + 1}`}
-                  />
-                ))}
-              </div>
-
-              <button
-                onClick={nextSlide}
-                disabled={currentSlide === slides.length - 1}
-                className="flex items-center gap-2 px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span className="text-sm font-medium">Next</span>
-                <FaChevronRight />
-              </button>
-            </div>
-
-            {/* Keyboard Hint */}
-            <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 text-xs text-gray-500">
-              Use ← → arrow keys to navigate
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Iframe */}
+      <iframe
+        ref={iframeRef}
+        src="/zetajs/index.html"
+        style={{ 
+          width: '100%', 
+          height: '100%', 
+          border: 'none', 
+          display: 'block',
+          position: 'absolute',
+          top: 0,
+          left: 0
+        }}
+        sandbox="allow-scripts allow-same-origin allow-fullscreen"
+      />
     </div>
   );
 };
