@@ -7,9 +7,11 @@
 
 /zetaoffice/soffice.js
     Cross-Origin-Resource-Policy: cross-origin
+    Cross-Origin-Embedder-Policy: credentialless
 
 /zetajs/*
     Cross-Origin-Resource-Policy: cross-origin
 
 /zetajs/index.html
     Cross-Origin-Resource-Policy: cross-origin
+    Cross-Origin-Embedder-Policy: credentialless
