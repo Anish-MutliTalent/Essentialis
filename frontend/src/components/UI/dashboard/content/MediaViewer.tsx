@@ -1298,8 +1298,18 @@ const PptViewer: React.FC<{ fileUrl: string, containerClassName?: string }> = ({
       className={`relative overflow-hidden ${containerClassName || 'w-full h-full'}`}
     >
       {loading && (
-        <div className="absolute inset-0 z-50 flex justify-center items-center bg-black">
+        <div className="absolute inset-0 z-50 flex flex-col justify-center items-center bg-black">
           <LoadingSpinner size="lg" color="gold" />
+          <div className="px-4 mt-10 text-center">
+          <a 
+            href={fileUrl} 
+            download 
+            className="flex items-center gap-2 px-3 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-md transition-colors"
+          >
+            <FaDownload />
+            <span className="text-sm font-medium">Download</span>
+          </a>
+        </div>
         </div>
       )}
 
@@ -1316,7 +1326,7 @@ const PptViewer: React.FC<{ fileUrl: string, containerClassName?: string }> = ({
           </button>
 
           <div className="text-white text-sm font-medium px-3 py-1.5 min-w-fit">
-            {totalSlides > 0 ? `${currentSlide} / ${totalSlides}` : '-- / --'}
+            {totalSlides > 0 ? `${currentSlide} / ${totalSlides}` : '1'}
           </div>
 
           <button
