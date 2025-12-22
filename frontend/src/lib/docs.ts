@@ -1,5 +1,5 @@
 import { 
-  FileText, Image, File, FileSpreadsheet, Folder, Video, Music, NotepadText,
+  FileText, Image, File, FileSpreadsheet, Video, Music, NotepadText,
   FileArchive, Code, FileJson, Database, Presentation, Palette, TextSelect, 
   Binary, Book, Mail, Lock, FileBox, Package, Briefcase, FileCode2, CaseSensitive, FileQuestion
 } from 'lucide-react';
