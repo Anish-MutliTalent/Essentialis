@@ -1373,6 +1373,7 @@ const PptViewer: React.FC<{ fileUrl: string, containerClassName?: string }> = ({
           left: 0
         }}
         sandbox="allow-scripts allow-same-origin allow-fullscreen"
+        allow="cross-origin-isolated"
       />
     </div>
   );
