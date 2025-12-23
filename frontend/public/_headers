@@ -7,6 +7,11 @@
     Cross-Origin-Embedder-Policy: require-corp
 
 /zetajs
+    Cross-Origin-Opener-Policy: same-origin
+    Cross-Origin-Embedder-Policy: require-corp
+
+/zetajs/
+    Cross-Origin-Opener-Policy: same-origin
     Cross-Origin-Embedder-Policy: require-corp
 
 /zetajs/*
@@ -22,6 +27,7 @@
     Cross-Origin-Resource-Policy: cross-origin
 
 /zetajs/index.html
+    Cross-Origin-Opener-Policy: same-origin
     Cross-Origin-Embedder-Policy: require-corp
 
 /zetaoffice/soffice.js
