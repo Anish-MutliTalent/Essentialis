@@ -1,23 +1,16 @@
 export async function onRequest({ request, next }) {
   const url = new URL(request.url);
-
-  // IMPORTANT: use the original request pathname
   const pathname = url.pathname;
 
   const response = await next();
 
-  const shouldIsolate =
-    pathname.startsWith('/dashboard/my-docs') ||
-    pathname.startsWith('/zetajs') ||
-    pathname.startsWith('/zetaoffice');
+  if (
+    pathname.includes('/dashboard/my-docs/') ||
+    pathname.includes('/zetajs') ||
+    pathname.includes('/zetaoffice')
+  ) {
+    const headers = new Headers(response.headers);
 
-  const isDocument =
-    response.headers.get('content-type')?.includes('text/html');
-  
-  const headers = new Headers(response.headers);
-  headers.set('X-Debug-Isolation', 'applied');
-
-  if (shouldIsolate) {
     headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
     headers.set('Cross-Origin-Opener-Policy', 'same-origin');
 
@@ -27,6 +20,6 @@ export async function onRequest({ request, next }) {
       headers,
     });
   }
-  
+
   return response;
 }
