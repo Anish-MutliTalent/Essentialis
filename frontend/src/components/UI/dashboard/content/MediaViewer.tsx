@@ -1372,7 +1372,7 @@ const PptViewer: React.FC<{ fileUrl: string, containerClassName?: string }> = ({
           top: 0,
           left: 0
         }}
-        
+        sandbox="allow-scripts allow-same-origin"
         allow="cross-origin-isolated"
       />
     </div>
