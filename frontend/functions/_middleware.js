@@ -17,7 +17,7 @@ export async function onRequest({ request, next }) {
   const headers = new Headers(response.headers);
   headers.set('X-Debug-Isolation', 'applied');
 
-  if (shouldIsolate && isDocument) {
+  if (shouldIsolate) {
     headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
     headers.set('Cross-Origin-Opener-Policy', 'same-origin');
 
