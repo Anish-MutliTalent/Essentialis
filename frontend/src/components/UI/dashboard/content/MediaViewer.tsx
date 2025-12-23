@@ -1362,7 +1362,7 @@ const PptViewer: React.FC<{ fileUrl: string, containerClassName?: string }> = ({
       {/* Iframe */}
       <iframe
         ref={iframeRef}
-        src="/zetajs/index.html"
+        src="/zetajs/index.html.html"
         style={{ 
           width: '100%', 
           height: '100%', 
@@ -1372,7 +1372,7 @@ const PptViewer: React.FC<{ fileUrl: string, containerClassName?: string }> = ({
           top: 0,
           left: 0
         }}
-        sandbox="allow-scripts allow-same-origin allow-fullscreen"
+        
         allow="cross-origin-isolated"
       />
     </div>
