@@ -6,28 +6,35 @@ export default defineConfig({
     plugins: [
         react(),
         {
-        name: 'configure-specific-headers',
-        configureServer(server) {
-          server.middlewares.use((req, res, next) => {
-            if (req.url?.includes('/dashboard/my-docs/')) {
-              res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-              res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-            }
-            if (req.url?.includes('/zetajs/')) {
-              res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-              res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-            }
-            next();
-          });
+          name: 'configure-specific-headers',
+          configureServer(server) {
+            server.middlewares.use((req, res, next) => {
+              if (req.url?.includes('/dashboard/my-docs/')  || req.url?.includes('/zetajs') || req.url?.includes('/zetaoffice')) {
+                res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+                res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+              }
+              next();
+            });
+          },
         },
-      },
+        {
+          name: 'html-ext-fallback',
+          configureServer(server) {
+            server.middlewares.use((req, res, next) => {
+              // If the URL has no extension and isn't the root, append .html
+              if (req.url?.includes('simple') && !req.url.includes('.')) {
+                req.url += '.html'
+              }
+              next()
+            })
+          }
+        },
     ],
     optimizeDeps: {
       include: ['@metamask/jazzicon'],
-      exclude: ['@pdftron/webviewer'],
     },
     ssr: {
-    noExternal: ['@metamask/jazzicon', '@pdftron/webviewer'],
+    noExternal: ['@metamask/jazzicon'],
     },
     server: {
       port: 5173, // Your frontend port

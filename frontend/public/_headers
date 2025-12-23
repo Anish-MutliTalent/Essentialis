@@ -1,52 +1,11 @@
 /dashboard/my-docs/*
-    Cross-Origin-Opener-Policy: same-origin
-    Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Opener-Policy: same-origin
 
-/dashboard/my-docs
-    Cross-Origin-Opener-Policy: same-origin
-    Cross-Origin-Embedder-Policy: require-corp
+/zetajs*
+  Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Opener-Policy: same-origin
 
-/zetajs
-    Cross-Origin-Opener-Policy: same-origin
-    Cross-Origin-Embedder-Policy: require-corp
-    Cross-Origin-Opener-Policy: same-origin
-
-/zetajs/
-    Cross-Origin-Opener-Policy: same-origin
-    Cross-Origin-Embedder-Policy: require-corp
-    Cross-Origin-Opener-Policy: same-origin
-
-/zetajs/*
-    Cross-Origin-Opener-Policy: same-origin
-    Cross-Origin-Embedder-Policy: require-corp
-    Cross-Origin-Resource-Policy: cross-origin
-
-/zetaoffice
-    Cross-Origin-Opener-Policy: same-origin
-    Cross-Origin-Embedder-Policy: require-corp
-    Cross-Origin-Resource-Policy: cross-origin
-
-/zetaoffice/*
-    Cross-Origin-Opener-Policy: same-origin
-    Cross-Origin-Embedder-Policy: require-corp
-    Cross-Origin-Resource-Policy: cross-origin
-
-/zetajs/index.html
-    Cross-Origin-Opener-Policy: same-origin
-    Cross-Origin-Embedder-Policy: require-corp
-    Cross-Origin-Resource-Policy: cross-origin
-
-/zetajs/simple.html
-    Cross-Origin-Opener-Policy: same-origin
-    Cross-Origin-Embedder-Policy: require-corp
-    Cross-Origin-Resource-Policy: cross-origin
-
-/zetajs/simple
-    Cross-Origin-Opener-Policy: same-origin
-    Cross-Origin-Embedder-Policy: require-corp
-    Cross-Origin-Resource-Policy: cross-origin
-
-/zetaoffice/soffice.js
-    Cross-Origin-Resource-Policy: cross-origin
-    Cross-Origin-Embedder-Policy: require-corp
-    Cross-Origin-Opener-Policy: same-origin
+/zetaoffice*
+  Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Opener-Policy: same-origin
