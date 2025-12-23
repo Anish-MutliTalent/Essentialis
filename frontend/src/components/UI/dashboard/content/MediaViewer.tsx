@@ -1362,7 +1362,7 @@ const PptViewer: React.FC<{ fileUrl: string, containerClassName?: string }> = ({
       {/* Iframe */}
       <iframe
         ref={iframeRef}
-        src="/zetajs/index.html.html"
+        src="/zetajs/simple.html"
         style={{ 
           width: '100%', 
           height: '100%', 

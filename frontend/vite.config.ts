@@ -13,6 +13,10 @@ export default defineConfig({
               res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
               res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
             }
+            if (req.url?.includes('/zetajs/')) {
+              res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+              res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+            }
             next();
           });
         },
