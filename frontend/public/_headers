@@ -2,14 +2,15 @@
     Cross-Origin-Opener-Policy: same-origin
     Cross-Origin-Embedder-Policy: require-corp
 
-/zetaoffice/*
-    Cross-Origin-Resource-Policy: cross-origin
-
-/zetaoffice/soffice.js
-    Cross-Origin-Resource-Policy: cross-origin
+/zetajs
+    Cross-Origin-Embedder-Policy: require-corp
 
 /zetajs/*
+    Cross-Origin-Embedder-Policy: require-corp
     Cross-Origin-Resource-Policy: cross-origin
 
-/zetajs/index.html
+/zetaoffice
     Cross-Origin-Embedder-Policy: require-corp
+
+/zetaoffice/*
+    Cross-Origin-Resource-Policy: cross-origin
