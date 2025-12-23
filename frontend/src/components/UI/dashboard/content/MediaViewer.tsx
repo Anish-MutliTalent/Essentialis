@@ -1197,8 +1197,16 @@ const PptViewer: React.FC<{ fileUrl: string, containerClassName?: string }> = ({
   const [currentSlide, setCurrentSlide] = useState(1);
   const [totalSlides, setTotalSlides] = useState(0);
   const [loading, setLoading] = useState(true);
+  const supportsAdvancedPreview =
+    typeof SharedArrayBuffer !== 'undefined' &&
+    self.crossOriginIsolated === true;
 
   useEffect(() => {
+    if (!supportsAdvancedPreview) {
+      setLoading(false);
+      return;
+    }
+
     const channel = new BroadcastChannel('zeta_channel');
     
     channel.onmessage = async (event) => {
@@ -1224,6 +1232,8 @@ const PptViewer: React.FC<{ fileUrl: string, containerClassName?: string }> = ({
   }, [fileUrl]);
 
   useEffect(() => {
+    if (!supportsAdvancedPreview) return;
+
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
     };
@@ -1233,6 +1243,8 @@ const PptViewer: React.FC<{ fileUrl: string, containerClassName?: string }> = ({
   }, []);
 
   useEffect(() => {
+    if (!supportsAdvancedPreview) return;
+
     const channel = new BroadcastChannel('zeta_channel');
     
     const handleMessage = (event:any) => {
@@ -1291,6 +1303,35 @@ const PptViewer: React.FC<{ fileUrl: string, containerClassName?: string }> = ({
       });
     }
   };
+
+  if (!supportsAdvancedPreview) {
+    return (
+      <div
+        className={`relative flex flex-col items-center justify-center text-center bg-black text-white p-6 ${
+          containerClassName || 'w-full h-full'
+        }`}
+      >
+        <h2 className="text-lg font-semibold mb-2">
+          Advanced Preview Unavailable
+        </h2>
+
+        <p className="text-sm text-gray-300 max-w-md mb-4">
+          This device or browser does not support the technologies required
+          to preview this presentation. Please download the file or open it
+          on a desktop browser that supports advanced viewers.
+        </p>
+
+        <a
+          href={fileUrl}
+          download
+          className="flex items-center gap-2 px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-md transition-colors"
+        >
+          <FaDownload />
+          <span className="text-sm font-medium">Download Presentation</span>
+        </a>
+      </div>
+    );
+  }
 
   return (
     <div 
