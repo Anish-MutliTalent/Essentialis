@@ -9,13 +9,13 @@
 #     Cross-Origin-Embedder-Policy: require-corp
 #     Cross-Origin-Resource-Policy: cross-origin
 
-# /zetaoffice
-#     Cross-Origin-Embedder-Policy: require-corp
-#     Cross-Origin-Resource-Policy: cross-origin
+/zetaoffice
+    Cross-Origin-Embedder-Policy: require-corp
+    Cross-Origin-Resource-Policy: cross-origin
 
-# /zetaoffice/*
-#     Cross-Origin-Embedder-Policy: require-corp
-#     Cross-Origin-Resource-Policy: cross-origin
+/zetaoffice/*
+    Cross-Origin-Embedder-Policy: require-corp
+    Cross-Origin-Resource-Policy: cross-origin
 
 # /zetajs/index.html
 #     Cross-Origin-Embedder-Policy: require-corp
