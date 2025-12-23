@@ -5,6 +5,18 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
     plugins: [
         react(),
+        {
+        name: 'configure-specific-headers',
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            if (req.url?.includes('/dashboard/my-docs/')) {
+              res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+              res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+            }
+            next();
+          });
+        },
+      },
     ],
     optimizeDeps: {
       include: ['@metamask/jazzicon'],
@@ -24,9 +36,5 @@ export default defineConfig({
           secure: false, // Allow proxying to HTTP backend
         }
       },
-      headers: {
-        "Cross-Origin-Opener-Policy": "same-origin",
-        "Cross-Origin-Embedder-Policy": "require-corp"
-      }
     }
 })
