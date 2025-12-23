@@ -13,12 +13,11 @@ export async function onRequest({ request, next }) {
 
   const isDocument =
     response.headers.get('content-type')?.includes('text/html');
-
+  
+  const headers = new Headers(response.headers);
   headers.set('X-Debug-Isolation', 'applied');
 
   if (shouldIsolate && isDocument) {
-    const headers = new Headers(response.headers);
-
     headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
     headers.set('Cross-Origin-Opener-Policy', 'same-origin');
 
