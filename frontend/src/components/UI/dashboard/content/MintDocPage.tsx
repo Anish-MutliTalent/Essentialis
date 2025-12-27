@@ -189,11 +189,9 @@ const MintDocPage: React.FC = () => {
             setStatusMessage('Step 3/6: Creating verifiable chunks...');
             // chunking depends on payload size; start at 12% and allow multiply to update
             setProgress(12);
-            const encryptedDataB64 = Buffer.from(encryptedData).toString('base64');
-            console.log("encDatab64");
             // provide progress callback: multiply will call with processed/total
             let ownerBytes: Uint8Array<ArrayBufferLike> | null = _toU8(owner); // string → Uint8Array
-            let dataBytes: Uint8Array<ArrayBufferLike> | null = Buffer.from(encryptedDataB64, 'base64'); // keep binary
+            let dataBytes: Uint8Array<ArrayBufferLike> | null = encryptedData // keep binary
             let timestampBytes: Uint8Array<ArrayBufferLike> | null = _toU8(timestamp);
             let counterBytes: Uint8Array<ArrayBufferLike> | null = _toU8(counter.toString());
 
