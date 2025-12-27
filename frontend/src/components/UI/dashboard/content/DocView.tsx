@@ -21,7 +21,8 @@ import {
   split,
   divide,
   sha256,
-  hmacSha256
+  hmacSha256,
+  _toU8
 } from '../../../../lib/crypto';
 import { shareWithWallet } from '../../../../lib/share';
 
@@ -102,7 +103,7 @@ const DocView: React.FC = () => {
       setStatusMessage("Step 1/6: Fetching secure metadata bundle from IPFS...");
       const metachunkRes = await fetch(`/api/ipfs/${metadata.encrypted_file_cid}`);
       if (!metachunkRes.ok) throw new Error("Could not fetch metadata bundle from IPFS.");
-      const metachunk = await metachunkRes.text();
+      let metachunk: Uint8Array<ArrayBufferLike> | null = new Uint8Array(await metachunkRes.arrayBuffer())
 
       setStatusMessage("Step 2/6: Fetching metadata...");
       const chunk = await decode(metachunk);
@@ -141,160 +142,19 @@ const DocView: React.FC = () => {
       }
       if (!wrappedDekHex) throw new Error('Wrapped DEK not found in metadata entry; unable to decrypt.');
 
-      const base64urlRegex = /^[A-Za-z0-9\-_]+={0,2}$/;
-      const base64Regex = /^[A-Za-z0-9+/]+=*$/;
-      const decodePayloadToBytes = (payloadStr: string): Uint8Array => {
-        const maybeStr = String(payloadStr || '');
-        const strippedHex = maybeStr.replace(/^0x/, '');
-        const isHex = /^([0-9a-fA-F]{2})+$/.test(strippedHex) && (maybeStr.startsWith('0x') || /^[0-9a-fA-F]+$/.test(maybeStr));
-        if (isHex) return new Uint8Array(Buffer.from(strippedHex, 'hex'));
-        if (base64urlRegex.test(maybeStr) || base64Regex.test(maybeStr)) {
-          const b64 = maybeStr.replace(/-/g, '+').replace(/_/g, '/');
-          return new Uint8Array(Buffer.from(b64, 'base64'));
-        }
-        return new Uint8Array(Buffer.from(maybeStr, 'binary'));
-      };
-
-      let encryptedData: Uint8Array;
-      let ownerOperandUsed = ownerAddress;
-
       const isOwnerMode = !ownerSignature && !providerEncrypted && !ownerEphemeralPubKey;
-      if (isOwnerMode) {
-        const p2_rec = await divide(chunk_a, counterStr);
-        const p1_rec = await divide(p2_rec, timestamp);
-        const encryptedPayloadStr = await divide(p1_rec, ownerAddress);
-        encryptedData = decodePayloadToBytes(encryptedPayloadStr);
-        ownerOperandUsed = ownerAddress;
-      } else {
-        type Cand = { ownerOperand: string; order: string; bytes: Uint8Array; sha?: string };
-        const candidates: Cand[] = [];
 
-        const wd = (metadata.wrapped_deks || {}) as Record<string, any>;
-        const uniq = new Set<string>();
-        for (const k of Object.keys(wd)) {
-          if (!k) continue;
-          uniq.add(k);
-          uniq.add(k.toLowerCase());
-          try { uniq.add(ethers.utils.getAddress(k)); } catch { /* ignore */ }
-        }
-        const ownerCandidates = Array.from(uniq);
-        if (ownerCandidates.length === 0) ownerCandidates.push(ownerAddress, ownerLower, ownerChecksummed);
-
-        let targetSha: string | null = null;
-        let checksumSource: 'entry' | 'metadata' | 'none' = 'none';
-        if (typeof rawEntry === 'object' && rawEntry && rawEntry.encrypted_data_sha256_b64) {
-          targetSha = rawEntry.encrypted_data_sha256_b64;
-          checksumSource = 'entry';
-        }
-        if (!targetSha) {
-          for (const key of Object.keys(wd)) {
-            const e = wd[key];
-            if (e && typeof e === 'object' && e.encrypted_data_sha256_b64) { targetSha = e.encrypted_data_sha256_b64; checksumSource = 'entry'; break; }
-          }
-        }
-        if (!targetSha && metadata.encrypted_data_sha256_b64) {
-          targetSha = metadata.encrypted_data_sha256_b64;
-          checksumSource = 'metadata';
-        }
-
-        const tryOrder = async (orderName: string, ownerOp: string): Promise<Cand | null> => {
-          try {
-            let s1: string;
-            let s2: string;
-            let s3: string;
-            switch (orderName) {
-              case 'counter>timestamp>owner':
-                s1 = await divide(chunk_a, counterStr);
-                s2 = await divide(s1, timestamp!);
-                s3 = await divide(s2, ownerOp);
-                break;
-              case 'owner>timestamp>counter':
-                s1 = await divide(chunk_a, ownerOp);
-                s2 = await divide(s1, timestamp!);
-                s3 = await divide(s2, counterStr);
-                break;
-              case 'timestamp>counter>owner':
-                s1 = await divide(chunk_a, timestamp!);
-                s2 = await divide(s1, counterStr);
-                s3 = await divide(s2, ownerOp);
-                break;
-              case 'timestamp>owner>counter':
-                s1 = await divide(chunk_a, timestamp!);
-                s2 = await divide(s1, ownerOp);
-                s3 = await divide(s2, counterStr);
-                break;
-              case 'counter>owner>timestamp':
-                s1 = await divide(chunk_a, counterStr);
-                s2 = await divide(s1, ownerOp);
-                s3 = await divide(s2, timestamp!);
-                break;
-              case 'owner>counter>timestamp':
-                s1 = await divide(chunk_a, ownerOp);
-                s2 = await divide(s1, counterStr);
-                s3 = await divide(s2, timestamp!);
-                break;
-              default:
-                return null;
-            }
-            const bytes = decodePayloadToBytes(s3);
-            const c: Cand = { ownerOperand: ownerOp, order: orderName, bytes };
-            if (targetSha) {
-              try { c.sha = Buffer.from(await sha256(bytes)).toString('base64'); } catch { /* ignore */ }
-            }
-            return c;
-          } catch (_) { return null; }
-        };
-
-        const standardOrder = 'counter>timestamp>owner';
-        for (const ownerOp of ownerCandidates) {
-          const c = await tryOrder(standardOrder, ownerOp);
-          if (c) candidates.push(c);
-        }
-
-        let chosen: Cand | null = null;
-        if (targetSha) {
-          chosen = candidates.find(c => c.sha === targetSha) || null;
-          if (chosen && chosen.bytes.length < 64) {
-            console.warn('[DocView] checksum matched tiny ciphertext; ignoring match and choosing largest candidate instead');
-            chosen = null;
-          }
-        }
-        if (!chosen && candidates.length > 0) {
-          chosen = candidates.reduce((a, b) => (b.bytes.length > a.bytes.length ? b : a));
-        }
-
-        if (!chosen || (chosen.bytes.length < 64)) {
-          const orders = [
-            'owner>timestamp>counter',
-            'timestamp>counter>owner',
-            'timestamp>owner>counter',
-            'counter>owner>timestamp',
-            'owner>counter>timestamp'
-          ];
-          const more: Cand[] = [];
-          for (const ord of orders) {
-            for (const ownerOp of ownerCandidates) {
-              const c = await tryOrder(ord, ownerOp);
-              if (c) more.push(c);
-            }
-          }
-          if (targetSha) {
-            const m = more.find(c => c.sha === targetSha);
-            if (m) chosen = m;
-          }
-          if (!chosen && more.length > 0) {
-            chosen = more.reduce((a, b) => (b.bytes.length > a.bytes.length ? b : a));
-          }
-        }
-
-        if (!chosen) throw new Error('Failed to reconstruct encrypted payload for recipient.');
-
-        encryptedData = chosen.bytes;
-        ownerOperandUsed = chosen.ownerOperand;
-        const sizes = candidates.map(c => c.bytes.length).slice(0, 10);
-        console.debug('[DocView] candidates len (first 10)=', sizes, 'checksumSource=', checksumSource, 'targetSha?', !!targetSha);
-        console.debug('[DocView] decoded encryptedData length=', encryptedData.length, 'using owner operand=', ownerOperandUsed, 'order=', chosen.order);
-      }
+      // New encryption scheme from MintDocPage: chunk_a is XOR of owner|encB64|timestamp|counter.
+      // Reconstruct the encryptedData string by reversing the XOR chain with the known operands.
+      const encPayloadBytes = divide(
+        divide(
+          divide(chunk_a, _toU8(ownerAddress)),
+          _toU8(timestamp)
+        ),
+        _toU8(counterStr)
+      );
+      const encryptedData = encPayloadBytes;
+      const ownerOperandUsed = ownerAddress;
 
       if (!encryptedData || encryptedData.length < 16) {
         throw new Error(
@@ -379,22 +239,19 @@ const DocView: React.FC = () => {
       try {
         data = await aesGcmDecrypt(dek, encryptedData, nonceBytes);
       } catch (aesErr) {
-        const msg = `AES-GCM decrypt failed: ${(aesErr instanceof Error) ? aesErr.message : String(aesErr)}. ` +
-          `Diagnostics: encryptedData.len=${encryptedData.length}, nonce.len=${nonceBytes.length}, wrappedDekHex.len=${wrappedDekHex ? wrappedDekHex.length : 0}, dek.sha256_b64=${dekHashStr}. ` +
-          `Possible causes: incorrect DEK, wrong nonce, or corrupted/truncated ciphertext. Try normalizing metadata encoding or re-sharing the DEK.`;
-        console.error('[DocView] AES decrypt diagnostic:', { encryptedLen: encryptedData.length, nonceLen: nonceBytes.length, wrappedDekHexLen: wrappedDekHex ? wrappedDekHex.length : 0, dekSha256B64: dekHashStr, nonceSource, error: aesErr });
+        const msg = `AES-GCM decrypt failed: ${(aesErr instanceof Error) ? aesErr.message : String(aesErr)}.`;
+        console.error('[DocView] AES decrypt diagnostic:', { encryptedLen: encryptedData.length, nonceLen: nonceBytes.length, error: aesErr });
         throw new Error(msg);
       }
 
       setStatusMessage("Step 6/6: Verifying data integrity...");
-      const a_hash_b64 = Buffer.from(await sha256(data)).toString('base64');
-      const hmacKey = new TextEncoder().encode((typeof (ownerOperandUsed) === 'string' ? ownerOperandUsed : ownerLower) + timestamp);
+      const a_hash = await sha256(data);
+      const hmacKey = new TextEncoder().encode(ownerOperandUsed + timestamp);
       const b_hash = await hmacSha256(hmacKey, encryptedData);
-      const b_hash_b64 = Buffer.from(b_hash).toString('base64');
 
-      const chunk_b_divided = await divide(chunk_b, b_hash_b64);
+      const chunk_b_divided = divide(chunk_b, b_hash);
 
-      if (a_hash_b64 !== chunk_b_divided) {
+      if (Buffer.from(a_hash).toString('base64') !== Buffer.from(chunk_b_divided).toString('base64')) {
         throw new Error("Verification Failed! The data may be corrupt or tampered with.");
       }
 

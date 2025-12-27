@@ -1,268 +1,196 @@
 // lib/crypto.ts
 
-import { ethers } from 'ethers';
+// lib/crypto-fast.ts
 import { Buffer } from 'buffer';
+// import { sha256 as nobleSha256 } from '@noble/hashes/sha256';
+import { ethers } from 'ethers';
 
 if (typeof window !== 'undefined' && typeof window.Buffer === 'undefined') {
   window.Buffer = Buffer;
 }
 
-const _toU8 = (s: string): Uint8Array => new TextEncoder().encode(s);
-const _toStr = (b: Uint8Array): string => new TextDecoder().decode(b);
-const _concatU8 = (...arrays: Uint8Array[]): Uint8Array => {
-    const totalLength = arrays.reduce((acc, arr) => acc + arr.length, 0);
-    const result = new Uint8Array(totalLength);
-    let offset = 0;
-    for (const arr of arrays) {
-        result.set(arr, offset);
-        offset += arr.length;
-    }
-    return result;
-};
+export const _toU8 = (s: string): Uint8Array => new TextEncoder().encode(s);
+// const _toStr = (b: Uint8Array): string => new TextDecoder().decode(b);
 
-function _lenPrefix(data: Uint8Array): Uint8Array {
-    const buffer = new ArrayBuffer(4);
-    const view = new DataView(buffer);
-    view.setUint32(0, data.length, false);
-    return _concatU8(new Uint8Array(buffer), data);
-}
+// const _concatU8 = (...arrays: Uint8Array[]): Uint8Array => {
+//   const totalLength = arrays.reduce((acc, arr) => acc + arr.length, 0);
+//   const result = new Uint8Array(totalLength);
+//   let offset = 0;
+//   for (const arr of arrays) {
+//     result.set(arr, offset);
+//     offset += arr.length;
+//   }
+//   return result;
+// };
 
-function _lenUnprefix(buf: Uint8Array): { payload: Uint8Array; remainder: Uint8Array } {
-    if (buf.length < 4) throw new Error("Bad length prefix: buffer too short");
-    const view = new DataView(buf.buffer, buf.byteOffset, 4);
-    const L = view.getUint32(0, false);
-    const payload = buf.slice(4, 4 + L);
-    if (payload.length !== L) throw new Error("Truncated payload");
-    const remainder = buf.slice(4 + L);
-    return { payload, remainder };
-}
+// function _lenPrefix(data: Uint8Array): Uint8Array {
+//   const buffer = new ArrayBuffer(4);
+//   new DataView(buffer).setUint32(0, data.length, false);
+//   return _concatU8(new Uint8Array(buffer), data);
+// }
 
-async function _kdfStream(seed: Uint8Array, n: number, progressCb?: (generated: number) => void): Promise<Uint8Array> {
-    const out = new Uint8Array(n);
-    let generatedBytes = 0;
-    let ctr = 0;
-    while (generatedBytes < n) {
-        const ctrBytes = new Uint8Array(4);
-        new DataView(ctrBytes.buffer).setUint32(0, ctr, false);
-        const hashInput = _concatU8(seed, ctrBytes);
-        const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', hashInput.slice()));
-        const bytesToCopy = Math.min(hash.length, n - generatedBytes);
-        out.set(hash.slice(0, bytesToCopy), generatedBytes);
-        generatedBytes += bytesToCopy;
-        ctr++;
-        if (progressCb) progressCb(generatedBytes);
-    }
-    return out;
-}
+// function _lenUnprefix(buf: Uint8Array): { payload: Uint8Array; remainder: Uint8Array } {
+//   if (buf.length < 4) throw new Error("Bad length prefix: buffer too short");
+//   const L = new DataView(buf.buffer, buf.byteOffset, 4).getUint32(0, false);
+//   const payload = buf.slice(4, 4 + L);
+//   if (payload.length !== L) throw new Error("Truncated payload");
+//   return { payload, remainder: buf.slice(4 + L) };
+// }
 
-const _xor = (a: Uint8Array, b: Uint8Array): Uint8Array => {
-    const len = Math.min(a.length, b.length);
-    const result = new Uint8Array(len);
+// Optimized KDF stream (synchronous, chunked)
+// function _kdfStream(seed: Uint8Array, length: number): Uint8Array {
+//   const out = new Uint8Array(length);
+//   let offset = 0;
+//   let counter = 0;
+//   while (offset < length) {
+//     const ctrBytes = new Uint8Array(4);
+//     new DataView(ctrBytes.buffer).setUint32(0, counter, false);
+//     const hashInput = _concatU8(seed, ctrBytes);
+//     const hash = nobleSha256(hashInput);
+//     const toCopy = Math.min(hash.length, length - offset);
+//     out.set(hash.slice(0, toCopy), offset);
+//     offset += toCopy;
+//     counter++;
+//   }
+//   return out;
+// }
+
+// const _xor = (a: Uint8Array, b: Uint8Array): Uint8Array => {
+//   const len = Math.min(a.length, b.length);
+//   const result = new Uint8Array(len);
+//   for (let i = 0; i < len; i++) result[i] = a[i] ^ b[i];
+//   return result;
+// };
+
+// const _hash8 = (data: Uint8Array): Uint8Array => nobleSha256(data).slice(0, 8);
+
+/**
+ * Memory-efficient XOR "multiply"
+ * Processes in chunks to avoid large allocations
+ */
+export function multiply(
+  a: Uint8Array,
+  b: Uint8Array,
+  chunkSize = 1024 * 1024, // 1 MB
+  progressCb?: (processed: number, total: number) => void
+): Uint8Array {
+  const L = Math.max(a.length, b.length);
+  const output = new Uint8Array(L);
+
+  let processed = 0;
+
+  for (let offset = 0; offset < L; offset += chunkSize) {
+    const len = Math.min(chunkSize, L - offset);
+
     for (let i = 0; i < len; i++) {
-        result[i] = a[i] ^ b[i];
+      const aval = offset + i < a.length ? a[offset + i] : 0;
+      const bval = offset + i < b.length ? b[offset + i] : 0;
+      output[offset + i] = aval ^ bval;
     }
+
+    processed += len;
+    if (progressCb) progressCb(processed, L);
+  }
+
+  return output;
+}
+
+
+export function divide(product: Uint8Array, known: Uint8Array): Uint8Array {
+  const L = product.length;
+  const knownPadded = new Uint8Array(L);
+  knownPadded.set(known);
+
+  const output = new Uint8Array(L);
+  for (let i = 0; i < L; i++) {
+    output[i] = product[i] ^ knownPadded[i];
+  }
+  return output;
+}
+
+
+
+/**
+ * V2: Creates a cryptographic commitment using SHA256 hash.
+ * This is the simplified alternative to the multiply chain.
+ * 
+ * @param parts - Array of strings to commit to (e.g., [owner, encryptedData, timestamp, counter])
+ * @param progressCb - Optional progress callback for UI updates
+ * @returns Base64url-encoded commitment hash
+ */
+export async function commitment(parts: string[], progressCb?: (processed: number, total: number) => void): Promise<string> {
+    if (progressCb) {
+        progressCb(0, 100);
+        await new Promise(r => setTimeout(r, 10));
+    }
+    
+    // Concatenate all parts with separator
+    const input = parts.join('|');
+    const hash = await sha256(_toU8(input));
+    const result = Buffer.from(hash).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    
+    if (progressCb) {
+        progressCb(100, 100);
+    }
+    
+    console.log('[commitment] V2 simplified commitment created');
     return result;
-};
-
-const _hash8 = async (m: Uint8Array): Promise<Uint8Array> => {
-    const hash = await crypto.subtle.digest('SHA-256', m.slice());
-    return new Uint8Array(hash).slice(0, 8);
-};
-
-export async function multiply(x: string, y: string, progressCb?: (processed: number, total: number) => void): Promise<string> {
-    const bx = _toU8(x);
-    const by = _toU8(y);
-    const X = _lenPrefix(bx);
-    const Y = _lenPrefix(by);
-    const totalWork = X.length + Y.length;
-    let processed = 0;
-
-    const hx8 = await _hash8(X);
-    processed += 0; if (progressCb) progressCb(processed, totalWork);
-    const hy8 = await _hash8(Y);
-    processed += 0; if (progressCb) progressCb(processed, totalWork);
-
-    // Generate KDF stream for X (using hy8) and report progress
-    const padForX = await _kdfStream(hy8, X.length, (g) => {
-        // g is generated for this part; map to global processed
-        const localProcessed = Math.min(X.length, g);
-        if (progressCb) progressCb(localProcessed, totalWork);
-    });
-    const c1_payload = _xor(X, padForX);
-    processed += X.length; if (progressCb) progressCb(processed, totalWork);
-
-    // Generate KDF stream for Y (using hx8) and report progress
-    const padForY = await _kdfStream(hx8, Y.length, (g) => {
-        const localProcessed = X.length + Math.min(Y.length, g);
-        if (progressCb) progressCb(localProcessed, totalWork);
-    });
-    const c2_payload = _xor(Y, padForY);
-    processed += Y.length; if (progressCb) progressCb(processed, totalWork);
-
-    const cap1 = _concatU8(hy8, _lenPrefix(c1_payload));
-    const cap2 = _concatU8(hx8, _lenPrefix(c2_payload));
-    
-    const a = Buffer.from(cap1);
-    const b = Buffer.from(cap2);
-    const sorted = [a, b].sort(Buffer.compare);
-    
-    const blob = Buffer.concat(sorted);
-    return blob.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
-export async function divide(product_b64: string, known: string): Promise<string> {
-    // --- 1. base64url decode ---
-    let base64 = product_b64.replace(/-/g, '+').replace(/_/g, '/');
-    while (base64.length % 4) { base64 += '='; }
-    const blobBuf = Buffer.from(base64, 'base64');
-    const blob = new Uint8Array(blobBuf); // use Uint8Array for helper fns
-
-    // --- 2. helper to parse a single capsule from buffer start ---
-    const parseCap = (buf: Uint8Array): { cap: Uint8Array, rem: Uint8Array } => {
-        if (buf.length < 12) throw new Error("Invalid capsule format: too short");
-        const { payload: pay, remainder: _rem1 } = _lenUnprefix(buf.slice(8));
-        const L = 8 + 4 + pay.length; // 8 bytes tag + 4 length prefix + payload
-        return { cap: buf.slice(0, L), rem: buf.slice(L) };
-    };
-
-    // --- 3. robustly extract two capsules (handles sorted concatenation) ---
-    let cap1: Uint8Array = new Uint8Array(), cap2: Uint8Array = new Uint8Array();
-    try {
-        const { cap: c1, rem: r1 } = parseCap(blob);
-        const { cap: c2, rem: r2 } = parseCap(r1);
-        if (r2.length !== 0) throw new Error("Extra trailing data after two capsules");
-        cap1 = c1;
-        cap2 = c2;
-    } catch (err) {
-        // fallback: scan for valid boundary (helps if parsing failed due to unexpected offset)
-        let found = false;
-        for (let off = 0; off < blob.length - 12 && !found; off++) {
-            try {
-                const sub = blob.slice(off);
-                const { cap: c1, rem: r1 } = parseCap(sub);
-                const { cap: c2, rem: r2 } = parseCap(r1);
-                if (r2.length === 0) {
-                    cap1 = c1;
-                    cap2 = c2;
-                    found = true;
-                }
-            } catch (_) { /* ignore and continue scanning */ }
-        }
-        if (!found) throw new Error(`Invalid capsule structure; parse failed: ${err instanceof Error ? err.message : String(err)}`);
-    }
-
-    // --- 4. derive t8 = hash(lenPrefix(known)) (this is how multiply derived tags) ---
-    const bknown = _toU8(known);
-    const K = _lenPrefix(bknown);
-    const t8 = await _hash8(K); // Uint8Array(8)
-
-    const tag1 = cap1.slice(0, 8);
-    const tag2 = cap2.slice(0, 8);
-
-    // helper to attempt decryption and validate the recovered length-prefix
-    // Allow payloads larger than 10MB for real-world files. Use the incoming
-    // blob size as a guide so we accept reasonable payloads up to the size
-    // of the product itself. Also enforce an upper safety cap to avoid
-    // pathological allocations in the browser.
-    const INCOMING_BLOB_LIMIT = blob.length || (50 * 1024 * 1024);
-    const DEFAULT_MIN_ACCEPTABLE = 10 * 1024 * 1024; // 10 MB
-    const ABSOLUTE_MAX = 5 * 1024 * 1024 * 1024; // 5 GB safety cap
-    const MAX_ACCEPTABLE_PAYLOAD = Math.min(Math.max(INCOMING_BLOB_LIMIT, DEFAULT_MIN_ACCEPTABLE), ABSOLUTE_MAX);
-
-    const tryDecryptWithSeed = async (seed: Uint8Array, cap: Uint8Array): Promise<string> => {
-        // extract encrypted payload (the capsule layout is: 8-tag || 4-len || payload)
-        const encPayload = _lenUnprefix(cap.slice(8)).payload;
-        // XOR with KDF(seed)
-        const pad = await _kdfStream(seed, encPayload.length);
-        const decryptedWithPrefix = _xor(encPayload, pad);
-
-        if (decryptedWithPrefix.length < 4) throw new Error("Decryption produced too-short result (no length prefix)");
-
-        // Read prefix as big-endian first (the original implementation used big-endian)
-        const dv = new DataView(decryptedWithPrefix.buffer, decryptedWithPrefix.byteOffset, 4);
-        const Lbe = dv.getUint32(0, false);
-        const MIN_PAYLOAD_SIZE = 32; // Reject empty or too-small payloads
-        if (Lbe >= MIN_PAYLOAD_SIZE && Lbe <= MAX_ACCEPTABLE_PAYLOAD && decryptedWithPrefix.length === 4 + Lbe) {
-            const { payload: other_final } = _lenUnprefix(decryptedWithPrefix);
-            const result = _toStr(other_final);
-            if (!result || result.length === 0) {
-                throw new Error(`Decryption produced empty result (length prefix was ${Lbe} but payload is empty)`);
-            }
-            return result;
-        }
-
-        // If big-endian didn't match, try little-endian interpretation (some producers/mis-encodings may swap endianness)
-        const Lle = dv.getUint32(0, true);
-        if (Lle >= MIN_PAYLOAD_SIZE && Lle <= MAX_ACCEPTABLE_PAYLOAD && decryptedWithPrefix.length === 4 + Lle) {
-            // manually slice payload according to little-endian length
-            const payload = decryptedWithPrefix.slice(4, 4 + Lle);
-            const result = _toStr(payload);
-            if (!result || result.length === 0) {
-                throw new Error(`Decryption produced empty result (little-endian length prefix was ${Lle} but payload is empty)`);
-            }
-            return result;
-        }
-
-        // Heuristic fallback 1:
-        // If the decrypted buffer contains a 4-byte prefix followed by a payload whose size is reasonable,
-        // accept decryptedWithPrefix.slice(4) even if the numeric prefix doesn't match (some encoders write a different prefix scheme).
-        const candidatePayloadLen = decryptedWithPrefix.length - 4;
-        // Only accept if payload is at least 32 bytes (reasonable minimum for encrypted data)
-        if (candidatePayloadLen >= MIN_PAYLOAD_SIZE && candidatePayloadLen <= MAX_ACCEPTABLE_PAYLOAD) {
-            console.warn(`[divide] length-prefix mismatch (BE=${Lbe},LE=${Lle}) but decrypted buffer has plausible payload length=${candidatePayloadLen}. Accepting payload slice(4).`);
-            const result = _toStr(decryptedWithPrefix.slice(4, 4 + candidatePayloadLen));
-            if (!result || result.length === 0) {
-                throw new Error(`Heuristic fallback 1 produced empty result (payload length=${candidatePayloadLen})`);
-            }
-            return result;
-        }
-
-        // Heuristic fallback 2:
-        // If the entire decrypted buffer is small enough and large enough to be valid, accept it as a payload (no length-prefix).
-        if (decryptedWithPrefix.length >= MIN_PAYLOAD_SIZE && decryptedWithPrefix.length <= MAX_ACCEPTABLE_PAYLOAD) {
-            console.warn(`[divide] length-prefix mismatch (BE=${Lbe},LE=${Lle}) but decrypted buffer length=${decryptedWithPrefix.length} is plausible; treating entire buffer as payload.`);
-            const result = _toStr(decryptedWithPrefix);
-            if (!result || result.length === 0) {
-                throw new Error(`Heuristic fallback 2 produced empty result (buffer length=${decryptedWithPrefix.length})`);
-            }
-            return result;
-        }
-
-        // If neither heuristic applies, provide detailed diagnostic info
-        throw new Error(`Decryption length mismatch: prefixBE=${Lbe} prefixLE=${Lle} bytes but decrypted buffer contains ${decryptedWithPrefix.length - 4} bytes`);
-    };
-
-    // --- 5. Try the natural (tag-match) path first ---
-    try {
-        if (Buffer.from(t8).equals(Buffer.from(tag1))) {
-            return await tryDecryptWithSeed(t8, cap1);
-        }
-        if (Buffer.from(t8).equals(Buffer.from(tag2))) {
-            return await tryDecryptWithSeed(t8, cap2);
-        }
-    } catch (err) {
-        // matched-tag decryption failed; fall through to fallback attempts
-        console.warn("matched-tag decrypt failed:", err);
-    }
-
-    // --- 6. Fallback: try decrypting both capsules with the derived seed (in case tags / ordering are unexpected) ---
-    const fallbackErrors: string[] = [];
-    try {
-        return await tryDecryptWithSeed(t8, cap1);
-    } catch (e) {
-        fallbackErrors.push(`cap1: ${e instanceof Error ? e.message : String(e)}`);
-    }
-    try {
-        return await tryDecryptWithSeed(t8, cap2);
-    } catch (e) {
-        fallbackErrors.push(`cap2: ${e instanceof Error ? e.message : String(e)}`);
-    }
-
-    throw new Error(`known operand does not match product (or decryption failed). Attempts: ${fallbackErrors.join(' | ')}`);
+/**
+ * V2: Verifies a commitment by recomputing and comparing.
+ * 
+ * @param parts - Array of strings used to create the commitment
+ * @param expectedCommitment - The commitment hash to verify against
+ * @returns True if commitment matches, false otherwise
+ */
+export async function verifyCommitment(parts: string[], expectedCommitment: string): Promise<boolean> {
+    const computed = await commitment(parts);
+    return computed === expectedCommitment;
 }
 
-export const merge = (...args: string[]): string => args.join('|SPLIT|');
-export const split = (merged: string): string[] => merged.split('|SPLIT|');
+const DELIM = new TextEncoder().encode('|SPLIT|');
+
+export function merge(...args: Uint8Array[]): Uint8Array {
+  const totalLength = args.reduce((sum, arr) => sum + arr.length, 0) + DELIM.length * (args.length - 1);
+  const output = new Uint8Array(totalLength);
+  let offset = 0;
+
+  for (let i = 0; i < args.length; i++) {
+    if (i > 0) {
+      output.set(DELIM, offset);
+      offset += DELIM.length;
+    }
+    output.set(args[i], offset);
+    offset += args[i].length;
+  }
+  return output;
+}
+
+export function split(merged: Uint8Array): Uint8Array[] {
+  const parts: Uint8Array[] = [];
+  let start = 0;
+
+  for (let i = 0; i <= merged.length - DELIM.length; i++) {
+    let match = true;
+    for (let j = 0; j < DELIM.length; j++) {
+      if (merged[i + j] !== DELIM[j]) {
+        match = false;
+        break;
+      }
+    }
+    if (match) {
+      parts.push(merged.slice(start, i));
+      start = i + DELIM.length;
+      i += DELIM.length - 1;
+    }
+  }
+
+  parts.push(merged.slice(start));
+  return parts;
+}
+
+
 export const generateDEK = (): Uint8Array => crypto.getRandomValues(new Uint8Array(32));
 export const sha256 = async (data: Uint8Array): Promise<Uint8Array> => new Uint8Array(await crypto.subtle.digest('SHA-256', data.slice()));
 export async function generateNonce(owner: string, timestamp: string, counter: number): Promise<Uint8Array> {
@@ -527,14 +455,22 @@ export async function unwrapSharedDek(
   const dek = await aesGcmDecrypt(kek, wrappedBytes, nonce);
   return dek;
 }
-export async function encode(data: string): Promise<{ metachunk: string }> {
-    const metachunk = btoa(`ESSENTIALIS[${data}]`);
-    return { metachunk };
+export function encode(data: Uint8Array): Uint8Array {
+  const prefix = new TextEncoder().encode("ESSENTIALIS[");
+  const suffix = new TextEncoder().encode("]");
+  const output = new Uint8Array(prefix.length + data.length + suffix.length);
+  output.set(prefix, 0);
+  output.set(data, prefix.length);
+  output.set(suffix, prefix.length + data.length);
+  return output;
 }
-export async function decode(metachunk: string): Promise<string> {
-    const data = atob(metachunk);
-    return data.substring(data.indexOf('[') + 1, data.indexOf(']'));
+
+export function decode(metachunk: Uint8Array): Uint8Array {
+  const prefix = new TextEncoder().encode("ESSENTIALIS[");
+  const suffix = new TextEncoder().encode("]");
+  return metachunk.slice(prefix.length, metachunk.length - suffix.length);
 }
+
 
 /**
  * For provider-style shared entries (created when owner used eth_getEncryptionPublicKey),

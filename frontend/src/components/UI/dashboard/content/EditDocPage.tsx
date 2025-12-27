@@ -21,6 +21,12 @@ import {
     generateNonce,
     aesGcmEncrypt,
     wrapDek,
+    multiply,
+    merge,
+    sha256,
+    hmacSha256,
+    encode,
+    _toU8
 } from '../../../../lib/crypto';
 
 window.Buffer = window.Buffer || Buffer;
@@ -46,6 +52,8 @@ const EditDocPage: React.FC = () => {
     const [originalMetadata, setOriginalMetadata] = useState<any>(null);
     const [formData, setFormData] = useState({ name: '', description: '' });
     const [sourceFile, setSourceFile] = useState<File | null>(null);
+    const [isCancelled, setIsCancelled] = useState(false);
+    const xhrRef = React.useRef<XMLHttpRequest | null>(null);
 
     useEffect(() => {
         const fetchDocData = async () => {
@@ -89,50 +97,92 @@ const EditDocPage: React.FC = () => {
                 const eip = EIP1193.toProvider({ wallet: activeWallet, client, chain: chain });
                 const signer = new ethers.providers.Web3Provider(eip).getSigner();
                 const owner = account.address;
-                const timestamp = originalMetadata.attributes.find((a: any) => a.trait_type === 'Tokenization Date')?.value || new Date().toISOString();
+                const timestamp = originalMetadata.attributes.find((a: any) => a.trait_type === 'Tokenization Date')?.value || new Date().toISOString().split('T')[0];
                 const counter = Date.now();
 
-                setStatusMessage('Step 1/6: Generating new keys...');
-                // small weight here
+                if (isCancelled) throw new Error('Operation cancelled');
+                setStatusMessage('Step 1/6: Generating encryption keys...');
                 setProgress(6);
                 const dek = generateDEK();
                 const nonce = await generateNonce(owner, timestamp, counter);
                 const fileDataU8 = new Uint8Array(await sourceFile.arrayBuffer());
                 const encryptedData = await aesGcmEncrypt(dek, fileDataU8, nonce);
+                if (!encryptedData || encryptedData.length === 0) {
+                    throw new Error('Encryption failed: encryptedData is empty/undefined');
+                }
 
-                setStatusMessage('Step 2/6: Wrapping keys...');
-                // wrapping keys is quick; small weight
+                if (isCancelled) throw new Error('Operation cancelled');
+                setStatusMessage('Step 2/6: Creating verifiable chunks...');
                 setProgress(12);
-                const wrappedDek = await wrapDek(signer, dek, nonce);
-                const wrappedDekHex = wrappedDek;
 
-                setStatusMessage('Step 3/6: Creating metadata chunk...');
-                // chunk/prepare metadata - moderate weight
-                setProgress(30);
-                const metaChunk = {
-                    // store encrypted data as base64 to avoid hex/base64 ambiguity
-                    encrypted_data: Buffer.from(encryptedData).toString('base64'),
-                    encrypted_data_format: 'base64',
-                    wrapped_deks: { [owner.toLowerCase()]: wrappedDekHex }
-                };
-                const metaChunkFile = new Blob([JSON.stringify(metaChunk)], { type: 'application/json' });
+                if (!owner || typeof owner !== 'string') throw new Error('Owner address missing');
+                if (!timestamp || typeof timestamp !== 'string') throw new Error('Timestamp missing');
 
+                // Use encrypted bytes directly to avoid any Buffer.from(undefined) edge cases
+                let ownerBytes: Uint8Array | null = _toU8(owner);
+                let dataBytes: Uint8Array | null = encryptedData; // identical to the base64 roundtrip used in MintDocPage
+                let timestampBytes: Uint8Array | null = _toU8(String(timestamp));
+                let counterBytes: Uint8Array | null = _toU8(counter.toString());
+
+                let p1: Uint8Array | null = multiply(ownerBytes, dataBytes, 1024 * 1024, (p, total) => {
+                    if (isCancelled) return;
+                    const pct = 12 + Math.round((p / total) * (45 - 12));
+                    setProgress(pct);
+                });
+                let p2: Uint8Array | null = multiply(p1, timestampBytes, 1024 * 1024, (p, total) => {
+                    if (isCancelled) return;
+                    const base = 45;
+                    const pct = base + Math.round((p / total) * 5);
+                    setProgress(pct);
+                });
+
+                ownerBytes = null;
+                dataBytes = null;
+                timestampBytes = null;
+                p1 = null;
+
+                let chunk_a: Uint8Array | null = multiply(p2, counterBytes, 1024 * 1024, (p, total) => {
+                    if (isCancelled) return;
+                    const base = 50;
+                    const pct = base + Math.round((p / total) * 5);
+                    setProgress(pct);
+                });
+                p2 = null;
+                counterBytes = null;
+
+                if (isCancelled) throw new Error('Operation cancelled');
+                const dataHash = await sha256(fileDataU8);
+                const hmacKey = new TextEncoder().encode(owner + timestamp);
+                const hmacHash = await hmacSha256(hmacKey, encryptedData);
+                let chunk_b: Uint8Array | null = await multiply(dataHash, hmacHash);
+                let chunk: Uint8Array | null = merge(chunk_a, chunk_b);
+                chunk_a = null;
+                chunk_b = null;
+
+                if (isCancelled) throw new Error('Operation cancelled');
+                setProgress(60);
+                setStatusMessage('Step 3/6: Securing metadata...');
+                const metachunk = await encode(chunk);
+                chunk = null;
+
+                if (isCancelled) throw new Error('Operation cancelled');
+                setProgress(70);
                 setStatusMessage('Step 4/6: Uploading to IPFS...');
-                // Upload: use XHR for progress and map upload to overall progress
-                setProgress(45);
+                const metaChunkFile = new File([new Uint8Array(metachunk)], 'metachunk.txt', { type: 'text/plain' });
                 const metachunkCid = await new Promise<string>((resolve, reject) => {
                     try {
                         const xhr = new XMLHttpRequest();
+                        xhrRef.current = xhr;
                         xhr.open('POST', '/api/ipfs/file', true);
                         const fd = new FormData();
                         fd.append('file', metaChunkFile);
 
                         xhr.upload.onprogress = (ev) => {
+                            if (isCancelled) { try { xhr.abort(); } catch {} return; }
                             if (ev.lengthComputable) {
                                 const percent = Math.round((ev.loaded / ev.total) * 100);
                                 setUploadProgress(percent);
-                                // map to overall progress 45..75
-                                const overall = 45 + Math.round((percent / 100) * 30);
+                                const overall = 70 + Math.round((percent / 100) * 18);
                                 setProgress(overall);
                             }
                         };
@@ -142,7 +192,8 @@ const EditDocPage: React.FC = () => {
                                 if (xhr.status >= 200 && xhr.status < 300) {
                                     try {
                                         const resp = JSON.parse(xhr.responseText);
-                                        resolve((resp as any).replace ? (resp as any).replace(/"/g, '') : resp);
+                                        const cid = (resp as any).replace ? (resp as any).replace(/"/g, '') : resp;
+                                        resolve(typeof cid === 'string' ? cid : String(cid));
                                     } catch (e) {
                                         resolve(xhr.responseText.replace(/"/g, ''));
                                     }
@@ -153,27 +204,29 @@ const EditDocPage: React.FC = () => {
                         };
 
                         xhr.onerror = () => reject(new Error('Network error during upload'));
+                        xhr.onabort = () => reject(new Error('Upload cancelled'));
                         xhr.send(fd);
-                    } catch (e) {
-                        reject(e);
-                    }
+                    } catch (e) { reject(e); }
                 });
 
+                if (isCancelled) throw new Error('Operation cancelled');
+                setProgress(90);
+                setStatusMessage('Step 5/6: Building transaction...');
                 finalMetadata = {
                     ...originalMetadata,
                     name: formData.name,
                     description: formData.description,
-                    image: "https://essentialis.cloud/favicon-96x96.png",
+                    image: 'https://essentialis.cloud/favicon-96x96.png',
                     attributes: [
                         ...originalMetadata.attributes.filter((a: any) => !['File Size', 'File Type', 'File Extension', 'Counter'].includes(a.trait_type)),
-                        { "trait_type": "File Size", "value": `${(sourceFile.size / 1024).toFixed(2)} KB` },
-                        { "trait_type": "File Type", "value": sourceFile.type || 'N/A' },
-                        { "trait_type": "File Extension", "value": sourceFile.name.split('.').pop() || 'N/A' },
-                        { "trait_type": "Counter", "value": counter.toString() }
+                        { trait_type: 'File Size', value: `${(sourceFile.size / 1024).toFixed(2)} KB` },
+                        { trait_type: 'File Type', value: sourceFile.type || 'N/A' },
+                        { trait_type: 'File Extension', value: sourceFile.name.split('.').pop() || 'N/A' },
+                        { trait_type: 'Counter', value: counter.toString() }
                     ],
                     encrypted_file_cid: metachunkCid,
                     nonce: ethers.utils.hexlify(nonce),
-                    wrapped_deks: { [owner.toLowerCase()]: wrappedDekHex }
+                    wrapped_deks: { [owner.toLowerCase()]: await wrapDek(signer, dek, nonce) }
                 };
             } else {
                 setStatusMessage('Updating document name and description...');
@@ -312,16 +365,38 @@ const EditDocPage: React.FC = () => {
             </div>
 
                         {/* Submit Button */}
-                        <Button
-                type="submit"
-                disabled={isSubmitting}
-                            variant="primary"
-                            size="lg"
-                            className="w-full"
-                            loading={isSubmitting}
-                        >
-                            {isSubmitting ? 'Updating Document...' : 'Update Document'}
-                        </Button>
+                        <div className="flex gap-3">
+                            <Button
+                                type="submit"
+                                disabled={isSubmitting}
+                                variant="primary"
+                                size="lg"
+                                className="flex-1"
+                                loading={isSubmitting}
+                            >
+                                {isSubmitting ? 'Updating Document...' : 'Update Document'}
+                            </Button>
+                            {isSubmitting && (
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    size="lg"
+                                    className="w-36"
+                                    onClick={() => {
+                                        setIsCancelled(true);
+                                        try { xhrRef.current?.abort(); } catch {}
+                                        xhrRef.current = null;
+                                        setUploadProgress(0);
+                                        setProgress(null);
+                                        setIsSubmitting(false);
+                                        setStatusMessage('Operation cancelled.');
+                                        setTimeout(() => setStatusMessage(null), 1200);
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                            )}
+                        </div>
 
                         {/* Status + Progress */}
                         {isSubmitting && (

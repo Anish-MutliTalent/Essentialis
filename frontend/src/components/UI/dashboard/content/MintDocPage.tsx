@@ -24,6 +24,7 @@ import {
     sha256,
     hmacSha256,
     encode,
+    _toU8
 } from '../../../../lib/crypto';
 import { Button, Input, Card, CardHeader, CardContent, Heading, Text } from '../../index';
 import { getFileSize } from '../../../../lib/docs';
@@ -176,55 +177,85 @@ const MintDocPage: React.FC = () => {
             // small weight for encryption
             setProgress(8);
             const dek = generateDEK();
+            console.log("dek");
             const nonce = await generateNonce(owner, timestamp, counter);
+            console.log("nonce");
             const fileDataU8 = new Uint8Array(await sourceFile.arrayBuffer());
+            console.log("fileDataU8");
             const encryptedData = await aesGcmEncrypt(dek, fileDataU8, nonce);
+            console.log("encData");
 
             if (isCancelled) throw new Error('Operation cancelled');
             setStatusMessage('Step 3/6: Creating verifiable chunks...');
             // chunking depends on payload size; start at 12% and allow multiply to update
             setProgress(12);
             const encryptedDataB64 = Buffer.from(encryptedData).toString('base64');
+            console.log("encDatab64");
             // provide progress callback: multiply will call with processed/total
-            const p1 = await multiply(owner, encryptedDataB64, (p, total) => {
-                if (isCancelled) return; // don't update state further
-                // map multiply progress (0..total) to range 12..45
+            let ownerBytes: Uint8Array<ArrayBufferLike> | null = _toU8(owner); // string → Uint8Array
+            let dataBytes: Uint8Array<ArrayBufferLike> | null = Buffer.from(encryptedDataB64, 'base64'); // keep binary
+            let timestampBytes: Uint8Array<ArrayBufferLike> | null = _toU8(timestamp);
+            let counterBytes: Uint8Array<ArrayBufferLike> | null = _toU8(counter.toString());
+
+            let p1: Uint8Array<ArrayBufferLike> | null = multiply(ownerBytes, dataBytes, 1024 * 1024, (p, total) => {
+                if (isCancelled) return;
                 const pct = 12 + Math.round((p / total) * (45 - 12));
                 setProgress(pct);
             });
+            console.log("p1", p1.length);
             if (isCancelled) throw new Error('Operation cancelled');
-            const p2 = await multiply(p1, timestamp, (p, total) => {
+
+            let p2: Uint8Array<ArrayBufferLike> | null = multiply(p1, timestampBytes, 1024 * 1024, (p, total) => {
                 if (isCancelled) return;
-                const base = 45; // small ramp
+                const base = 45;
                 const pct = base + Math.round((p / total) * 5);
                 setProgress(pct);
             });
+            console.log("p2", p2.length);
             if (isCancelled) throw new Error('Operation cancelled');
-            const chunk_a = await multiply(p2, counter.toString(), (p, total) => {
+
+            ownerBytes = null;
+            dataBytes = null;
+            timestampBytes = null;
+            p1 = null;
+
+            let chunk_a: Uint8Array<ArrayBufferLike> | null = multiply(p2, counterBytes, 1024 * 1024, (p, total) => {
                 if (isCancelled) return;
                 const base = 50;
                 const pct = base + Math.round((p / total) * 5);
                 setProgress(pct);
             });
+            console.log("chunk_a", chunk_a.length);
+            p2 = null;
+            counterBytes = null;
 
             if (isCancelled) throw new Error('Operation cancelled');
-            const dataHashB64 = Buffer.from(await sha256(fileDataU8)).toString('base64');
+            const dataHash = await sha256(fileDataU8);
+            console.log("datahash64");
             const hmacKey = new TextEncoder().encode(owner + timestamp);
+            console.log("hmackey");
             const hmacHash = await hmacSha256(hmacKey, encryptedData);
-            const hmacHashB64 = Buffer.from(hmacHash).toString('base64');
-            const chunk_b = await multiply(dataHashB64, hmacHashB64);
-            const chunk = merge(chunk_a, chunk_b);
+            console.log("hmachash");
+            let chunk_b: Uint8Array<ArrayBufferLike> | null = await multiply(dataHash, hmacHash);
+            console.log("chunkb", chunk_b.length);
+            let chunk: Uint8Array<ArrayBufferLike> | null = merge(chunk_a, chunk_b);
+            console.log("chunk", chunk.length);
+
+            chunk_a = null;
+            chunk_b = null;
 
             if (isCancelled) throw new Error('Operation cancelled');
             setProgress(60);
             setStatusMessage('Step 4/6: Securing metadata...');
-            const { metachunk } = await encode(chunk);
+            const metachunk = await encode(chunk);
+            chunk = null;
+            console.log("metachunk");
             
             // Upload: use XHR so we can get per-byte progress for large files
             if (isCancelled) throw new Error('Operation cancelled');
             setProgress(70);
             setStatusMessage('Step 5/6: Uploading to IPFS...');
-            const metaChunkFile = new File([metachunk], "metachunk.txt", { type: 'text/plain' });
+            const metaChunkFile = new File([new Uint8Array(metachunk)], "metachunk.txt", { type: 'text/plain' });
             const metachunkCid = await new Promise<string>(async (resolve, reject) => {
                 try {
                     const url = '/api/ipfs/file';
