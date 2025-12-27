@@ -1,4 +1,4 @@
-import { wrapDekForRecipientWithSignature, unwrapDek, sha256, decode, split, divide } from './crypto';
+import { wrapDekForRecipientWithSignature, unwrapDek, sha256, decode, split, divide, _toU8 } from './crypto';
 import { ethers } from 'ethers';
 import { client } from './thirdweb';
 import { defineChain } from 'thirdweb/chains';
@@ -111,10 +111,10 @@ export async function shareWithWallet(
         const cid = String(metadata.encrypted_file_cid).replace(/^ipfs:\/\//, '');
         const metachunkResp = await fetch(`/api/ipfs/${cid}`);
         if (metachunkResp.ok) {
-          const metachunkText = await metachunkResp.text();
+          const metachunkBuf = new Uint8Array(await metachunkResp.arrayBuffer());
           try {
-            // Decode the metachunk and reconstruct the encrypted payload using the same logic as the viewer
-            const chunk = await decode(metachunkText);
+            // Decode the metachunk and reconstruct the encrypted payload using the same logic as Mint/Viewer
+            const chunk = await decode(metachunkBuf);
             const subchunks = split(chunk);
             if (subchunks.length >= 2) {
               const [chunk_a] = subchunks;
@@ -123,28 +123,15 @@ export async function shareWithWallet(
                 || metadata.attributes?.find((a: any) => /date/i.test(String(a.trait_type)))?.value;
               const counterStr = metadata.attributes?.find((a: any) => String(a.trait_type || '').toLowerCase() === 'counter')?.value;
               if (timestamp && counterStr) {
-                // Reverse the chained multiplication in the correct order: /counter -> /timestamp -> /owner
-                const p2_rec = await divide(chunk_a, counterStr);
-                const p1_rec = await divide(p2_rec, timestamp);
-                const encryptedPayloadStr = await divide(p1_rec, ownerAddress);
-
-                // Normalize string to bytes (hex, base64/base64url, or binary)
-                const maybeStr = String(encryptedPayloadStr || '');
-                const strippedHex = maybeStr.replace(/^0x/, '');
-                const isHex = /^([0-9a-fA-F]{2})+$/.test(strippedHex) && (maybeStr.startsWith('0x') || /^[0-9a-fA-F]+$/.test(maybeStr));
-                const base64urlRegex = /^[A-Za-z0-9\-_]+={0,2}$/;
-                const base64Regex = /^[A-Za-z0-9+/]+=*$/;
-                let edBytes: Uint8Array;
-                if (isHex) {
-                  edBytes = new Uint8Array(Buffer.from(strippedHex, 'hex'));
-                } else if (base64urlRegex.test(maybeStr) || base64Regex.test(maybeStr)) {
-                  const b64 = maybeStr.replace(/-/g, '+').replace(/_/g, '/');
-                  edBytes = new Uint8Array(Buffer.from(b64, 'base64'));
-                } else {
-                  edBytes = new Uint8Array(Buffer.from(maybeStr, 'binary'));
-                }
-                encryptedDataShaB64 = Buffer.from(await sha256(edBytes)).toString('base64');
-                // also attach top-level checksum
+                // Reverse the XOR chain in the same order used during minting
+                const encBytes = divide(
+                  divide(
+                    divide(chunk_a, _toU8(ownerAddress)),
+                    _toU8(String(timestamp))
+                  ),
+                  _toU8(String(counterStr))
+                );
+                encryptedDataShaB64 = Buffer.from(await sha256(encBytes)).toString('base64');
                 (metadata as any).encrypted_data_sha256_b64 = encryptedDataShaB64;
               }
             }
