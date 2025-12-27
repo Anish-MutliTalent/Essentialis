@@ -46,7 +46,7 @@ def upload_file(file: FileStorage) -> str:
         'file': (file.filename, file.stream)
     }
 
-    response = requests.post(url, files=files, headers=headers, stream=True)
+    response = requests.post(url, files=files, headers=headers, timeout=(30, 3600))
 
     if response.status_code == 200:
         return response.json()['IpfsHash']
