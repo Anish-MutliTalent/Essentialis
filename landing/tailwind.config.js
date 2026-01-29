@@ -80,6 +80,11 @@ export default {
         'shimmer': 'shimmer 2s infinite',
         'pulse-gold': 'pulse-gold 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'float': 'float 3s ease-in-out infinite',
+        spotlight: 'spotlight 2s ease .75s 1 forwards',
+        orbit: 'orbit 20s linear infinite',
+      },
+      backgroundImage: {
+        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
       },
       keyframes: {
         fadeIn: {
@@ -87,41 +92,41 @@ export default {
           '100%': { opacity: '1' },
         },
         fadeInUp: {
-          '0%': { 
+          '0%': {
             opacity: '0',
             transform: 'translateY(24px)'
           },
-          '100%': { 
+          '100%': {
             opacity: '1',
             transform: 'translateY(0)'
           },
         },
         slideInLeft: {
-          '0%': { 
+          '0%': {
             opacity: '0',
             transform: 'translateX(-24px)'
           },
-          '100%': { 
+          '100%': {
             opacity: '1',
             transform: 'translateX(0)'
           },
         },
         slideInRight: {
-          '0%': { 
+          '0%': {
             opacity: '0',
             transform: 'translateX(24px)'
           },
-          '100%': { 
+          '100%': {
             opacity: '1',
             transform: 'translateX(0)'
           },
         },
         scaleIn: {
-          '0%': { 
+          '0%': {
             opacity: '0',
             transform: 'scale(0.95)'
           },
-          '100%': { 
+          '100%': {
             opacity: '1',
             transform: 'scale(1)'
           },
@@ -137,6 +142,14 @@ export default {
         float: {
           '0%, 100%': { transform: 'translateY(0px)' },
           '50%': { transform: 'translateY(-4px)' },
+        },
+        spotlight: {
+          "0%": { opacity: 0, transform: "translate(-72%, -62%) scale(0.5)" },
+          "100%": { opacity: 1, transform: "translate(-50%,-40%) scale(1)" },
+        },
+        orbit: {
+          "0%": { transform: "rotate(0deg) translateX(100px) rotate(0deg)" },
+          "100%": { transform: "rotate(360deg) translateX(100px) rotate(-360deg)" },
         },
       },
       backdropBlur: {

@@ -36,4 +36,4 @@ def init_admin():
 
 
 if __name__ == '__main__':
-    app.run(debug=False)  # debug=False for production
+    app.run(debug=True)  # debug=False for production

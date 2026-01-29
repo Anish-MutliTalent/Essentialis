@@ -75,7 +75,7 @@ const MyDocs: React.FC = () => {
                 <CardContent className="p-4 sm:p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div className="text-yellow-400">
-                        {(() => {
+                      {(() => {
                         // Use rawFileType for icon detection so we keep MIME-based icon matching
                         const IconComponent = getFileTypeIcon(rawFileType);
                         return <IconComponent className="w-8 h-8" />;

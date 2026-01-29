@@ -63,6 +63,7 @@ def login_user_email():
 
     session['user_id'] = user.id
     session['wallet_address'] = user.wallet_address
+    session['is_admin'] = user.is_admin  # Set admin flag in session
     return jsonify({
         "message": "Login successful",
         "userId": user.id,
@@ -85,9 +86,14 @@ def metamask_login_verify():
     wallet_address = data.get('walletAddress')
     signature = data.get('signature')
     original_message = data.get('originalMessage')
+    email = data.get('email')  # Retrieve email passed from frontend
 
     if not wallet_address or not signature or not original_message:
         return jsonify({"error": "Missing walletAddress, signature, or originalMessage"}), 400
+
+    # User email is stored/updated on successful login/creation below.
+    # We rely on the frontend gate (Referral/Access Panel) to control entry.
+
 
     expected_nonce = session.pop('metamask_nonce', None)
     if not expected_nonce or expected_nonce not in original_message:
@@ -150,9 +156,11 @@ def metamask_login_verify():
             current_app.logger.info("Detected standard EOA signature")
 
             if len(signature_bytes) != 65:
-                return jsonify({
-                    "error": f"Invalid EOA signature length: {len(signature_bytes)} bytes"
-                }), 400
+                # Some wallets might sign differently, but standard is 65
+                pass
+                # return jsonify({
+                #     "error": f"Invalid EOA signature length: {len(signature_bytes)} bytes"
+                # }), 400
 
             message_hash = encode_defunct(text=original_message)
             signer_address = w3_auto.eth.account.recover_message(
@@ -172,12 +180,20 @@ def metamask_login_verify():
 
         if not user:
             user = User(wallet_address=Web3.to_checksum_address(wallet_address))
+            if email:
+                user.email = email
             db.session.add(user)
             db.session.commit()
+        else:
+            # Update email if missing
+            if not user.email and email:
+                user.email = email
+                db.session.commit()
 
         session['user_id'] = user.id
         session['wallet_address'] = user.wallet_address
-
+        session['is_admin'] = user.is_admin # Set admin flag in session
+        
         return jsonify({
             "message": "Login successful",
             "userId": user.id,

@@ -1,9 +1,16 @@
-import * as React from 'react'; // force import for JSX/React hook
+import { useState, useEffect } from 'react';
 import Navigation from '../components/Navigation';
-import { Calendar, User, Tag, ArrowRight } from 'lucide-react';
+import Footer from '../components/Footer';
+import CursorSpotlight from '../components/CursorSpotlight';
+import { BlurWords, GlassCard, MagneticButton } from '../components/Interactive';
+import { Calendar, User, Tag, ArrowRight, Rss } from 'lucide-react';
 import fm from 'front-matter';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
 
-// Vite: Import all markdowns as raw strings
+// Modern Vite Import for Markdown
+const mdFiles = import.meta.glob('../blogs/*.md', { query: '?raw', import: 'default' });
+
 type BlogData = {
   slug: string;
   date?: string;
@@ -13,33 +20,47 @@ type BlogData = {
   author?: string;
   tags?: string[];
 };
-const mdFiles = import.meta.glob('../blogs/*.md', { as: 'raw' });
 
 const Blog = () => {
-  const [blogs, setBlogs] = React.useState<BlogData[]>([]);
+  const [blogs, setBlogs] = useState<BlogData[]>([]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     async function loadBlogs() {
-      const loaded: BlogData[] = await Promise.all(
+      const loaded: (BlogData | null)[] = await Promise.all(
         Object.entries(mdFiles).map(async ([path, getter]) => {
+          // Extract slug from filename
           const slug = path.split('/').pop()?.replace('.md', '') ?? '';
-          const raw = await getter();
-          const parsed = fm<any>(raw) ?? { attributes: {}, body: '' };
-          const data = parsed.attributes || {};
-          const content = parsed.body || '';
-          return {
-            slug,
-            date: data.date || '',
-            title: data.title || '',
-            excerpt: data.excerpt || (typeof content === 'string' ? content.slice(0, 160) + '…' : ''),
-            featured_image: data.featured_image || '',
-            author: data.author || '',
-            tags: Array.isArray(data.tags) ? data.tags : [],
-          };
+
+          try {
+            // Execute the import function to get raw content
+            const raw = await (getter as () => Promise<string>)();
+
+            // Parse front-matter
+            const parsed = fm<any>(raw);
+            const data = parsed.attributes || {};
+            const content = parsed.body || '';
+
+            return {
+              slug,
+              date: data.date || new Date().toISOString(),
+              title: data.title || 'Untitled Post',
+              excerpt: data.excerpt || (content.slice(0, 160) + '...'),
+              featured_image: data.featured_image || 'https://images.unsplash.com/photo-1639322537228-ad71c4295843?q=80&w=2832&auto=format&fit=crop', // Fallback premium abstract image
+              author: data.author || 'Essentials Team',
+              tags: Array.isArray(data.tags) ? data.tags : [],
+            };
+          } catch (e) {
+            console.error(`Error loading blog ${slug}:`, e);
+            return null;
+          }
         })
       );
-      loaded.sort((a, b) => new Date(b.date || '').getTime() - new Date(a.date || '').getTime());
-      setBlogs(loaded);
+
+      // Filter out failures and sort by date
+      const validBlogs = loaded.filter(Boolean) as BlogData[];
+      validBlogs.sort((a, b) => new Date(b.date || '').getTime() - new Date(a.date || '').getTime());
+
+      setBlogs(validBlogs);
     }
     loadBlogs();
   }, []);
@@ -53,86 +74,103 @@ const Blog = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white pt-16">
+    <div className="relative z-[1] font-sans text-white min-h-screen selection:bg-yellow-500/30">
+      <CursorSpotlight />
       <Navigation />
-      <div className="pt-24 pb-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
-          <div className="text-center mb-16">
-            <h1 className="text-4xl md:text-6xl font-bold mb-6">
-              <span className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
-                Our Blog
-              </span>
-            </h1>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Stay updated with the latest insights on document security, privacy, and digital organization.
-            </p>
-          </div>
-          {/* Blog Posts Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {blogs.map((post) => (
-              <article key={post.slug} className="bg-gray-900/30 border border-gray-800 rounded-xl overflow-hidden hover:border-yellow-400/50 transition-all duration-300 group">
-                {/* Featured Image */}
-                <div className="aspect-video overflow-hidden">
-                  <img 
-                    src={post.featured_image} 
-                    alt={post.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                </div>
-                {/* Content */}
-                <div className="p-6">
-                  {/* Tags */}
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {Array.isArray(post.tags) && post.tags.map((tag: string) => (
-                      <span key={tag} className="inline-flex items-center px-2 py-1 text-xs font-medium bg-yellow-400/10 text-yellow-400 rounded-full border border-yellow-400/20">
-                        <Tag className="w-3 h-3 mr-1" />
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                  {/* Title */}
-                  <h2 className="text-xl font-bold mb-3 group-hover:text-yellow-400 transition-colors duration-300">
-                    <a href={`/blog/${post.slug}`}>
-                      {post.title}
-                    </a>
-                  </h2>
-                  {/* Excerpt */}
-                  <p className="text-gray-400 mb-4 line-clamp-3">
-                    {post.excerpt}
-                  </p>
-                  {/* Meta */}
-                  <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center">
-                        <User className="w-4 h-4 mr-1" />
-                        {post.author}
-                      </div>
-                      <div className="flex items-center">
-                        <Calendar className="w-4 h-4 mr-1" />
-                        {formatDate(post.date)}
-                      </div>
-                    </div>
-                  </div>
-                  <a 
-                    href={`/blog/${post.slug}`}
-                    className="inline-flex items-center text-yellow-400 hover:text-yellow-300 font-medium transition-all duration-300"
-                  >
-                    Read More
-                    <ArrowRight className="w-4 h-4 ml-1" />
-                  </a>
-                </div>
-              </article>
-            ))}
-          </div>
-          {/* Load More Button */}
-          <div className="text-center mt-12">
-            <button className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-black px-8 py-3 rounded-lg font-semibold hover:from-yellow-500 hover:to-yellow-700 transition-all duration-300 transform hover:scale-105 shadow-gold">
-              Load More Posts
-            </button>
-          </div>
+
+      <div className="pt-48 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto min-h-screen">
+        {/* Header */}
+        <div className="text-center mb-24">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="inline-flex items-center space-x-2 bg-white/5 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 mb-8"
+          >
+            <Rss className="w-4 h-4 text-yellow-400" />
+            <span className="text-sm font-medium text-gray-300 tracking-wide uppercase">Insights & Updates</span>
+          </motion.div>
+
+          <h1 className="text-4xl md:text-7xl font-bold mb-6 tracking-tight">
+            <BlurWords text="The Essentialis" className="inline-block mr-3 text-white" />
+            <span className="bg-gradient-to-r from-yellow-300 via-yellow-500 to-yellow-600 bg-clip-text text-transparent">
+              Chronicles
+            </span>
+          </h1>
+          <p className="text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed font-light">
+            Stay updated with the latest insights on document security, privacy rights, and digital sovereignty.
+          </p>
         </div>
+
+        {/* Blog Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {blogs.map((post, index) => (
+            <GlassCard
+              key={post.slug}
+              className="group flex flex-col h-full border-white/10 hover:border-yellow-400/30 transition-all duration-300 p-0 overflow-hidden"
+              delay={index * 0.1}
+            >
+              {/* Image */}
+              <div className="aspect-video relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10" />
+                <img
+                  src={post.featured_image}
+                  alt={post.title}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+                <div className="absolute top-4 left-4 z-20 flex flex-wrap gap-2">
+                  {post.tags?.slice(0, 2).map(tag => (
+                    <span key={tag} className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-yellow-400 text-black rounded-full shadow-lg">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-8 flex flex-col flex-grow relative z-20 -mt-12">
+                <div className="flex items-center gap-4 text-xs text-gray-400 mb-4 bg-black/50 backdrop-blur-md w-fit px-3 py-1.5 rounded-full border border-white/10">
+                  <div className="flex items-center gap-1.5">
+                    <User className="w-3 h-3 text-yellow-500" />
+                    <span>{post.author}</span>
+                  </div>
+                  <div className="w-1 h-1 rounded-full bg-gray-600" />
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-3 h-3 text-yellow-500" />
+                    <span>{formatDate(post.date)}</span>
+                  </div>
+                </div>
+
+                <h2 className="text-2xl font-bold text-white mb-4 group-hover:text-yellow-400 transition-colors line-clamp-2 leading-tight">
+                  <Link to={`/blog/${post.slug}`} className="before:absolute before:inset-0">
+                    {post.title}
+                  </Link>
+                </h2>
+
+                <p className="text-gray-400 text-sm leading-relaxed line-clamp-3 mb-6 font-light">
+                  {post.excerpt}
+                </p>
+
+                <div className="mt-auto flex items-center text-yellow-400 font-semibold text-sm group-hover:gap-2 transition-all">
+                  Read Article
+                  <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
+                </div>
+              </div>
+            </GlassCard>
+          ))}
+        </div>
+
+        {blogs.length === 0 && (
+          <div className="text-center py-20">
+            <div className="inline-block p-4 rounded-full bg-white/5 mb-4 animate-pulse">
+              <Rss className="w-8 h-8 text-gray-500" />
+            </div>
+            <p className="text-gray-400">Loading articles...</p>
+          </div>
+        )}
       </div>
+
+      <Footer />
     </div>
   );
 };

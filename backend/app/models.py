@@ -2,6 +2,7 @@ from . import db
 from werkzeug.security import generate_password_hash, check_password_hash
 import pyotp  # For OTP
 import time
+from datetime import datetime, UTC
 
 
 class User(db.Model):
@@ -71,3 +72,29 @@ class AdminLoginToken(db.Model):
     username_challenge = db.Column(db.String(128))  # The dynamic username expected for this token
     expires_at = db.Column(db.DateTime)
     used = db.Column(db.Boolean, default=False)
+
+
+class AllowedEmail(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), unique=True, index=True, nullable=False)
+    added_at = db.Column(db.DateTime, default=datetime.now(UTC))
+    added_by = db.Column(db.String(120), nullable=True) # Admin email or system
+    is_registered = db.Column(db.Boolean, default=False) # True if they have completed registration
+
+class Waitlist(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), unique=True, index=True, nullable=True) # Optional if they use social handle
+    contact_info = db.Column(db.String(255), nullable=False) # LinkedIn/Whatsapp/TG handle
+    platform = db.Column(db.String(50), nullable=False) # 'linkedin', 'whatsapp', 'telegram'
+    status = db.Column(db.String(20), default='pending') # pending, approved, rejected
+    created_at = db.Column(db.DateTime, default=datetime.now(UTC))
+
+class ReferralCode(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(50), unique=True, index=True, nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now(UTC))
+    expires_at = db.Column(db.DateTime, nullable=True)
+    max_uses = db.Column(db.Integer, default=1) # 1 for one-time, -1 for infinite
+    used_count = db.Column(db.Integer, default=0)
+    is_active = db.Column(db.Boolean, default=True)

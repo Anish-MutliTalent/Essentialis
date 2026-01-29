@@ -1,4 +1,4 @@
-// Homepage.tsx — Fully interactive, cinematic, no placeholders
+// Homepage.tsx — World Class Redesign
 import { memo, useState, useEffect } from 'react';
 import {
   motion,
@@ -7,28 +7,48 @@ import {
 } from 'framer-motion';
 import {
   ArrowRight,
-  Lock,
-  Shield,
-  Smartphone,
-  Zap,
-  Globe,
-  CheckCircle,
   FileText,
-  Clock,
   Key,
   LinkIcon,
   Copy,
+  CheckCircle,
   User,
   UserCheck,
   UserX,
   HardDrive,
   Globe2,
   EyeOff,
+  Shield,
+  Clock, // Kept for stats
+  Star
 } from 'lucide-react';
-import {BlurWords, ParallaxGlow, Counter, MagneticButton, FeatureCard, GlassCard} from "../components/Interactive"
+import { Link } from 'react-router-dom';
+
+import { BlurWords, Counter, MagneticButton, GlassCard } from "../components/Interactive"
+import Footer from '../components/Footer';
+import BentoGrid from '../components/BentoGrid';
+import CinemaVideo from '../components/CinemaVideo';
+import StickyFeatures from '../components/StickyFeatures';
+import VelocityText from '../components/VelocityText';
+import CursorSpotlight from '../components/CursorSpotlight';
+import CommunityStats from '../components/CommunityStats';
+import Testimonials from '../components/Testimonials';
+import JazziconAvatar from '../components/UI/JazziconAvatas';
+
 
 // ========== Utilities ==========
 const ease = cubicBezier(0.16, 1, 0.3, 1);
+
+const AnimatedText = ({ children, className }: { children: React.ReactNode, className?: string }) => (
+  <motion.div
+    key={String(children)}
+    initial={{ opacity: 0, y: 5 }}
+    animate={{ opacity: 1, y: 0 }}
+    className={className}
+  >
+    {children}
+  </motion.div>
+);
 
 
 // ========== INTERACTIVE 1: ENHANCED VAULT ==========
@@ -36,7 +56,6 @@ const InteractiveVault = () => {
   const controls = useAnimation();
   const [locked, setLocked] = useState(false);
   const [progress, setProgress] = useState(0);
-  // const fileRef = useRef(null);
 
   const runEncrypt = async () => {
     if (locked) return;
@@ -59,69 +78,92 @@ const InteractiveVault = () => {
   };
 
   return (
-    <GlassCard>
-      <div className="flex items-start gap-4">
-        <motion.div
-          animate={controls}
-          drag
-          dragConstraints={{ left: -20, right: 20, top: -20, bottom: 20 }}
-          whileDrag={{ scale: 1.05, rotate: 2 }}
-          className="w-20 h-20 rounded-xl bg-gradient-to-br from-white/10 to-white/5 border border-white/20 flex items-center justify-center shadow-lg"
-        >
-          <FileText className="w-8 h-8 text-yellow-400" />
-        </motion.div>
-        <div className="flex-1">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-xs text-gray-400">Document</div>
-              <div className="font-semibold text-white">passport.pdf</div>
+    <div className="flex items-center gap-6">
+      <GlassCard className="relative z-10 w-[440px]">
+        <div className="flex items-start gap-4">
+          <motion.div
+            animate={controls}
+            drag
+            dragConstraints={{ left: -20, right: 20, top: -20, bottom: 20 }}
+            whileDrag={{ scale: 1.05, rotate: 2 }}
+            className="w-16 h-16 rounded-xl bg-gradient-to-br from-white/10 to-white/5 border border-white/20 flex items-center justify-center shadow-lg"
+          >
+            <FileText className="w-8 h-8 text-yellow-400" />
+          </motion.div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-xs text-gray-400">Target File</div>
+              <div className="text-[10px] text-gray-500 border border-white/10 px-1 rounded">PDF</div>
             </div>
-            <div className="text-xs text-gray-500">12 KB</div>
-          </div>
-          <div className="mt-4">
-            <div className="relative h-2 bg-white/5 rounded-full overflow-hidden">
-              <motion.div
-                className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-yellow-400 to-yellow-500"
-                style={{ width: `${progress}%` }}
-                initial={{ width: "0%" }}
-                animate={{ width: `${progress}%` }}
-                transition={{ duration: 0.3 }}
-              />
-            </div>
-            <div className="flex items-center justify-between mt-2">
-              <div className="flex items-center gap-1.5 text-xs text-gray-300">
-                {locked ? <Lock className="w-3.5 h-3.5 text-green-400" /> : <Lock className="w-3.5 h-3.5 text-yellow-400" />}
-                <span>{locked ? 'Encrypted' : 'Not encrypted'}</span>
+            <div className="font-semibold text-white text-sm truncate">passport_scan.pdf</div>
+
+            <div className="mt-3">
+              <div className="relative h-1.5 bg-white/5 rounded-full overflow-hidden mb-2">
+                <motion.div
+                  className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-yellow-400 to-yellow-500"
+                  style={{ width: `${progress}%` }}
+                  initial={{ width: "0%" }}
+                  animate={{ width: `${progress}%` }}
+                />
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={runEncrypt}
                   disabled={locked}
-                  className={`px-2.5 py-1 rounded text-xs font-medium ${
-                    locked
-                      ? 'bg-green-400/20 text-green-400 cursor-default'
-                      : 'bg-yellow-400/20 text-yellow-400 hover:bg-yellow-400/30'
-                  }`}
+                  className={`flex-1 py-1.5 rounded textxs font-medium text-center transition-all ${locked
+                    ? 'bg-green-500/20 text-green-400 cursor-default'
+                    : 'bg-yellow-400 text-black hover:bg-yellow-500 shadow-lg shadow-yellow-400/20'
+                    }`}
                 >
                   {locked ? 'Secured' : 'Encrypt'}
                 </button>
                 <button
                   onClick={reset}
-                  className="px-2 py-1 text-xs text-gray-400 hover:text-white"
+                  className="px-3 py-1.5 text-xs text-gray-400 hover:text-white border border-white/10 rounded hover:bg-white/5 transition-colors"
                 >
                   Reset
                 </button>
               </div>
             </div>
           </div>
-          <div className="mt-3 text-xs text-gray-500">
-            Drag the file and click <span className="text-yellow-400 font-medium">Encrypt</span> to see zero-knowledge encryption in action.
+        </div>
+      </GlassCard>
+
+      {/* Dynamic Side HUD */}
+      <div className="hidden sm:block w-32 font-mono text-[10px] space-y-4">
+        <div className="relative pl-3 border-l border-white/10">
+          <div className="absolute -left-[3px] top-0 w-1.5 h-1.5 bg-white/20 rounded-full" />
+          <div className="text-gray-500 uppercase tracking-wider mb-1">Status</div>
+          <AnimatedText className={locked ? "text-green-400 font-bold" : "text-yellow-500 font-bold"}>
+            {locked ? "ENCRYPTED" : "UNPROTECTED"}
+          </AnimatedText>
+        </div>
+
+        <div className="relative pl-3 border-l border-white/10">
+          <div className={`absolute -left-[3px] top-0 w-1.5 h-1.5 rounded-full transition-colors ${progress > 0 && progress < 100 ? "bg-yellow-400 animate-pulse" : "bg-white/20"}`} />
+          <div className="text-gray-500 uppercase tracking-wider mb-1">Process</div>
+          <div className="text-white">
+            {progress === 0 && "IDLE"}
+            {progress > 0 && progress < 100 && `PROCESSING ${Math.round(progress)}%`}
+            {progress === 100 && "COMPLETE"}
           </div>
         </div>
+
+        {locked && (
+          <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="relative pl-3 border-l border-green-500/50"
+          >
+            <div className="text-gray-500 uppercase tracking-wider mb-1">Hash</div>
+            <div className="text-green-400/80 break-all leading-tight">0x7f...3a2</div>
+          </motion.div>
+        )}
       </div>
-    </GlassCard>
+    </div>
   );
 };
+
 
 // ========== INTERACTIVE 2: KEY GENERATION ==========
 const KeyVisualizer = () => {
@@ -201,11 +243,10 @@ const SecureShareDemo = () => {
             <button
               key={opt}
               onClick={() => setExpires(opt)}
-              className={`px-2.5 py-1 text-xs rounded-full ${
-                expires === opt
-                  ? 'bg-yellow-400/20 text-yellow-400'
-                  : 'bg-white/5 text-gray-400'
-              }`}
+              className={`px-2.5 py-1 text-xs rounded-full ${expires === opt
+                ? 'bg-yellow-400/20 text-yellow-400'
+                : 'bg-white/5 text-gray-400'
+                }`}
             >
               {opt}
             </button>
@@ -216,9 +257,8 @@ const SecureShareDemo = () => {
           <span className="text-sm text-gray-300">Password protect</span>
           <button
             onClick={() => setPassword(!password)}
-            className={`relative w-10 h-5 rounded-full transition-colors ${
-              password ? 'bg-yellow-400' : 'bg-gray-700'
-            }`}
+            className={`relative w-10 h-5 rounded-full transition-colors ${password ? 'bg-yellow-400' : 'bg-gray-700'
+              }`}
           >
             <motion.div
               initial={false}
@@ -269,17 +309,15 @@ const PermissionsDemo = () => {
             <button
               key={perm.id}
               onClick={() => setAccess(perm.id as any)}
-              className={`w-full text-left p-3 rounded-xl transition-colors ${
-                access === perm.id
-                  ? 'bg-yellow-400/10 border border-yellow-400/30'
-                  : 'bg-white/5 hover:bg-white/10'
-              }`}
+              className={`w-full text-left p-3 rounded-xl transition-colors ${access === perm.id
+                ? 'bg-yellow-400/10 border border-yellow-400/30'
+                : 'bg-white/5 hover:bg-white/10'
+                }`}
             >
               <div className="flex items-center gap-3">
                 <perm.icon
-                  className={`w-5 h-5 ${
-                    access === perm.id ? 'text-yellow-400' : 'text-gray-400'
-                  }`}
+                  className={`w-5 h-5 ${access === perm.id ? 'text-yellow-400' : 'text-gray-400'
+                    }`}
                 />
                 <div>
                   <div className="font-medium text-white">{perm.label}</div>
@@ -420,54 +458,70 @@ const NodeNetwork = () => {
 
 // ========== Main Homepage ==========
 const Homepage = memo(() => {
-  // Fade sections on scroll
+  const [latestMembers, setLatestMembers] = useState<string[]>([]);
+
   useEffect(() => {
-    const sections = document.querySelectorAll('.section');
- 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('section-visible');
-          } else {
-            entry.target.classList.remove('section-visible');
-          }
-        });
-     },
-      { 
-        threshold: window.innerWidth < 768 ? 0.1 : 0.4 
-      }
-    );
- 
-    sections.forEach((sec) => observer.observe(sec));
-    return () => observer.disconnect();
+    fetch('http://127.0.0.1:5000/public/stats')
+      .then(res => res.json())
+      .then(data => {
+        if (data.latest_members) {
+          setLatestMembers(data.latest_members.map((m: any) => m.wallet));
+        }
+      })
+      .catch(e => console.error(e));
   }, []);
 
   return (
-    <div className="bg-black text-white overflow-x-hidden relative font-sans">
-      <ParallaxGlow />
+    <div className="relative z-[1] font-sans text-white min-h-screen">
+      <CursorSpotlight />
 
       {/* Hero */}
-      <section className="section min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 pt-48 lg:pt-32">
-        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
-          <div className="text-center lg:text-left">
+      <section className="min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 pt-48 lg:pt-32 relative overflow-hidden">
+        {/* Local blueprint removed in favor of global LivingBlueprint */}
+
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center relative z-10">
+          <div className="text-center lg:text-left mt-10 lg:mt-14">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.7, ease }}
-              className="inline-block mb-6 mx-auto lg:mx-0"
+              className="flex flex-col sm:flex-row items-center gap-4 mb-6 mx-auto lg:mx-0 justify-center lg:justify-start"
             >
-              <div className="inline-flex items-center space-x-2">
-                <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
-                <span className="text-sm font-medium text-gray-300">Now Available • Private by Design</span>
+              <div className="inline-flex items-center space-x-2 bg-white/5 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
+                <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse shadow-[0_0_10px_#facc15]" />
+                <span className="text-sm font-medium text-gray-300 tracking-wide uppercase">Private by Design</span>
+              </div>
+
+              {/* Rating & Avatars */}
+              <div className="flex items-center gap-3 bg-white/5 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/10">
+                <div className="flex -space-x-2">
+                  {latestMembers.length > 0 ? latestMembers.slice(0, 3).map((wallet, i) => (
+                    <div key={i} className="w-6 h-6 rounded-full border border-black bg-gray-800 overflow-hidden relative z-0">
+                      <JazziconAvatar wallet={wallet} size={24} />
+                    </div>
+                  )) : (
+                    [1, 2, 3].map(i => <div key={i} className="w-6 h-6 rounded-full bg-gray-700 border border-black" />)
+                  )}
+                </div>
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map(i => <Star key={i} className="w-3 h-3 text-yellow-400 fill-yellow-400" />)}
+                  </div>
+                  <span className="text-[10px] text-gray-400 font-medium leading-none mt-0.5">4.9/5 Rating</span>
+                </div>
               </div>
             </motion.div>
 
             <h1
               className="text-4xl sm:text-5xl md:text-7l xl:text-7xl font-bold mb-6 leading-tight">
-              <BlurWords text="Your Documents, Your Control" className="block text-white font-light mb-2" /><br></br>
-              <BlurWords text="Safe Forever." className="block bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text font-black" delay={0.5}/>
+              <BlurWords text="Your Documents, Your Control" className="block text-white font-light mb-2 tracking-tight" /><br></br>
+              <motion.span
+                className="block bg-gradient-to-r from-yellow-300 via-yellow-500 to-yellow-600 bg-clip-text text-transparent font-black cursor-default transition-all duration-500 hover:drop-shadow-[0_0_25px_rgba(234,179,8,0.6)]"
+                whileHover={{ scale: 1.02 }}
+              >
+                Safe Forever.
+              </motion.span>
             </h1>
 
             <motion.p
@@ -480,38 +534,40 @@ const Homepage = memo(() => {
               Store your most important documents with bank-level security. No big-tech, no tracking — just pure privacy.
             </motion.p>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8, ease, delay: 0.5 }}
-              className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
-            >
-              <MagneticButton
-                href="https://demo.essentialis.cloud"
-                ariaLabel="Start storing safely"
-                className="shadow-2xl flex items-center justify-center gap-2"
-                icon={<ArrowRight className="w-4 h-4" />}
-              >
-                Start Storing Safely
-              </MagneticButton>
-              <a
-                href="/docs"
-                className="px-6 py-3 rounded-xl border border-white/10 bg-white/5 backdrop-blur-xl text-white font-semibold hover:border-yellow-400 hover:text-yellow-400 transition-colors"
-              >
-                See How It Works
-              </a>
-            </motion.div>
+            {/* Buttons removed as requested */}
           </div>
 
-          <div className="flex justify-center">
-            <InteractiveVault />
+          <div className="flex flex-col items-center justify-center relative w-full">
+
+            <div className="w-full flex justify-center z-20 mb-8 mt-4">
+              <CommunityStats />
+            </div>
+
+            <div className="relative z-10 w-full flex justify-center">
+              {/* Reduced scale slightly to match widths better and removed negative margin top that caused overlap */}
+              <div className="origin-top">
+                <InteractiveVault />
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
 
+      {/* Section: Cinema Video */}
+      <section className="relative">
+        <CinemaVideo />
+      </section>
+
+      {/* Testimonials */}
+      <Testimonials />
+
+      <VelocityText />
+
+      <StickyFeatures />
+
       {/* Section: Zero Knowledge */}
-      <section className="section py-28 px-4 sm:px-6 lg:px-8">
+      <section id="security" className="py-28 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <BlurWords
@@ -528,61 +584,31 @@ const Homepage = memo(() => {
         </div>
       </section>
 
-      <section className="section py-28 px-4 sm:px-6 lg:px-8 relative">
+      <section className="py-28 px-4 sm:px-6 lg:px-8 relative">
         <div className="max-w-7xl mx-auto">
           {/* Section Header */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8, ease, delay: 0.4 }}
-            className="text-center mb-12"
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, ease, delay: 0.4 }}
+            className="text-center mb-16"
           >
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Made For{' '}
+            <h2 className="text-4xl sm:text-5xl font-bold mb-4">
+              Everything You Need,{' '}
               <span className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
-                Everyone
+                Nothing You Don't.
               </span>
             </h2>
-            <p className="text-lg text-gray-300 max-w-3xl mx-auto font-light">
-              Essentials gives you a safe place for your documents—encrypted, decentralized, and always under your control.
-            </p>
           </motion.div>
 
-          {/* Feature Grid (interactive tilt cards) */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {[
-              {
-                icon: Zap,
-                title: 'Immediate Access',
-                description: 'You get to your files wherever you go. No one else (not even us) can look in.',
-              },
-              {
-                icon: Shield,
-                title: 'Strong Encryption',
-                description: 'Everything is protected before it ever leaves your device. Only you have the key.',
-              },
-              {
-                icon: Globe,
-                title: 'Private Sharing',
-                description: 'Share what you want, only with who you want. There’s no hidden data collection.',
-              },
-              {
-                icon: Smartphone,
-                title: 'Blockchain Security',
-                description: 'Your files are stored on a secure network, not some corporate database. You hold the power.',
-              },
-            ].map((feature, index) => (
-              <GlassCard>
-                <FeatureCard key={index} icon={feature.icon} title={feature.title} description={feature.description} />
-              </GlassCard>
-            ))}
-          </div>
+          {/* Bento Grid */}
+          <BentoGrid />
         </div>
       </section>
 
       {/* Section: Secure Sharing */}
-      <section className="section py-28 px-4 sm:px-6 lg:px-8 bg-gradient-to-b">
+      <section className="py-28 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <BlurWords
@@ -593,13 +619,31 @@ const Homepage = memo(() => {
               Granular controls, expiring links, and password protection — all in one flow.
             </p>
           </div>
-          <div className="max-w-2xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-12 items-center max-w-6xl mx-auto">
             <SecureShareDemo />
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-black/40 aspect-video relative group"
+            >
+              <video
+                className="w-full h-full object-cover"
+                src="/demovideo/EditAndViewHistory.mp4"
+                playsInline
+                loop
+                muted
+                autoPlay
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
+                <span className="text-xs text-yellow-400 font-mono tracking-widest uppercase">Live Demo: Management & Sharing</span>
+              </div>
+            </motion.div>
           </div>
         </div>
       </section>
 
-      <section className="section py-24 px-4 sm:px-6 lg:px-8 bg-white/5 backdrop-blur-xl border-y border-white/10 relative">
+      <section className="py-24 px-4 sm:px-6 lg:px-8 relative">
         <div className="max-w-7xl mx-auto">
           <div className="grid md:grid-cols-3 gap-16 text-center">
             {[
@@ -638,7 +682,7 @@ const Homepage = memo(() => {
       </section>
 
       {/* Section: Permissions */}
-      <section className="section py-28 px-4 sm:px-6 lg:px-8">
+      <section className="py-28 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <BlurWords
@@ -656,7 +700,7 @@ const Homepage = memo(() => {
       </section>
 
       {/* Section: Terminal */}
-      <section className="section py-28 px-4 sm:px-6 lg:px-8 bg-gradient-to-b">
+      <section className="py-28 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <BlurWords
@@ -667,14 +711,32 @@ const Homepage = memo(() => {
               Your file gets encrypted and stored in real time.
             </p>
           </div>
-          <div className="max-w-2xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-12 items-center max-w-6xl mx-auto">
             <TerminalDemo />
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-black/40 aspect-video relative group"
+            >
+              <video
+                className="w-full h-full object-cover"
+                src="/demovideo/Upload.mp4"
+                playsInline
+                loop
+                muted
+                autoPlay
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
+                <span className="text-xs text-yellow-400 font-mono tracking-widest uppercase">Live Demo: Terminal Node Upload</span>
+              </div>
+            </motion.div>
           </div>
         </div>
       </section>
 
       {/* Section: Decentralized Network */}
-      <section className="section py-28 px-4 sm:px-6 lg:px-8">
+      <section className="py-28 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <BlurWords
@@ -692,45 +754,41 @@ const Homepage = memo(() => {
       </section>
 
       {/* CTA Section */}
-      <section className="section py-48 px-4 sm:px-6 lg:px-8">
+      <section className="py-48 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto text-center">
           <GlassCard>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.3 }}
-            transition={{ duration: 0.8, ease }}
-            className="relative overflow-hidden bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-12"
-          >
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.8, ease }}
+              className="relative overflow-hidden bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-12"
+            >
 
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Ready to protect your{' '}
-              <span className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
-                confidential documents?
-              </span>
-            </h2>
-
-            
-
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <MagneticButton href="https://demo.essentialis.cloud" ariaLabel="Start protecting now" className="shadow-xl" icon={<ArrowRight className="w-4 h-4" />}>
-                Start Protecting Now
-              </MagneticButton>
-
-              <a
-                href="/docs"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/10 bg-white/5 backdrop-blur-xl text-white font-semibold hover:border-yellow-400 hover:text-yellow-400 transition-all duration-300"
+              <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+                Ready to protect your{' '}
+                <span className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
+                  confidential documents?
+                </span>
+              </h2>
+              <p className="text-gray-300 text-lg mb-8 max-w-2xl mx-auto">
+                Join thousands of users who trust Essentialis with their most critical data.
+              </p>
+              <MagneticButton
+                href="/join-waitlist"
+                className="shadow-2xl inline-flex"
+                icon={<ArrowRight className="w-4 h-4 ml-2" />}
               >
-                See How It Works
-              </a>
-            </div>
-          </motion.div>
+                Join the Waitlist
+              </MagneticButton>
+            </motion.div>
           </GlassCard>
         </div>
       </section>
+
+      <Footer />
     </div>
   );
 });
 
-Homepage.displayName = 'Homepage';
 export default Homepage;

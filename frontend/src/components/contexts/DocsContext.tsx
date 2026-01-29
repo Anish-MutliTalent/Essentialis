@@ -1,5 +1,5 @@
 // src/context/DocsContext.tsx
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 
 export interface DocItem {
   token_id: string;
@@ -19,9 +19,12 @@ interface DocsContextType {
   loading: boolean;
   syncing: boolean;
   error: string | null;
-  fetchDocs: () => Promise<void>;
+  fetchDocs: (page?: number) => Promise<void>;
   refreshDocs: () => Promise<void>;
+  loadMoreDocs: () => Promise<void>;
   setDocs?: React.Dispatch<React.SetStateAction<DocItem[]>>;
+  hasMore: boolean;
+  page: number;
 }
 
 const DocsContext = createContext<DocsContextType | undefined>(undefined);
@@ -32,6 +35,11 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true); // assume true initially
+  const LIMIT = 10;
+
   // retryRef holds retry count and active timer id (number or null)
   const retryRef = React.useRef<{ count: number; timer?: number | null }>({ count: 0, timer: null });
   const MAX_RETRIES = 6;
@@ -40,35 +48,35 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // small wrapper to log syncing changes (helpful for debugging)
   const setSyncingAndLog = (val: boolean) => {
     // debug info — remove or comment out once you confirm behavior
-    console.debug("[DocsContext] setSyncing:", val, { retryCount: retryRef.current.count, timer: retryRef.current.timer });
+    // console.debug("[DocsContext] setSyncing:", val, { retryCount: retryRef.current.count, timer: retryRef.current.timer });
     setSyncing(val);
   };
 
   // load cached docs from localStorage (if any)
-  useEffect(() => {
-    const cached = localStorage.getItem("mydocs");
-    if (cached) {
-      try {
-        setDocs(JSON.parse(cached) as DocItem[]);
-        setLoading(false);
-      } catch {
-        localStorage.removeItem("mydocs");
-      }
-    }
-  }, []);
+  // useEffect(() => {
+  //   const cached = localStorage.getItem("mydocs");
+  //   if (cached) {
+  //     try {
+  //       setDocs(JSON.parse(cached) as DocItem[]);
+  //       setLoading(false);
+  //     } catch {
+  //       localStorage.removeItem("mydocs");
+  //     }
+  //   }
+  // }, []);
 
   // persist docs to localStorage whenever they change
-  useEffect(() => {
-    try {
-      if (docs.length > 0) {
-        localStorage.setItem("mydocs", JSON.stringify(docs));
-      } else {
-        localStorage.removeItem("mydocs");
-      }
-    } catch (e) {
-      console.warn("Failed to persist mydocs to localStorage", e);
-    }
-  }, [docs]);
+  // useEffect(() => {
+  //   try {
+  //     if (docs.length > 0) {
+  //       localStorage.setItem("mydocs", JSON.stringify(docs));
+  //     } else {
+  //       localStorage.removeItem("mydocs");
+  //     }
+  //   } catch (e) {
+  //     console.warn("Failed to persist mydocs to localStorage", e);
+  //   }
+  // }, [docs]);
 
   // defensive: whenever docs change (including becoming []), clear retries & stop syncing
   useEffect(() => {
@@ -85,25 +93,43 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSyncingAndLog(false);
   }, [docs]);
 
-  // single fetch implementation (used for both fetchDocs and refreshDocs)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const _fetchDocs = useCallback(async () => {
-    setLoading(true);
+  // single fetch implementation
+  // pageNum: explicit page to fetch. If not provided, uses current 'page' state.
+  // if pageNum === 1, we reset list.
+  const _fetchDocs = useCallback(async (pageNum: number = 1) => {
+    // If we're already loading specific page > 1, prevent dupes if needed, 
+    // but simplified approach: just allow (calling component manages debounce/trigger)
+
+    // If fetching page 1, set global loading
+    // If fetching page > 1, set syncing (background load)
+    if (pageNum === 1) {
+      setLoading(true);
+      setPage(1);
+    } else {
+      setSyncingAndLog(true);
+    }
+
     setError(null);
-    // assume fresh start, not currently syncing
-    setSyncingAndLog(false);
+
+    // assume fresh start for retry logic if page 1
+    if (pageNum === 1) {
+      setSyncingAndLog(false);
+    }
 
     try {
       const endpoints = [
-        "/api/user/docs",
-        "/api/doc/my_docs",
-        "/api/user/nfts",
-        "/api/nfts/user",
+        `/api/user/docs?page=${pageNum}&limit=${LIMIT}`,
+        // fallbacks might not support pagination, so appending query params might be ignored or work partially
+        // Assuming primary endpoint works. If not, logic might be brittle for pagination on fallbacks.
+        `/api/doc/my_docs?page=${pageNum}&limit=${LIMIT}`,
+        `/api/user/nfts?page=${pageNum}&limit=${LIMIT}`,
+        `/api/nfts/user?page=${pageNum}&limit=${LIMIT}`,
       ];
 
       let docsArray: any[] = [];
       let lastError: any = null;
       let successfulEndpoint: string | null = null;
+      let responseHasMore = false; // from backend if available
 
       for (const endpoint of endpoints) {
         try {
@@ -116,11 +142,22 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const data = await res.json();
           let foundArray: any[] | null = null;
 
-          if (Array.isArray(data)) foundArray = data;
+          // Check for paginated structure first
+          if (data.nfts && Array.isArray(data.nfts)) {
+            foundArray = data.nfts;
+            if (typeof data.has_more === 'boolean') {
+              responseHasMore = data.has_more;
+            } else {
+              // fallback if backend doesn't return has_more
+              responseHasMore = foundArray!.length === LIMIT;
+            }
+          }
+          // Legacy structure checks
+          else if (Array.isArray(data)) foundArray = data;
           else if (Array.isArray(data.docs)) foundArray = data.docs;
           else if (Array.isArray(data.data)) foundArray = data.data;
-          else if (Array.isArray(data.nfts)) foundArray = data.nfts;
           else {
+            // ... existing fallback ...
             for (const key of Object.keys(data)) {
               if (Array.isArray((data as any)[key])) {
                 foundArray = (data as any)[key];
@@ -132,6 +169,10 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (foundArray !== null) {
             docsArray = foundArray;
             successfulEndpoint = endpoint;
+            // If we didn't get explicit has_more from backend but got array, guess
+            if (data.has_more === undefined) {
+              responseHasMore = docsArray.length === LIMIT;
+            }
             break;
           }
         } catch (err) {
@@ -178,14 +219,28 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       // success (empty array is a valid success)
-      setDocs(docsWithMetadata);
-      console.log(`[DocsContext] Docs fetched (endpoint: ${successfulEndpoint}) count=${docsWithMetadata.length}`);
+      if (pageNum === 1) {
+        setDocs(docsWithMetadata);
+      } else {
+        setDocs(prev => {
+          // deduplicate if needed based on token_id
+          const existingIds = new Set(prev.map(d => d.token_id));
+          const newDocs = docsWithMetadata.filter((d: DocItem) => !existingIds.has(d.token_id));
+          return [...prev, ...newDocs];
+        });
+      }
+
+      setHasMore(responseHasMore);
+      // update current page ref
+      setPage(pageNum);
+
+      console.log(`[DocsContext] Docs fetched (endpoint: ${successfulEndpoint}) count=${docsWithMetadata.length} page=${pageNum}`);
 
       // clear any pending retry and reset counters
       if (retryRef.current.timer) {
         try {
           clearTimeout(retryRef.current.timer as number);
-        } catch {}
+        } catch { }
         retryRef.current.timer = null;
       }
       retryRef.current.count = 0;
@@ -195,7 +250,11 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(err?.message ?? String(err));
 
       // Only schedule retry on real error (network, server, parsing, or no endpoints)
-      if (retryRef.current.count < MAX_RETRIES) {
+      // Retry logic typically makes sense for initial load (page 1) or vital updates.
+      // For pagination loadMore, we might just show error or let user retry by scrolling again.
+      // Keeping existing logic for now but focusing on page 1 retries mainly.
+
+      if (pageNum === 1 && retryRef.current.count < MAX_RETRIES) {
         const delay = Math.round(BASE_RETRY_MS * Math.pow(2, retryRef.current.count));
         console.debug(`[DocsContext] Scheduling retry #${retryRef.current.count + 1} in ${delay}ms`);
         retryRef.current.count += 1;
@@ -207,30 +266,26 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (retryRef.current.timer) {
           try {
             clearTimeout(retryRef.current.timer as number);
-          } catch {}
+          } catch { }
         }
         retryRef.current.timer = window.setTimeout(() => {
           // call _fetchDocs again (no increment here — we've already incremented count)
-          _fetchDocs();
+          _fetchDocs(1);
         }, delay) as unknown as number;
       } else {
         console.debug("[DocsContext] Retries exhausted — stopping sync");
         setSyncingAndLog(false);
       }
     } finally {
-      setLoading(false);
+      if (pageNum === 1) setLoading(false);
+      else setSyncingAndLog(false);
     }
-  }, []);
+  }, []); // dependencies empty as mostly static refs
 
-  // fetch on first mount only if nothing cached
+  // fetch on first mount
   useEffect(() => {
-    if (docs.length === 0) {
-      _fetchDocs();
-    } else {
-      // we already had cached docs from localStorage, keep loading false
-      setLoading(false);
-    }
-  }, [_fetchDocs, docs.length]);
+    _fetchDocs(1);
+  }, [_fetchDocs]);
 
   // cleanup scheduled retry timers on unmount
   useEffect(() => {
@@ -238,21 +293,34 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (retryRef.current.timer) {
         try {
           window.clearTimeout(retryRef.current.timer as number);
-        } catch {}
+        } catch { }
         retryRef.current.timer = null;
       }
       retryRef.current.count = 0;
     };
   }, []);
 
+  const refreshDocs = useCallback(async () => {
+    await _fetchDocs(1);
+  }, [_fetchDocs]);
+
+  const loadMoreDocs = useCallback(async () => {
+    if (!hasMore || loading || syncing) return;
+    await _fetchDocs(page + 1);
+  }, [hasMore, loading, syncing, page, _fetchDocs]);
+
+
   const value: DocsContextType = {
     docs,
     loading,
     syncing,
     error,
-    fetchDocs: _fetchDocs,
-    refreshDocs: _fetchDocs,
+    fetchDocs: () => _fetchDocs(1),
+    refreshDocs,
+    loadMoreDocs,
     setDocs,
+    hasMore,
+    page
   };
 
   return <DocsContext.Provider value={value}>{children}</DocsContext.Provider>;

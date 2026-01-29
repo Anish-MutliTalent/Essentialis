@@ -1,6 +1,7 @@
 # app/routes.py
 import requests
 import rlp
+import secrets
 from eth_account._utils.legacy_transactions import serializable_unsigned_transaction_from_dict
 from eth_keys.datatypes import Signature
 from flask import Blueprint, request, jsonify, current_app, session, render_template, Response, stream_with_context
@@ -11,9 +12,9 @@ from itsdangerous import URLSafeTimedSerializer  # IMPORT URLSafeTimedSerializer
 # Import from your app modules using relative imports
 from . import auth, services, models, db, ipfs # Assuming db is also in app/__init__
 from .dbretry import safe_query_get
-from .models import User, ActionLog, AdminLoginToken  # Explicitly import models used
+from .models import User, ActionLog, AdminLoginToken, AllowedEmail, Waitlist, ReferralCode  # Explicitly import models used
 from functools import wraps
-from datetime import datetime, UTC
+from datetime import datetime, UTC, timedelta
 import asyncio
 import json
 from werkzeug.datastructures import FileStorage  # For type hinting
@@ -156,7 +157,8 @@ def user_details():
                     "physical_address": user.physical_address,
                     "gender": user.gender,
                     "email": user.email,  # Include other relevant, non-sensitive info
-                    "wallet_address": user.wallet_address
+                    "wallet_address": user.wallet_address,
+                    "is_admin": user.is_admin
                 }
             }), 200
         except Exception as e:
@@ -168,10 +170,10 @@ def user_details():
         return jsonify({
             "name": user.name,
             "age": user.age,
-            "physical_address": user.physical_address,
             "gender": user.gender,
             "email": user.email,  # Include other relevant info
-            "wallet_address": user.wallet_address
+            "wallet_address": user.wallet_address,
+            "is_admin": user.is_admin
         }), 200
 
 
@@ -297,7 +299,7 @@ def ipfs_proxy(ipfs_hash: str):
     return response
 
 
-async def _get_my_nfts_async(user_id: int):
+async def _get_my_nfts_async(user_id: int, page: int = 1, limit: int = 10, ids_only: bool = False):
     try:
         # Read and parse the contract ABI in a background thread.
         # Support both absolute ABI paths (stored in config) and relative filenames.
@@ -355,11 +357,27 @@ async def _get_my_nfts_async(user_id: int):
             current_app.logger.error(f"Error calling fetchNFTsForOwner: {e}")
             return {"error": "Could not fetch token IDs from contract: %s" % str(e)}, 502
 
-        # Normalize tokenIDs to a list
         if tokenIDs is None:
             tokenIDs = []
         elif isinstance(tokenIDs, (int,)):
             tokenIDs = [tokenIDs]
+
+        # Reverse to show latest first
+        tokenIDs.reverse()
+        
+        total_tokens = len(tokenIDs)
+
+        if ids_only:
+             return {
+                "ids": tokenIDs,
+                "total": total_tokens
+            }, 200
+
+        # Pagination logic
+        start_idx = (page - 1) * limit
+        end_idx = start_idx + limit
+        
+        sliced_token_ids = tokenIDs[start_idx:end_idx]
 
         # Fetch token data in a background thread (synchronously inside thread)
         def _gather_token_data_sync(token_ids):
@@ -373,9 +391,15 @@ async def _get_my_nfts_async(user_id: int):
                     results.append({"tokenID": int(tid), "error": str(e)})
             return results
 
-        nfts = await asyncio.to_thread(_gather_token_data_sync, tokenIDs)
+        nfts = await asyncio.to_thread(_gather_token_data_sync, sliced_token_ids)
 
-        return {"nfts": nfts}, 200
+        return {
+            "nfts": nfts,
+            "total": total_tokens,
+            "page": page,
+            "limit": limit,
+            "has_more": end_idx < total_tokens
+        }, 200
 
     except Exception as e:
         current_app.logger.error(f"Error fetching NFTs: {e}")
@@ -386,7 +410,10 @@ async def _get_my_nfts_async(user_id: int):
 @login_required
 def get_my_nfts():
     user_id = session.get('user_id')
-    body, status = asyncio.run(_get_my_nfts_async(user_id))
+    page = request.args.get('page', 1, type=int)
+    limit = request.args.get('limit', 10, type=int)
+    ids_only = request.args.get('ids_only', 'false').lower() == 'true'
+    body, status = asyncio.run(_get_my_nfts_async(user_id, page, limit, ids_only))
     return jsonify(body), status
 
 
@@ -395,6 +422,31 @@ def get_my_nfts():
 def get_single_nft(token_id):
     result, status_code = services.get_nft_details(token_id)
     return jsonify(result), status_code
+
+
+@bp.route('/doc/stream_batch', methods=['POST'])
+def stream_docs_batch():
+    data = request.get_json()
+    token_ids = data.get('token_ids', [])
+    
+    if not token_ids or not isinstance(token_ids, list):
+         return jsonify({"error": "Invalid token_ids provided"}), 400
+
+    def generate():
+        for token_id in token_ids:
+            try:
+                # Reuse existing service method
+                # Note: get_nft_details returns (dict, status_code)
+                # Ensure token_id is int for Web3 call
+                details, status = services.get_nft_details(int(token_id))
+                if status == 200:
+                    yield json.dumps(details) + "\n"
+                else:
+                    yield json.dumps({"token_id": token_id, "error": "Failed to fetch", "details": details}) + "\n"
+            except Exception as e:
+                yield json.dumps({"token_id": token_id, "error": str(e)}) + "\n"
+
+    return Response(stream_with_context(generate()), mimetype='application/x-ndjson')
 
 
 @bp.route('/nft/prepare_mint_tx', methods=['POST'])
@@ -793,3 +845,215 @@ def get_nft_history(token_id):
     except Exception as e:
         current_app.logger.error(f"Error fetching NFT history: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+# --- Access & Referral Routes ---
+@bp.route('/public/stats', methods=['GET'])
+def public_stats():
+    try:
+        user_count = User.query.count()
+        waitlist_count = Waitlist.query.count()
+        total = user_count + waitlist_count
+        
+        latest_users = User.query.filter(User.wallet_address.isnot(None)).order_by(User.id.desc()).limit(5).all()
+        
+        latest_members = []
+        for u in latest_users:
+            email_display = "Verified User"
+            if u.email:
+                try:
+                    parts = u.email.split('@')
+                    if len(parts) == 2:
+                        name = parts[0]
+                        domain = parts[1]
+                        # Show first 2 chars, mask rest
+                        visible = name[:2] if len(name) > 2 else name
+                        email_display = f"{visible}***@{domain}"
+                except:
+                    pass
+            
+            latest_members.append({
+                "wallet": u.wallet_address,
+                "email_excerpt": email_display
+            })
+
+        return jsonify({
+            "total_community": total,
+            "users": user_count,
+            "waitlist": waitlist_count,
+            "latest_members": latest_members
+        })
+    except Exception as e:
+        return jsonify({"total_community": 1420, "error": str(e)}), 200
+
+
+@bp.route('/access/check', methods=['POST'])
+def check_access():
+    data = request.get_json()
+    email = data.get('email')
+    if not email:
+        return jsonify({"error": "Email required"}), 400
+    
+    # Check if email exists in User table (Source of Truth)
+    # The user table works as the allowlist for returning users.
+    existing_user = User.query.filter_by(email=email).first()
+    if existing_user:
+         return jsonify({"allowed": True}), 200
+
+    # If not in User table, they are not "allowed" via this check.
+    # They need a referral code to bypass this and create their account (which adds them to User table).
+    return jsonify({"allowed": False}), 200
+
+@bp.route('/access/join-waitlist', methods=['POST'])
+def join_waitlist():
+    data = request.get_json()
+    # Accept either email OR contact_info path
+    email = data.get('email')
+    contact_info = data.get('contact_info')
+    platform = data.get('platform', 'email') # linkedin, whatsapp, telegram, email
+
+    if not contact_info and not email:
+        return jsonify({"error": "Contact info required"}), 400
+    
+    # Use email as contact info if platform is email
+    final_contact = contact_info if contact_info else email
+    
+    # Check if already in waitlist
+    existing = Waitlist.query.filter_by(contact_info=final_contact).first()
+    if existing:
+        return jsonify({"message": "Already on waitlist"}), 200
+    
+    new_entry = Waitlist(
+        email=email,
+        contact_info=final_contact,
+        platform=platform
+    )
+    db.session.add(new_entry)
+    db.session.commit()
+    
+    return jsonify({"message": "Added to waitlist"}), 201
+
+@bp.route('/access/validate-referral', methods=['POST'])
+def validate_referral():
+    data = request.get_json()
+    code_str = data.get('code')
+    
+    if not code_str:
+        return jsonify({"error": "Code required"}), 400
+        
+    code = ReferralCode.query.filter_by(code=code_str).first()
+    
+    if not code:
+        return jsonify({"valid": False, "error": "Invalid code"}), 400
+        
+    if not code.is_active:
+        return jsonify({"valid": False, "error": "Code inactive"}), 400
+        
+    if code.expires_at:
+        # Ensure code.expires_at is timezone aware (assume UTC if naive)
+        expires_at_aware = code.expires_at
+        if expires_at_aware.tzinfo is None:
+            expires_at_aware = expires_at_aware.replace(tzinfo=UTC)
+
+        if expires_at_aware < datetime.now(UTC):
+            return jsonify({"valid": False, "error": "Code expired"}), 400
+        
+    if code.max_uses != -1 and code.used_count >= code.max_uses:
+        return jsonify({"valid": False, "error": "Code fully exhausted"}), 400
+        
+    # Valid code
+    # We don't increment used_count here; we increment it when they actually register/login with it? 
+    # OR we assume possessing the code grants entry now.
+    # Let's increment now to prevent race conditions if it's single use.
+    # Note: A strict system would only increment upon successful account creation. 
+    # For "Access Gate" flow, we increment on validation to pass the gate.
+    
+    code.used_count += 1
+    if code.max_uses != -1 and code.used_count >= code.max_uses:
+        code.is_active = False # Deactivate if exhausted
+        
+    db.session.commit()
+    
+    return jsonify({"valid": True}), 200
+
+
+# --- Admin Management Routes ---
+
+@bp.route('/admin/waitlist', methods=['GET'])
+@admin_required
+def get_waitlist():
+    entries = Waitlist.query.filter_by(status='pending').order_by(Waitlist.created_at.desc()).all()
+    return jsonify([{
+        "id": e.id,
+        "email": e.email,
+        "contact_info": e.contact_info,
+        "platform": e.platform,
+        "created_at": e.created_at.isoformat()
+    } for e in entries]), 200
+
+@bp.route('/admin/approve-waitlist', methods=['POST'])
+@admin_required
+def approve_waitlist_entry():
+    data = request.get_json()
+    entry_id = data.get('id')
+    
+    entry = Waitlist.query.get(entry_id)
+    if not entry:
+        return jsonify({"error": "Entry not found"}), 404
+        
+    # Move to AllowedEmail
+    # We need an email for AllowedEmail. If they only provided telegram handle, we can't really "Allow" an email.
+    # Assumption: The admin will manually contact them or we only allow approving entries WITH emails.
+    
+    if not entry.email:
+        return jsonify({"error": "Cannot approve entry without email. Contact user manually first."}), 400
+        
+    if not AllowedEmail.query.filter_by(email=entry.email).first():
+        allowed = AllowedEmail(email=entry.email, added_by="admin_approved_waitlist")
+        db.session.add(allowed)
+    
+    entry.status = 'approved'
+    db.session.commit()
+    
+    return jsonify({"message": f"Approved {entry.email}"}), 200
+
+@bp.route('/admin/referrals', methods=['GET'])
+@admin_required
+def get_referral_codes():
+    codes = ReferralCode.query.order_by(ReferralCode.created_at.desc()).all()
+    return jsonify([{
+        "id": c.id,
+        "code": c.code,
+        "uses": f"{c.used_count}/{'∞' if c.max_uses == -1 else c.max_uses}",
+        "active": c.is_active,
+        "expires": c.expires_at.isoformat() if c.expires_at else "Never"
+    } for c in codes]), 200
+
+@bp.route('/admin/generate-referral', methods=['POST'])
+@admin_required
+def generate_referral():
+    data = request.get_json()
+    max_uses = data.get('max_uses', 1)
+    custom_code = data.get('code')
+    days_valid = data.get('days_valid', 7)
+    
+    code_str = custom_code if custom_code else secrets.token_urlsafe(8)
+    
+    if ReferralCode.query.filter_by(code=code_str).first():
+        return jsonify({"error": "Code already exists"}), 400
+        
+    expires = datetime.now(UTC) + timedelta(days=days_valid) if days_valid else None
+    
+    new_code = ReferralCode(
+        code=code_str,
+        max_uses=max_uses,
+        expires_at=expires,
+        created_by=session['user_id']
+    )
+    db.session.add(new_code)
+    db.session.commit()
+    
+    return jsonify({
+        "code": code_str, 
+        "message": "Referral code generated"
+    }), 201

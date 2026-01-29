@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.example.essentialis",
+      "sha256_cert_fingerprints": [
+        "20:EE:FC:23:2A:B8:BC:F4:A0:90:FF:B1:1B:CA:3B:99:6F:08:44:10:B8:46:A2:B2:D8:6E:12:A2:87:DE:78:C4",
+        "5C:6A:E4:9F:73:C0:6C:9B:0C:87:A6:4B:79:8B:72:C7:D0:FD:F7:0A:43:EA:29:B5:C3:78:97:D7:08:91:7D:C8"
+      ]
+    }
+  }
+]

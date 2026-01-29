@@ -3,6 +3,11 @@
 @tailwind components;
 @tailwind utilities;
 
+body {
+  background-color: #000;
+  overflow-x: hidden;
+}
+
 /* Ultimate Professional Base Styles */
 * {
   box-sizing: border-box;
@@ -19,14 +24,15 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   font-weight: 400;
   line-height: 1.6;
-  background-color: #000000;
   color: #ffffff;
   overflow-x: hidden;
   font-display: swap;
 }
 
 /* Prevent white flash during navigation */
-html, body, #root {
+html,
+body,
+#root {
   background-color: #000000;
   min-height: 100vh;
 }
@@ -132,6 +138,7 @@ textarea:focus-visible {
     opacity: 0;
     transform: translateY(24px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -142,6 +149,7 @@ textarea:focus-visible {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -152,6 +160,7 @@ textarea:focus-visible {
     opacity: 0;
     transform: translateX(-24px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -163,6 +172,7 @@ textarea:focus-visible {
     opacity: 0;
     transform: translateX(24px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -174,6 +184,7 @@ textarea:focus-visible {
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -184,24 +195,31 @@ textarea:focus-visible {
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
 }
 
 @keyframes pulse-gold {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.7;
   }
 }
 
 @keyframes float {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0px);
   }
+
   50% {
     transform: translateY(-4px);
   }
@@ -249,8 +267,8 @@ textarea:focus-visible {
 
 .transition-colors-smooth {
   transition: color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-              background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .transition-transform-smooth {
@@ -313,12 +331,12 @@ textarea:focus-visible {
 .border-gradient-gold {
   border: 1px solid transparent;
   background: linear-gradient(#000, #000) padding-box,
-              linear-gradient(135deg, #d4af37, #b8941f) border-box;
+    linear-gradient(135deg, #d4af37, #b8941f) border-box;
 }
 
 /* Professional Grid Pattern */
 .bg-grid-pattern {
-  background-image: 
+  background-image:
     linear-gradient(rgba(212, 175, 55, 0.03) 1px, transparent 1px),
     linear-gradient(90deg, rgba(212, 175, 55, 0.03) 1px, transparent 1px);
   background-size: 32px 32px;
@@ -379,8 +397,8 @@ textarea:focus-visible {
 .page-enter-active {
   opacity: 1;
   transform: translateY(0);
-  transition: opacity 300ms cubic-bezier(0.16, 1, 0.3, 1), 
-              transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 300ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .page-exit {
@@ -391,8 +409,8 @@ textarea:focus-visible {
 .page-exit-active {
   opacity: 0;
   transform: translateY(-8px);
-  transition: opacity 200ms cubic-bezier(0.16, 1, 0.3, 1), 
-              transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Professional Loading States */
@@ -410,20 +428,28 @@ textarea:focus-visible {
   animation: pulse-gold 1.4s ease-in-out infinite both;
 }
 
-.loading-dot:nth-child(1) { animation-delay: -0.32s; }
-.loading-dot:nth-child(2) { animation-delay: -0.16s; }
-.loading-dot:nth-child(3) { animation-delay: 0s; }
+.loading-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.loading-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.loading-dot:nth-child(3) {
+  animation-delay: 0s;
+}
 
 /* Professional Responsive Design */
 @media (max-width: 640px) {
   .text-display-2xl {
     font-size: 2.5rem;
   }
-  
+
   .text-display-xl {
     font-size: 2.25rem;
   }
-  
+
   .text-display-lg {
     font-size: 2rem;
   }
@@ -439,6 +465,7 @@ textarea:focus-visible {
 
 /* Professional Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
@@ -458,16 +485,60 @@ html.lenis {
 }
 
 .lenis-smooth {
-  will-change: transform;
-  transform: translateZ(0);
-  backface-visibility: hidden;
+  /* Removed will-change/transform to preserve position:fixed behavior */
 }
 
 .section {
   opacity: 0.15;
-  transition: opacity 0.6s ease;
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateY(20px);
 }
 
 .section-visible {
   opacity: 1;
+  transform: translateY(0);
+}
+
+/* Merged Frontend Styles */
+
+/* Viewer background */
+.docx-wrapper {
+  background: #e5e7eb;
+  padding: 32px 0;
+  width: 100%;
+}
+
+/* Individual pages */
+.docx {
+  background: #ffffff !important;
+  width: min(100%, 816px);
+  min-height: unset;
+  margin: 0 auto 32px auto;
+  padding: 40px 60px;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.2);
+  box-sizing: border-box;
+}
+
+/* Text color safety */
+.docx * {
+  color: #000 !important;
+}
+
+/* PhoneInput Country Select Styling */
+.PhoneInputCountrySelect {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  border: 1px solid #374151 !important;
+  border-radius: 0.5rem !important;
+  padding: 0.5rem !important;
+}
+
+.PhoneInputCountrySelect option {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+/* Ensure the country select arrow is visible on dark background */
+.PhoneInputCountrySelectArrow {
+  border-top-color: #ffffff !important;
 }

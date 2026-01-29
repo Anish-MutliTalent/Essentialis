@@ -1,7 +1,8 @@
-import  { useState, useEffect, useRef } from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { useState, useEffect, useRef } from 'react';
+import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import { Menu, X, User, FileText, DollarSign, BookOpen, Home, Mail } from 'lucide-react';
 import { MagneticButton } from './Interactive';
+import { Link } from 'react-router-dom';
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -72,36 +73,36 @@ const Navigation = () => {
         <div className="flex justify-between items-center transition-all overflow-hidden" style={{ height: `${navHeight}rem` }}>
           {/* Logo */}
           <div className="flex-shrink-0 min-w-0">
-            <a href="/" className="flex items-center space-x-3 group">
+            <Link to="/" className="flex items-center space-x-3 group">
               <span className="text-2xl font-bold gradient-gold-text">
-                <img 
-                  src="./essentialis.svg" 
-                  alt="Logo" 
-                  style={{ 
-                    height: `${imageSize}rem`, 
-                    width: `${imageSize}rem`, 
+                <img
+                  src="./essentialis.svg"
+                  alt="Logo"
+                  style={{
+                    height: `${imageSize}rem`,
+                    width: `${imageSize}rem`,
                     transition: 'all 1s ease-in-out'
                   }}
                   className="rounded-full group-hover:scale-105 will-change-transform"
                 />
               </span>
-            </a>
+            </Link>
           </div>
 
           {/* Desktop Navigation */}
           <div className="hidden lg:block">
             <div className="ml-10 flex items-center space-x-2">
               {navItems.map((item) => (
-                <a
+                <Link
                   key={item.name}
-                  href={item.href}
+                  to={item.href}
                   className="text-gray-300 hover:text-yellow-400 px-4 py-2 text-sm font-medium transition-colors rounded-lg hover:bg-yellow-400/5"
                 >
                   {item.name}
-                </a>
+                </Link>
               ))}
               <MagneticButton
-                href="https://demo.essentialis.cloud"
+                href="/login"
                 ariaLabel="Experience Demo"
                 className="shadow-2xl bg-transparent"
                 icon=""
@@ -124,41 +125,41 @@ const Navigation = () => {
       </div>
 
       {/* Mobile Navigation */}
-      {isMenuOpen && (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          className="relative lg:hidden bg-black/95 backdrop-blur-professional border-b border-gray-800/50"
-        >
-          <div className="px-4 pt-4 pb-6 space-y-2">
-            {navItems.map((item) => (
-              <a
-                key={item.name}
-                href={item.href}
-                className="text-gray-300 hover:text-yellow-400 block px-4 py-3 text-base font-medium transition-colors rounded-lg hover:bg-yellow-400/5"
+      <AnimatePresence>
+        {isMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+            className="relative lg:hidden bg-black/95 backdrop-blur-professional border-b border-gray-800/50"
+          >
+            <div className="px-4 pt-4 pb-6 space-y-2">
+              {navItems.map((item) => (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  className="text-gray-300 hover:text-yellow-400 block px-4 py-3 text-base font-medium transition-colors rounded-lg hover:bg-yellow-400/5"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <div className="flex items-center space-x-3">
+                    <item.icon className="h-5 w-5 text-yellow-400" />
+                    <span>{item.name}</span>
+                  </div>
+                </Link>
+              ))}
+              <Link
+                to="/login"
+                className="border border-yellow-400 text-yellow-400 px-5 py-3 rounded-lg font-semibold hover:bg-yellow-400/10 transition-colors shadow-yellow-400/30 shadow-lg inline-flex items-center gap-2 w-full justify-center mt-2"
+                style={{ fontSize: '1rem' }}
                 onClick={() => setIsMenuOpen(false)}
               >
-                <div className="flex items-center space-x-3">
-                  <item.icon className="h-5 w-5 text-yellow-400" />
-                  <span>{item.name}</span>
-                </div>
-              </a>
-            ))}
-            <a
-              href="https://demo.essentialis.cloud"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="border border-yellow-400 text-yellow-400 px-5 py-3 rounded-lg font-semibold hover:bg-yellow-400/10 transition-colors shadow-yellow-400/30 shadow-lg inline-flex items-center gap-2 w-full justify-center mt-2"
-              style={{fontSize: '1rem'}}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              🎉 Experience Demo
-            </a>
-          </div>
-        </motion.div>
-      )}
+                🎉 Experience Demo
+              </Link>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </nav>
   );
 };

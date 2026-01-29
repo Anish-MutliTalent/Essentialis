@@ -222,15 +222,15 @@ const DocView: React.FC = () => {
       const wrappedEntryObj = (typeof rawEntry === 'object' && rawEntry !== null) ? rawEntry : null;
       const ownerDekSha = wrappedEntryObj ? (wrappedEntryObj.dek_sha256_b64 || wrappedEntryObj.dekSha256B64 || wrappedEntryObj.dek_sha) : null;
       if (ownerDekSha && dekHashStr && ownerDekSha !== dekHashStr) {
-        throw new Error(`Derived DEK mismatch: owner's dek_sha256_b64=${ownerDekSha.slice(0,12)}..., derived dek_sha256_b64=${dekHashStr.slice(0,12)}.... Ask owner to re-share.`);
+        throw new Error(`Derived DEK mismatch: owner's dek_sha256_b64=${ownerDekSha.slice(0, 12)}..., derived dek_sha256_b64=${dekHashStr.slice(0, 12)}.... Ask owner to re-share.`);
       }
 
       const ownerEncryptedSha = wrappedEntryObj ? (wrappedEntryObj.encrypted_data_sha256_b64 || metadata.encrypted_data_sha256_b64) : metadata.encrypted_data_sha256_b64;
       if (ownerEncryptedSha) {
         const computedEncSha = Buffer.from(await sha256(encryptedData)).toString('base64');
-        console.debug('[DocView] encrypted_data sha check owner vs computed:', { ownerEncryptedShaPreview: ownerEncryptedSha?.slice(0,12), computedEncShaPreview: computedEncSha?.slice(0,12) });
+        console.debug('[DocView] encrypted_data sha check owner vs computed:', { ownerEncryptedShaPreview: ownerEncryptedSha?.slice(0, 12), computedEncShaPreview: computedEncSha?.slice(0, 12) });
         if (computedEncSha !== ownerEncryptedSha) {
-          console.warn(`[DocView] Encrypted data checksum mismatch (non-blocking): owner ${ownerEncryptedSha.slice(0,12)}... != computed ${computedEncSha.slice(0,12)}.... Proceeding with decrypt; possible operand-casing or legacy metadata.`);
+          console.warn(`[DocView] Encrypted data checksum mismatch (non-blocking): owner ${ownerEncryptedSha.slice(0, 12)}... != computed ${computedEncSha.slice(0, 12)}.... Proceeding with decrypt; possible operand-casing or legacy metadata.`);
         }
       }
 
@@ -357,7 +357,7 @@ const DocView: React.FC = () => {
                 <Text weight="semibold" className="text-yellow-400 mb-2">Description</Text>
                 <Text className="bg-gray-800 p-4 rounded-lg">{metadata.description}</Text>
               </div>
-              
+
               <div>
                 <Text weight="semibold" className="text-yellow-400 mb-2">Attributes</Text>
                 <div className="bg-gray-800 p-4 rounded-lg space-y-4">
@@ -386,7 +386,7 @@ const DocView: React.FC = () => {
             </CardHeader>
             <CardContent className="h-full w-full">
               {decryptedFileUrl ? (
-                <MediaViewer fileUrl={decryptedFileUrl} fileType={fileType} containerClassName="h-[600px]"/>
+                <MediaViewer fileUrl={decryptedFileUrl} fileType={fileType} containerClassName="h-[600px]" />
               ) : (
                 <div className="text-center p-8 border-2 border-dashed border-gray-600 rounded-lg">
                   <Heading level={4} className="mb-2">This document is encrypted.</Heading>
@@ -435,7 +435,7 @@ const DocView: React.FC = () => {
                 >
                   Edit Document
                 </Button>
-                
+
                 <Button
                   onClick={handleViewHistory}
                   variant="ghost"
@@ -481,14 +481,14 @@ const DocView: React.FC = () => {
                   #{tokenId}
                 </Text>
               </div>
-              
+
               <div>
                 <Text variant="small" color="muted">Encrypted File CID</Text>
                 <Text variant="small" weight="semibold" className="font-mono break-all">
                   {metadata.encrypted_file_cid}
                 </Text>
               </div>
-              
+
               <div>
                 <Text variant="small" color="muted">Nonce</Text>
                 <Text variant="small" weight="semibold" className="font-mono break-all">

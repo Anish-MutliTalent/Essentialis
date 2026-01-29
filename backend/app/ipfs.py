@@ -1,4 +1,5 @@
 import requests
+from requests import HTTPError
 from werkzeug.datastructures import FileStorage
 from dotenv import load_dotenv
 import os
@@ -56,10 +57,16 @@ def upload_file(file: FileStorage) -> str:
 
 def download_json(ipfs_hash: str) -> dict:
     # Uses an IPFS gateway to retrieve the JSON.
-    gateway_url = f"https://ipfs.io/ipfs/{ipfs_hash}"
-    response = requests.get(gateway_url)
-    response.raise_for_status()
-    return response.json()
+    try:
+        gateway_url = f"https://pink-total-bison-673.mypinata.cloud/ipfs/{ipfs_hash}"
+        response = requests.get(gateway_url)
+        response.raise_for_status()
+        return response.json()
+    except HTTPError:
+        gateway_url = f"https://ipfs.io/ipfs/{ipfs_hash}"
+        response = requests.get(gateway_url)
+        response.raise_for_status()
+        return response.json()
 
 def stream_file_from_ipfs(ipfs_hash: str) -> Tuple[Iterator[bytes], dict]:
     """
@@ -68,14 +75,27 @@ def stream_file_from_ipfs(ipfs_hash: str) -> Tuple[Iterator[bytes], dict]:
     :param ipfs_hash: IPFS CID
     :return: (byte iterator, response headers)
     """
-    gateway_url = f"https://ipfs.io/ipfs/{ipfs_hash}"
-    response = requests.get(gateway_url, stream=True)
-    response.raise_for_status()
+    try:
+        gateway_url = f"https://pink-total-bison-673.mypinata.cloud/ipfs/{ipfs_hash}"
+        response = requests.get(gateway_url, stream=True)
+        response.raise_for_status()
 
-    headers = {
-        "Content-Type": response.headers.get("Content-Type", "application/octet-stream"),
-        "Content-Length": response.headers.get("Content-Length"),
-        "Content-Disposition": response.headers.get("Content-Disposition"),
-    }
+        headers = {
+            "Content-Type": response.headers.get("Content-Type", "application/octet-stream"),
+            "Content-Length": response.headers.get("Content-Length"),
+            "Content-Disposition": response.headers.get("Content-Disposition"),
+        }
 
-    return response.iter_content(chunk_size=8192), headers
+        return response.iter_content(chunk_size=8192), headers
+    except HTTPError:
+        gateway_url = f"https://ipfs.io/ipfs/{ipfs_hash}"
+        response = requests.get(gateway_url, stream=True)
+        response.raise_for_status()
+
+        headers = {
+            "Content-Type": response.headers.get("Content-Type", "application/octet-stream"),
+            "Content-Length": response.headers.get("Content-Length"),
+            "Content-Disposition": response.headers.get("Content-Disposition"),
+        }
+
+        return response.iter_content(chunk_size=8192), headers

@@ -12,9 +12,9 @@ import {
 
 const ease = cubicBezier(0.16, 1, 0.3, 1);
 
-const BlurWords = ({ text, className = '', delay = 0 }: {text: any, className?: string, delay?: number}) => (
+const BlurWords = ({ text, className = '', delay = 0 }: { text: any, className?: string, delay?: number }) => (
   <span>
-    {text.split(' ').map((word:any, i:any) => (
+    {text.split(' ').map((word: any, i: any) => (
       <motion.span
         key={i}
         initial={{ filter: 'blur(12px)', opacity: 0 }}
@@ -51,7 +51,7 @@ const ParallaxGlow = () => {
 };
 
 // ========== Reusable Glass Card ==========
-const GlassCard = ({ children, delay = 0, tilt = true }: {children:any, delay?: number, tilt?: boolean}) => {
+const GlassCard = ({ children, delay = 0, tilt = true, className = '', onClick }: { children: any, delay?: number, tilt?: boolean, className?: string, onClick?: () => void }) => {
   const ref = useRef<HTMLDivElement | null>(null);
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
@@ -59,7 +59,7 @@ const GlassCard = ({ children, delay = 0, tilt = true }: {children:any, delay?: 
   const rotateY = useTransform(mouseX, [-100, 100], [-6, 6]);
   const rotateX = useTransform(mouseY, [-100, 100], [6, -6]);
 
-  const handleMouseMove = (e:any) => {
+  const handleMouseMove = (e: any) => {
     if (!ref.current || !tilt) return;
     const rect = ref.current.getBoundingClientRect();
     mouseX.set(e.clientX - (rect.left + rect.width / 2));
@@ -69,6 +69,7 @@ const GlassCard = ({ children, delay = 0, tilt = true }: {children:any, delay?: 
   return (
     <motion.div
       ref={ref}
+      onClick={onClick}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => { mouseX.set(0); mouseY.set(0); }}
       style={{ rotateX: tilt ? rotateX : 0, rotateY: tilt ? rotateY : 0 }}
@@ -76,7 +77,7 @@ const GlassCard = ({ children, delay = 0, tilt = true }: {children:any, delay?: 
       whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
       viewport={{ once: true, margin: '-100px' }}
       transition={{ duration: 0.8, ease, delay }}
-      className="bg-white/7 backdrop-blur-2xl border border-white/15 rounded-2xl p-6 relative overflow-hidden"
+      className={`bg-white/7 backdrop-blur-2xl border border-white/15 rounded-2xl p-6 relative overflow-hidden ${className}`}
     >
       <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/3 to-transparent pointer-events-none" />
       {children}
@@ -88,14 +89,14 @@ const GlassCard = ({ children, delay = 0, tilt = true }: {children:any, delay?: 
 /**
  * Feature Card with tilt on pointer move
  */
-const FeatureCard = ({ icon: Icon, title, description }:{icon:any, title:string, description:string}) => {
+const FeatureCard = ({ icon: Icon, title, description }: { icon: any, title: string, description: string }) => {
   const ref = useRef<HTMLDivElement | null>(null);
   const mx = useMotionValue(0);
   const my = useMotionValue(0);
   const rotateX = useTransform(my, [-20, 20], [8, -8]);
   const rotateY = useTransform(mx, [-20, 20], [-8, 8]);
   // const shadowY = useTransform(my, [-20, 20], [12, -12]);
-  function handleMove(e:any) {
+  function handleMove(e: any) {
     const rect = ref.current!.getBoundingClientRect();
     const dx = (e.clientX - rect.left) / rect.width;
     const dy = (e.clientY - rect.top) / rect.height;
@@ -130,15 +131,19 @@ const FeatureCard = ({ icon: Icon, title, description }:{icon:any, title:string,
   );
 };
 
+import { Link } from 'react-router-dom';
+
 // ========== Magnetic Button (Enhanced) ==========
-const MagneticButton = ({ href, children, className = '', ariaLabel, icon }:{href:string, children:any, className?:string, ariaLabel?:string, icon?:any}) => {
+const MagneticButton = ({ href, children, className = '', ariaLabel, icon }: { href: string, children: any, className?: string, ariaLabel?: string, icon?: any }) => {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const springX = useSpring(x, { stiffness: 300, damping: 15 });
   const springY = useSpring(y, { stiffness: 300, damping: 15 });
-  const ref = useRef<HTMLAnchorElement | null>(null);
+  const ref = useRef<any>(null);
 
-  const onMove = (e:any) => {
+  const isExternal = href.startsWith('http') || href.startsWith('mailto:');
+
+  const onMove = (e: any) => {
     if (!ref.current) return;
     const rect = ref.current.getBoundingClientRect();
     const dx = e.clientX - (rect.left + rect.width / 2);
@@ -147,15 +152,8 @@ const MagneticButton = ({ href, children, className = '', ariaLabel, icon }:{hre
     y.set(dy / 6);
   };
 
-  return (
-    <a
-      aria-label={ariaLabel}
-      href={href}
-      ref={ref}
-      className={`relative inline-flex items-center gap-2 rounded-xl overflow-hidden ${className}`}
-      onMouseMove={onMove}
-      onMouseLeave={() => { x.set(0); y.set(0); }}
-    >
+  const content = (
+    <>
       <motion.span
         style={{ x: springX, y: springY }}
         className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-400 to-yellow-500 transform-gpu"
@@ -164,7 +162,29 @@ const MagneticButton = ({ href, children, className = '', ariaLabel, icon }:{hre
         {children}
         {icon && <span className="inline-block">{icon}</span>}
       </span>
-    </a>
+    </>
+  );
+
+  const commonProps = {
+    'aria-label': ariaLabel,
+    ref: ref,
+    className: `relative inline-flex items-center gap-2 rounded-xl overflow-hidden ${className}`,
+    onMouseMove: onMove,
+    onMouseLeave: () => { x.set(0); y.set(0); }
+  };
+
+  if (isExternal) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" {...commonProps}>
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <Link to={href} {...commonProps}>
+      {content}
+    </Link>
   );
 };
 
@@ -202,4 +222,4 @@ const Counter = ({ from = 0, to = 100, duration = 1.6, className = '' }) => {
   );
 };
 
-export {BlurWords, ParallaxGlow, Counter, MagneticButton, FeatureCard, GlassCard};
+export { BlurWords, ParallaxGlow, Counter, MagneticButton, FeatureCard, GlassCard };
