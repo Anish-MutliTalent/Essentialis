@@ -8,7 +8,7 @@ interface CinemaVideoProps {
 }
 
 const CinemaVideo = memo(({
-    src = "/demovideo/MainDemo.mp4",
+    src = "/demovideo/MainDemo.webm",
     title = "Watch the future of privacy.",
     subtext = "Cinema Mode"
 }: CinemaVideoProps) => {

@@ -182,7 +182,7 @@ const About = memo(() => {
       {/* Video Section: Cinema Mode */}
       <section className="relative">
         <CinemaVideo
-          src="/demovideo/WhyDidWeChooseThis.mp4"
+          src="/demovideo/WhyDidWeChooseThis.webm"
           title="Why We Chose This Path"
           subtext="Our Philosophy"
         />

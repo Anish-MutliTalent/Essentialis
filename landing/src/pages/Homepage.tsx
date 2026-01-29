@@ -629,7 +629,7 @@ const Homepage = memo(() => {
             >
               <video
                 className="w-full h-full object-cover"
-                src="/demovideo/EditAndViewHistory.mp4"
+                src="/demovideo/EditAndViewHistory.webm"
                 playsInline
                 loop
                 muted
@@ -721,7 +721,7 @@ const Homepage = memo(() => {
             >
               <video
                 className="w-full h-full object-cover"
-                src="/demovideo/Upload.mp4"
+                src="/demovideo/Upload.webm"
                 playsInline
                 loop
                 muted
