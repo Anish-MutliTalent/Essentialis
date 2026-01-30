@@ -461,7 +461,7 @@ const Homepage = memo(() => {
   const [latestMembers, setLatestMembers] = useState<string[]>([]);
 
   useEffect(() => {
-    fetch('http://127.0.0.1:5000/public/stats')
+    fetch('/api/public/stats')
       .then(res => res.json())
       .then(data => {
         if (data.latest_members) {

@@ -8,7 +8,7 @@ const BentoGrid = memo(() => {
     const [stats, setStats] = useState({ total_community: 0, latest_members: [] as { wallet: string, email_excerpt: string }[] });
 
     useEffect(() => {
-        fetch('http://127.0.0.1:5000/public/stats') // Use relative path or full URL if needed
+        fetch('/api/public/stats') // Use relative path or full URL if needed
             .then(res => res.json())
             .then(data => setStats(data))
             .catch(err => console.error("Stats fetch error", err));

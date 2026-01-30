@@ -9,7 +9,7 @@ const CommunityStats = () => {
     const [stats, setStats] = useState({ total_community: 0 });
 
     useEffect(() => {
-        fetch('http://127.0.0.1:5000/public/stats') // Adjust URL if production env
+        fetch('/api/public/stats') // Adjust URL if production env
             .then(res => res.json())
             .then(data => setStats(data))
             .catch(err => console.error("Stats fetch error", err));
