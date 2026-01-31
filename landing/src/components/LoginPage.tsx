@@ -15,6 +15,7 @@ import MetaMaskLogo from "./UI/MetaMaskLogo";
 import { getContract, prepareContractCall, readContract, sendTransaction } from "thirdweb";
 import DocTokenAbi from '../abi/DocToken.json';
 import { optimismSepolia } from "thirdweb/chains";
+import { getEncryptionPublicKey } from '../lib/crypto'; // Added import
 
 // Design System Components
 import {
@@ -89,6 +90,16 @@ async function claimFaucetReward(userAddress: string, activeWallet: any) {
     if (nonce?.toString() === "0") {
       console.log("🎁 Claiming faucet reward for:", userAddress);
 
+      // Attempt to get encryption key for on-chain registration
+      let pubKey = "";
+      try {
+        console.debug("Requesting encryption public key for registration...");
+        pubKey = await getEncryptionPublicKey(activeWallet, userAddress);
+        console.debug("Got encryption key:", pubKey);
+      } catch (keyErr) {
+        console.warn("Could not retrieve encryption key. Proceeding with claim only.", keyErr);
+      }
+
       const account = activeWallet.getAccount();
 
       // Normalize amount into a BigNumber in wei to match contract's `payoutAmount`
@@ -121,8 +132,8 @@ async function claimFaucetReward(userAddress: string, activeWallet: any) {
 
       const transaction = await prepareContractCall({
         contract,
-        method: "function claim(address recipient, uint256 amount, uint256 deadline, bytes signature)",
-        params: [userAddress, amountParam, deadline, signature],
+        method: "function claim(address recipient, uint256 amount, uint256 deadline, bytes signature, string pubEncryptionKey)",
+        params: [userAddress, amountParam, deadline, signature, pubKey],
       });
 
       const result = await sendTransaction({

@@ -2,8 +2,23 @@
 
 // lib/crypto-fast.ts
 import { Buffer } from 'buffer';
+import { encrypt } from '@metamask/eth-sig-util'; // Added import
 // import { sha256 as nobleSha256 } from '@noble/hashes/sha256';
 import { ethers } from 'ethers';
+
+/**
+ * Encrypts data using x25519-xsalsa20-poly1305 (compatible with eth_decrypt).
+ * Returns the encrypted object or string.
+ */
+export function encryptWithProviderKey(pubKey: string, data: Uint8Array): any {
+  const buf = Buffer.from(data);
+  const encrypted = encrypt({
+    publicKey: pubKey,
+    data: buf.toString('base64'),
+    version: 'x25519-xsalsa20-poly1305',
+  });
+  return encrypted;
+}
 
 if (typeof window !== 'undefined' && typeof window.Buffer === 'undefined') {
   window.Buffer = Buffer;
@@ -119,22 +134,22 @@ export function divide(product: Uint8Array, known: Uint8Array): Uint8Array {
  * @returns Base64url-encoded commitment hash
  */
 export async function commitment(parts: string[], progressCb?: (processed: number, total: number) => void): Promise<string> {
-    if (progressCb) {
-        progressCb(0, 100);
-        await new Promise(r => setTimeout(r, 10));
-    }
-    
-    // Concatenate all parts with separator
-    const input = parts.join('|');
-    const hash = await sha256(_toU8(input));
-    const result = Buffer.from(hash).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-    
-    if (progressCb) {
-        progressCb(100, 100);
-    }
-    
-    console.log('[commitment] V2 simplified commitment created');
-    return result;
+  if (progressCb) {
+    progressCb(0, 100);
+    await new Promise(r => setTimeout(r, 10));
+  }
+
+  // Concatenate all parts with separator
+  const input = parts.join('|');
+  const hash = await sha256(_toU8(input));
+  const result = Buffer.from(hash).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+
+  if (progressCb) {
+    progressCb(100, 100);
+  }
+
+  console.log('[commitment] V2 simplified commitment created');
+  return result;
 }
 
 /**
@@ -145,8 +160,8 @@ export async function commitment(parts: string[], progressCb?: (processed: numbe
  * @returns True if commitment matches, false otherwise
  */
 export async function verifyCommitment(parts: string[], expectedCommitment: string): Promise<boolean> {
-    const computed = await commitment(parts);
-    return computed === expectedCommitment;
+  const computed = await commitment(parts);
+  return computed === expectedCommitment;
 }
 
 const DELIM = new TextEncoder().encode('|SPLIT|');
@@ -194,55 +209,55 @@ export function split(merged: Uint8Array): Uint8Array[] {
 export const generateDEK = (): Uint8Array => crypto.getRandomValues(new Uint8Array(32));
 export const sha256 = async (data: Uint8Array): Promise<Uint8Array> => new Uint8Array(await crypto.subtle.digest('SHA-256', data.slice()));
 export async function generateNonce(owner: string, timestamp: string, counter: number): Promise<Uint8Array> {
-    const counterStr = counter.toString();
-    const message = _toU8(owner + timestamp + counterStr);
-    const hash = await sha256(message);
-    return hash.slice(0, 12);
+  const counterStr = counter.toString();
+  const message = _toU8(owner + timestamp + counterStr);
+  const hash = await sha256(message);
+  return hash.slice(0, 12);
 }
 export async function hmacSha256(key: Uint8Array, data: Uint8Array): Promise<Uint8Array> {
-    const cryptoKey = await crypto.subtle.importKey('raw', key.slice(), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-    const signature = await crypto.subtle.sign('HMAC', cryptoKey, data.slice());
-    return new Uint8Array(signature);
+  const cryptoKey = await crypto.subtle.importKey('raw', key.slice(), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, data.slice());
+  return new Uint8Array(signature);
 }
 export async function hkdfSha256(ikm: Uint8Array, salt: Uint8Array): Promise<Uint8Array> {
-    const keyMaterial = await crypto.subtle.importKey('raw', ikm.slice(), { name: 'HKDF' }, false, ['deriveKey']);
-    const derivedKey = await crypto.subtle.deriveKey(
-        { name: 'HKDF', salt: salt.slice(), info: new Uint8Array(), hash: 'SHA-256' },
-        keyMaterial,
-        { name: 'AES-GCM', length: 256 },
-        true,
-        ['encrypt', 'decrypt']
-    );
-    const exportedKey = await crypto.subtle.exportKey('raw', derivedKey);
-    return new Uint8Array(exportedKey);
+  const keyMaterial = await crypto.subtle.importKey('raw', ikm.slice(), { name: 'HKDF' }, false, ['deriveKey']);
+  const derivedKey = await crypto.subtle.deriveKey(
+    { name: 'HKDF', salt: salt.slice(), info: new Uint8Array(), hash: 'SHA-256' },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt']
+  );
+  const exportedKey = await crypto.subtle.exportKey('raw', derivedKey);
+  return new Uint8Array(exportedKey);
 }
 export async function aesGcmEncrypt(key: Uint8Array, data: Uint8Array, nonce: Uint8Array): Promise<Uint8Array> {
-    const cryptoKey = await crypto.subtle.importKey('raw', key.slice(), 'AES-GCM', false, ['encrypt']);
-    const encryptedData = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce.slice() }, cryptoKey, data.slice());
-    return new Uint8Array(encryptedData);
+  const cryptoKey = await crypto.subtle.importKey('raw', key.slice(), 'AES-GCM', false, ['encrypt']);
+  const encryptedData = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce.slice() }, cryptoKey, data.slice());
+  return new Uint8Array(encryptedData);
 }
 export async function aesGcmDecrypt(key: Uint8Array, encryptedData: Uint8Array, nonce: Uint8Array): Promise<Uint8Array> {
-    const cryptoKey = await crypto.subtle.importKey('raw', key.slice(), 'AES-GCM', false, ['decrypt']);
-    const decryptedData = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce.slice() }, cryptoKey, encryptedData.slice());
-    return new Uint8Array(decryptedData);
+  const cryptoKey = await crypto.subtle.importKey('raw', key.slice(), 'AES-GCM', false, ['decrypt']);
+  const decryptedData = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce.slice() }, cryptoKey, encryptedData.slice());
+  return new Uint8Array(decryptedData);
 }
 const SIG_MSG = "NFTDoc-KEK-DERIVATION-v1";
 export async function wrapDek(signer: ethers.Signer, dek: Uint8Array, nonce: Uint8Array): Promise<string> {
-    const signature = await signer.signMessage(SIG_MSG);
-    const ikm = ethers.utils.arrayify(signature);
-    const salt = _toU8(await signer.getAddress());
-    const kek = await hkdfSha256(ikm, salt);
-    const wrappedDek = await aesGcmEncrypt(kek, dek, nonce);
-    return ethers.utils.hexlify(wrappedDek);
+  const signature = await signer.signMessage(SIG_MSG);
+  const ikm = ethers.utils.arrayify(signature);
+  const salt = _toU8(await signer.getAddress());
+  const kek = await hkdfSha256(ikm, salt);
+  const wrappedDek = await aesGcmEncrypt(kek, dek, nonce);
+  return ethers.utils.hexlify(wrappedDek);
 }
 export async function unwrapDek(signer: ethers.Signer, wrappedDekHex: string, nonce: Uint8Array): Promise<Uint8Array> {
-    const signature = await signer.signMessage(SIG_MSG);
-    const ikm = ethers.utils.arrayify(signature);
-    const salt = _toU8(await signer.getAddress());
-    const kek = await hkdfSha256(ikm, salt);
-    const wrappedDekBytes = ethers.utils.arrayify(wrappedDekHex);
-    const dek = await aesGcmDecrypt(kek, wrappedDekBytes, nonce);
-    return dek;
+  const signature = await signer.signMessage(SIG_MSG);
+  const ikm = ethers.utils.arrayify(signature);
+  const salt = _toU8(await signer.getAddress());
+  const kek = await hkdfSha256(ikm, salt);
+  const wrappedDekBytes = ethers.utils.arrayify(wrappedDekHex);
+  const dek = await aesGcmDecrypt(kek, wrappedDekBytes, nonce);
+  return dek;
 }
 
 /**
@@ -296,7 +311,7 @@ export async function wrapDekForRecipient(
   } catch (e) {
     throw new Error(`Invalid recipient public key format: ${String(e)}`);
   }
- 
+
   // Normalize: accept 64-byte raw X||Y and convert to 65-byte uncompressed (0x04||X||Y).
   // Also accept already-uncompressed (65) or compressed (33) points as-is.
   if (recipientPubBytes.length === 64) {
@@ -305,7 +320,7 @@ export async function wrapDekForRecipient(
     withPrefix.set(recipientPubBytes, 1);
     recipientPubBytes = withPrefix;
   }
- 
+
   // perform ECDH using noble-secp256k1
   const secp = await import('noble-secp256k1');
   // noble expects hex strings for private/public (without 0x). Use no-0x hex for both.
@@ -341,19 +356,19 @@ export async function wrapDekForRecipientWithSignature(
   nonce: Uint8Array
 ): Promise<{ wrappedDekHex: string; ownerSignature: string }> {
   const SIG_MSG_SHARE = "Essentialis-Share-DEK-v1";
-  
+
   // Owner signs the message
   const ownerSig = await owner.signMessage(SIG_MSG_SHARE);
-  
+
   // Derive KEK from owner signature + recipient address
   const salt = _toU8(recipientAddress.toLowerCase());
   const ikm = ethers.utils.arrayify(ownerSig);
   const kek = await hkdfSha256(ikm, salt);
-  
+
   // Encrypt DEK with derived KEK
   const wrapped = await aesGcmEncrypt(kek, dek, nonce);
   const wrappedHex = ethers.utils.hexlify(wrapped);
-  
+
   return { wrappedDekHex: wrappedHex, ownerSignature: ownerSig };
 }
 
@@ -370,22 +385,22 @@ export async function unwrapSharedDekWithSignature(
   nonce: Uint8Array
 ): Promise<Uint8Array> {
   const SIG_MSG_SHARE = "Essentialis-Share-DEK-v1";
-  
+
   // Optional: prompt recipient signing for UX consistency; not used in derivation
   try { await recipient.signMessage(SIG_MSG_SHARE); } catch { /* ignore if user/provider skips */ }
-  
+
   // Get recipient address for salt
   const recipientAddress = (await recipient.getAddress()).toLowerCase();
-  
+
   // Derive KEK from owner signature + recipient address (same derivation as owner)
   const salt = _toU8(recipientAddress.toLowerCase());
   const ikm = ethers.utils.arrayify(ownerSignature);
   const kek = await hkdfSha256(ikm, salt);
-  
+
   // Decrypt wrapped DEK
   const wrappedBytes = ethers.utils.arrayify(wrappedDekHex);
   const dek = await aesGcmDecrypt(kek, wrappedBytes, nonce);
-  
+
   return dek;
 }
 
@@ -477,34 +492,185 @@ export function decode(metachunk: Uint8Array): Uint8Array {
  * allow the recipient to ask their wallet provider to perform eth_decrypt and return the DEK.
  * providerEncrypted: JSON string with {version, nonce, ephemPublicKey, ciphertext}
  */
+/**
+ * For provider-style shared entries (created when owner used eth_getEncryptionPublicKey),
+ * allow the recipient to ask their wallet provider to perform eth_decrypt and return the DEK.
+ * If that fails, it falls back to signature-derived decryption.
+ * providerEncrypted: JSON string with {version, nonce, ephemPublicKey, ciphertext}
+ */
 export async function unwrapSharedDekWithProvider(recipient: ethers.Signer, providerEncrypted: string): Promise<Uint8Array> {
-    const anySigner: any = recipient as any;
-    const provider = anySigner.provider || (recipient as any).provider;
-    if (!provider || typeof provider.send !== 'function') {
-        throw new Error('Recipient provider does not support eth_decrypt RPC. Ensure you are using a wallet provider like MetaMask that supports eth_decrypt.');
-    }
+  const anySigner: any = recipient as any;
+  const provider = anySigner.provider || (recipient as any).provider;
+  const addr = await recipient.getAddress();
 
-    const addr = await recipient.getAddress();
-    
-    // Ensure providerEncrypted is a JSON string (it should already be from shareWithWallet)
-    let encryptedPayload: string;
+  // Ensure providerEncrypted is a JSON string/object
+  let encryptedPayloadStr: string;
+  let encryptedPayloadObj: any;
+
+  try {
+    if (typeof providerEncrypted === 'string') {
+      encryptedPayloadObj = JSON.parse(providerEncrypted);
+      encryptedPayloadStr = providerEncrypted;
+    } else {
+      encryptedPayloadObj = providerEncrypted;
+      encryptedPayloadStr = JSON.stringify(providerEncrypted);
+    }
+  } catch (e) {
+    throw new Error(`Invalid provider_encrypted format: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  // 1. Try Native eth_decrypt
+  if (provider && typeof provider.send === 'function') {
     try {
-        // If it's already a JSON string, use it directly; if it's an object, stringify it
-        if (typeof providerEncrypted === 'string') {
-            // Try to parse to validate it's valid JSON, then use original string
-            JSON.parse(providerEncrypted);
-            encryptedPayload = providerEncrypted;
-        } else {
-            encryptedPayload = JSON.stringify(providerEncrypted);
-        }
+      const decrypted = await provider.send('eth_decrypt', [encryptedPayloadStr, addr]);
+      if (decrypted) {
+        const dekBytes = Buffer.from(decrypted, 'base64');
+        if (dekBytes.length === 32) return new Uint8Array(dekBytes);
+      }
     } catch (e) {
-        throw new Error(`Invalid provider_encrypted format: ${e instanceof Error ? e.message : String(e)}`);
+      console.warn("eth_decrypt failed, attempting fallback...", e);
     }
-    
-    // eth_decrypt will prompt the user's wallet (MetaMask) to decrypt and return the plaintext string
-    const decrypted = await provider.send('eth_decrypt', [encryptedPayload, addr]);
+  }
 
-    // owner encoded the DEK as base64 string prior to provider encryption
-    const dekBytes = Buffer.from(decrypted, 'base64');
-    return new Uint8Array(dekBytes);
+  // 2. Fallback: Try Derived Key Decryption
+  try {
+    return await decryptWithDerivedKey(recipient, addr, encryptedPayloadObj);
+  } catch (err: any) {
+    throw new Error(`Decryption failed: Both eth_decrypt and derived key fallback failed. ${err.message}`);
+  }
+}
+
+/**
+ * Requests the encryption public key from the user's wallet using eth_getEncryptionPublicKey.
+ * This key is used to encrypt data specifically for this user (ECIES).
+ */
+// --- Fallback: Signature-Derived Encryption (for wallets without eth_getEncryptionPublicKey) ---
+
+import * as nacl from 'tweetnacl';
+import naclUtil from 'tweetnacl-util';
+import { signMessage as thirdwebSignMessage } from "thirdweb/utils";
+
+/**
+ * Derives a persistent x25519 keypair from a user's signature.
+ * This ensures we have a stable encryption key even if the wallet doesn't support eth_getEncryptionPublicKey.
+ */
+export async function deriveKeyPairFromSignature(signer: any, address: string): Promise<nacl.BoxKeyPair> {
+  const MSG = `Enable Essentialis Secure Sharing for ${address.toLowerCase()}`;
+
+  // Handle different signer structures (Thirdweb account, ethers signer, etc.)
+  let signature: string;
+  try {
+    // 1. Thirdweb v5 Account (Property 'address' exists, no getAddress method usually)
+    if (signer.address && typeof signer.getAddress !== 'function') {
+      const result = await thirdwebSignMessage({ account: signer, message: MSG });
+      signature = result;
+    }
+    // 2. Ethers.js or Provider (has signMessage function)
+    else if (typeof signer.signMessage === 'function') {
+      signature = await signer.signMessage(MSG);
+    }
+    // 3. Generic sign method
+    else if (signer.sign) {
+      signature = await signer.sign(MSG);
+    } else {
+      throw new Error("Signer does not support signMessage");
+    }
+  } catch (err: any) {
+    console.error("Signature failed:", err);
+    if (err.message && err.message.includes("User denied")) {
+      throw new Error("User denied signature request needed for secure sharing.");
+    }
+    throw err;
+  }
+
+  // Use the signature as entropy for the keypair
+  // We hash it to ensure uniform distribution
+  const entropy = await sha256(_toU8(signature));
+
+  // Generate x25519 keypair from seed
+  const keyPair = nacl.box.keyPair.fromSecretKey(entropy);
+  return keyPair;
+}
+
+/**
+ * Requests the encryption public key using eth_getEncryptionPublicKey, 
+ * OR falls back to deriving it from a signature.
+ */
+export async function getEncryptionPublicKey(activeWallet: any, address: string): Promise<string> {
+  // 1. Try Native RPC (MetaMask etc.)
+  try {
+    let provider = activeWallet.getProvider ? activeWallet.getProvider() : (activeWallet as any).provider;
+    if (provider && typeof provider.request === 'function') {
+      const key = await provider.request({
+        method: 'eth_getEncryptionPublicKey',
+        params: [address],
+      });
+      if (key) return key;
+    }
+  } catch (e) {
+    console.warn("eth_getEncryptionPublicKey failed, attempting fallback...", e);
+  }
+
+  // 2. Fallback: Derive from Signature
+  // We need a way to sign. 'activeWallet' in Thirdweb usually has .getAccount() which has .signMessage
+  // Or activeWallet itself has features.
+  // In `LoginPage.tsx`, we pass `activeWallet` which is from `useActiveWallet()`.
+
+  // We verify if we can get an account to sign with
+  const account = activeWallet.getAccount ? activeWallet.getAccount() : activeWallet;
+
+  if (!account || !account.signMessage) {
+    // If no signing capability on the passed object, try to see if it's an ethers signer
+    throw new Error("Wallet does not support encryption or message signing.");
+  }
+
+  console.log("🔐 Generaring fallback encryption key via signature...");
+  const keyPair = await deriveKeyPairFromSignature(account, address);
+
+  // Return Base64 encoded public key (standard format for eth_getEncryptionPublicKey)
+  return naclUtil.encodeBase64(keyPair.publicKey);
+}
+
+/**
+ * Manually decrypts data using the derived keypair (fallback for eth_decrypt).
+ */
+export async function decryptWithDerivedKey(signer: any, address: string, encryptedData: any): Promise<Uint8Array> {
+  const keyPair = await deriveKeyPairFromSignature(signer, address);
+
+  // encryptedData structure from eth-sig-util: { version, nonce, ephemPublicKey, ciphertext }
+  // All are base64 encoded strings
+
+  if (encryptedData.version !== 'x25519-xsalsa20-poly1305') {
+    throw new Error("Unsupported encryption version");
+  }
+
+  const nonce = naclUtil.decodeBase64(encryptedData.nonce);
+  const ciphertext = naclUtil.decodeBase64(encryptedData.ciphertext);
+  const ephemPublicKey = naclUtil.decodeBase64(encryptedData.ephemPublicKey);
+
+  const decrypted = nacl.box.open(
+    ciphertext,
+    nonce,
+    ephemPublicKey,
+    keyPair.secretKey
+  );
+
+  if (!decrypted) throw new Error("Decryption failed (bad key or corrupted data)");
+
+  // FIX: The `encryptWithProviderKey` function converts the data to a Base64 string before encryption 
+  // (to satisfy eth-sig-util). Therefore, the `decrypted` array contains the UTF-8 bytes of that Base64 string.
+  // We must decode it back to the original binary DEK.
+  try {
+    const decryptedStr = Buffer.from(decrypted).toString('utf8');
+    // Ensure it looks like a base64 string before decoding, to be safe against double-decoding or raw encryption changes
+    if (/^[A-Za-z0-9+/=]+$/.test(decryptedStr.trim())) {
+      const originalBytes = new Uint8Array(Buffer.from(decryptedStr, 'base64'));
+      if (originalBytes.length === 32) return originalBytes;
+      // If length is weird, maybe it wasn't base64? Fallthrough.
+    }
+  } catch (e) {
+    // Ignore, return raw decrypted
+  }
+
+  return decrypted;
 }

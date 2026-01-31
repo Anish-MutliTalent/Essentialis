@@ -1,14 +1,18 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  define: {
-    // Polyfill global for libraries like eventemitter3 used by some web3 libs
-    global: 'window',
-  },
-
   plugins: [
+    nodePolyfills({
+      globals: {
+        Buffer: true,
+        global: true,
+        process: true,
+      },
+      protocolImports: true,
+    }),
     react(),
     {
       name: 'configure-specific-headers',
@@ -36,6 +40,9 @@ export default defineConfig({
     },
   ],
   build: {
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    },
     rollupOptions: {
       output: {
         manualChunks: {
@@ -47,9 +54,9 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
   },
   optimizeDeps: {
-    exclude: ['lucide-react'],
-    include: ['react', 'react-dom', 'react-router-dom', '@metamask/jazzicon'],
+    include: ['tweetnacl', 'tweetnacl-util'],
   },
+
   ssr: {
     noExternal: ['@metamask/jazzicon'],
   },

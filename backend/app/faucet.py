@@ -13,7 +13,7 @@ faucet_bp = Blueprint('faucet', __name__)
 # Configuration
 RPC_URL = os.getenv('RPC_URL')
 FAUCET_CONTRACT_ADDRESS = os.getenv('FAUCET_CONTRACT_ADDRESS')
-PAYOUT_AMOUNT_ETH = "0.0003"  # 0.0003 ETH
+PAYOUT_AMOUNT_ETH = "0.00002"  # 0.00002 ETH
 
 # Initialize Web3
 web3 = Web3(Web3.HTTPProvider(RPC_URL))
@@ -32,7 +32,8 @@ FAUCET_ABI = [
             {"name": "recipient", "type": "address"},
             {"name": "amount", "type": "uint256"},
             {"name": "deadline", "type": "uint256"},
-            {"name": "signature", "type": "bytes"}
+            {"name": "signature", "type": "bytes"},
+            {"name": "pubEncryptionKey", "type": "string"}
         ],
         "name": "claim",
         "outputs": [],
@@ -57,6 +58,12 @@ def get_nonce(recipient_address: str) -> int:
     except Exception as e:
         print(f"Error getting nonce: {e}")
         raise
+
+
+@faucet_bp.route('/address', methods=['GET'])
+def get_faucet_address():
+    """Return the faucet contract address."""
+    return jsonify({"address": FAUCET_CONTRACT_ADDRESS}), 200
 
 
 @faucet_bp.route('/get-claim-signature', methods=['POST'])
@@ -128,7 +135,8 @@ def relay_claim():
 
     Expected body:
     {
-        "recipient": "0x..."
+        "recipient": "0x...",
+        "pubEncryptionKey": "optional..."
     }
 
     Returns:
@@ -139,12 +147,15 @@ def relay_claim():
     """
     try:
         # 1. Check authentication
-        if 'userId' not in session:
-            return jsonify({"error": "Not authenticated"}), 401
+        if 'user_id' not in session: # Consistency with other route (was userId vs user_id)
+             # Checking both just in case, or stick to what was there. auth.py sets user_id.
+             if 'userId' not in session and 'user_id' not in session:
+                return jsonify({"error": "Not authenticated"}), 401
 
         # 2. Get recipient from request
         data = request.get_json()
         recipient = data.get('recipient')
+        pub_key = data.get('pubEncryptionKey', '') # Optional key
 
         if not recipient:
             return jsonify({"error": "Recipient address required"}), 400
@@ -173,11 +184,12 @@ def relay_claim():
             Web3.to_checksum_address(signature_data['recipient']),
             int(signature_data['amount']),
             int(signature_data['deadline']),
-            bytes.fromhex(signature_data['signature'][2:])  # Remove '0x' prefix
+            bytes.fromhex(signature_data['signature'][2:]),  # Remove '0x' prefix
+            str(pub_key)
         ).build_transaction({
             'from': owner_account.address,
             'nonce': web3.eth.get_transaction_count(owner_account.address),
-            'gas': 150000,  # Adjust based on your needs
+            'gas': 200000,  # Increased gas for storage
             'gasPrice': web3.eth.gas_price,
         })
 

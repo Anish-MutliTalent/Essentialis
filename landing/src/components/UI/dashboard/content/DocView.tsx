@@ -143,6 +143,7 @@ const DocView: React.FC = () => {
       let ownerEphemeralPubKey: string | undefined;
       let ownerSignature: string | undefined;
       let providerEncrypted: any = undefined;
+      let encryptedWithPublicKey = false;
 
       if (typeof rawEntry === 'string') {
         wrappedDekHex = rawEntry;
@@ -152,6 +153,7 @@ const DocView: React.FC = () => {
         ownerEphemeralPubKey = rawEntry.owner_ephemeral_pubkey || rawEntry.ownerEphemPubKey || rawEntry.ownerEphemeralPubKey;
         ownerSignature = rawEntry.owner_signature || rawEntry.ownerSignature || rawEntry.owner_sig;
         providerEncrypted = rawEntry.provider_encrypted || rawEntry.providerEncrypted || rawEntry.provider;
+        encryptedWithPublicKey = rawEntry.encrypted_with_public_key || rawEntry.encryptedWithPublicKey;
       }
       if (!wrappedDekHex) throw new Error('Wrapped DEK not found in metadata entry; unable to decrypt.');
 
@@ -164,20 +166,21 @@ const DocView: React.FC = () => {
       if (nonceBytes.length !== 12) throw new Error(`Invalid nonce length ${nonceBytes.length}; expected 12 bytes.`);
 
       setStatusMessage("Step 3/6: Unwrapping access key... Please sign message in wallet.");
-      const isOwnerMode = !ownerSignature && !providerEncrypted && !ownerEphemeralPubKey;
+      const isOwnerMode = !ownerSignature && !providerEncrypted && !ownerEphemeralPubKey && !encryptedWithPublicKey;
       let dek: Uint8Array;
 
       console.debug('[DocView] unwrap inputs:', {
         hasOwnerSignature: !!ownerSignature,
-        nonceLen: nonceBytes.length
+        nonceLen: nonceBytes.length,
+        isRegistryMode: encryptedWithPublicKey
       });
 
       if (isOwnerMode) {
         dek = await unwrapDek(signer, wrappedDekHex, nonceBytes);
       } else if (ownerSignature) {
         dek = await unwrapSharedDekWithSignature(signer, ownerSignature, wrappedDekHex, nonceBytes);
-      } else if (providerEncrypted) {
-        dek = await unwrapSharedDekWithProvider(signer, providerEncrypted);
+      } else if (providerEncrypted || encryptedWithPublicKey) {
+        dek = await unwrapSharedDekWithProvider(signer, providerEncrypted || wrappedDekHex);
       } else if (ownerEphemeralPubKey) {
         try {
           dek = await unwrapSharedDek(signer, ownerEphemeralPubKey, wrappedDekHex, nonceBytes);
@@ -192,6 +195,7 @@ const DocView: React.FC = () => {
       try { dekHashStr = Buffer.from(await sha256(dek)).toString('base64'); } catch (e) { }
       const wrappedEntryObj = (typeof rawEntry === 'object' && rawEntry !== null) ? rawEntry : null;
       const ownerDekSha = wrappedEntryObj ? (wrappedEntryObj.dek_sha256_b64 || wrappedEntryObj.dekSha256B64 || wrappedEntryObj.dek_sha) : null;
+
       if (ownerDekSha && dekHashStr && ownerDekSha !== dekHashStr) {
         throw new Error(`Derived DEK mismatch. Ask owner to re-share.`);
       }

@@ -84,8 +84,8 @@ def create_claim_signature(recipient: str, amount_wei: int, nonce: int):
 
 # Example usage (for testing)
 if __name__ == "__main__":
-    test_recipient = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"
-    test_amount = 300000000000000  # 0.0003 ETH in wei
+    test_recipient = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4"
+    test_amount = 500000000000000  # 0.0003 ETH in wei
     test_nonce = 0
 
     result = create_claim_signature(test_recipient, test_amount, test_nonce)

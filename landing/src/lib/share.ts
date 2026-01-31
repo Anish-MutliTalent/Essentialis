@@ -1,16 +1,30 @@
-import { wrapDekForRecipientWithSignature, unwrapDek, sha256, decode, split, divide, _toU8 } from './crypto';
+import { wrapDekForRecipientWithSignature, unwrapDek, sha256, decode, split, divide, _toU8, encryptWithProviderKey } from './crypto';
 import { ethers } from 'ethers';
 import { client } from './thirdweb';
 import { defineChain } from 'thirdweb/chains';
 import NFTDocABI from '../abi/NFTDoc.json';
+import DocTokenAbi from '../abi/DocToken.json'; // Added import
 import { getContract } from 'thirdweb';
-import { prepareContractCall, sendTransaction, waitForReceipt } from 'thirdweb';
+import { prepareContractCall, sendTransaction, waitForReceipt, readContract } from 'thirdweb'; // Added readContract
 import { Buffer } from 'buffer';
 
 window.Buffer = window.Buffer || Buffer;
 
 const CHAIN = defineChain(11155420);
 const CONTRACT_ADDRESS = '0x920521b56547D1FF83fA3D835a6d11D1380C62A5';
+
+// Helper to get DocToken address from backend API
+async function getDocTokenAddress(): Promise<string> {
+  try {
+    const res = await fetch('/api/faucet/address');
+    if (!res.ok) throw new Error(`API error ${res.status}`);
+    const data = await res.json();
+    return data.address;
+  } catch (e) {
+    console.error("Failed to fetch DocToken address", e);
+    throw new Error("Could not determine Security Registry address.");
+  }
+}
 
 // Helper: load metadata JSON from IPFS gateway or accept a passed object
 export async function loadMetadata(metadataCidOrObj: string | object): Promise<any> {
@@ -95,11 +109,45 @@ export async function shareWithWallet(
     // unwrap using owner's signer
     const dek = await unwrapDek(owner, ownerWrappedDekHex, nonce);
 
-    // Skipping recipient pubkey retrieval; using signature-based wrapping only (no raw private key required)
+    // 🔒 SECURE REGISTRY CHECK
+    // 1. Get Registry Address
+    const docTokenAddress = await getDocTokenAddress();
+    const docTokenContract = getContract({ address: docTokenAddress, abi: DocTokenAbi as any, client, chain: CHAIN });
 
-    // Prefer signature-based wrapping so recipients don't need access to a raw private key
-    // This derives a KEK from the owner's signature and embeds owner_signature in metadata
-    const { wrappedDekHex, ownerSignature } = await wrapDekForRecipientWithSignature(owner, recipientAddress, dek, nonce);
+    // 2. Check if Recipient has registered a Public Key
+    let recipientPubKey = "";
+    try {
+      recipientPubKey = (await readContract({
+        contract: docTokenContract,
+        method: "function encryptionKeys(address) view returns (string)",
+        params: [recipientAddress]
+      })) as string;
+    } catch (err) {
+      console.warn("Failed to check encryption registry:", err);
+    }
+
+    let wrappedDekHex: string;
+    let ownerSignature: string | undefined;
+    let ownerEphemeralPubKey: string | undefined;
+    let encryptedWithPubKey = false;
+
+    if (recipientPubKey && recipientPubKey.length > 10) {
+      console.log("🔒 Found Recipient Public Key in Registry! Using High-Security x25519 Encryption.");
+      // Use x25519 Encryption (Compatible with eth_decrypt)
+      try {
+        const encryptedObj = encryptWithProviderKey(recipientPubKey, dek);
+        wrappedDekHex = JSON.stringify(encryptedObj);
+        // x25519-xsalsa20-poly1305 output contains ephemeral key in the object
+        ownerEphemeralPubKey = encryptedObj.ephemPublicKey;
+        encryptedWithPubKey = true;
+      } catch (encErr) {
+        console.error("Encryption failed:", encErr);
+        throw new Error("Failed to encrypt for recipient public key.");
+      }
+    } else {
+      // Enforce Registry
+      throw new Error(`🔒 Secure Sharing Error: ${recipientAddress} has not enabled Secure Mode yet. Ask them to log in (or claim faucet) to register.`);
+    }
 
     // compute non-sensitive dek checksum to help recipient verify correct key derivation
     const dekShaB64 = Buffer.from(await sha256(dek)).toString('base64');
@@ -145,11 +193,21 @@ export async function shareWithWallet(
       console.warn('Could not fetch or hash metachunk for encrypted_data checksum', e);
     }
 
-    // Append to metadata in a compatible shape (include owner_signature, dek_sha256_b64, and always encrypted_data_sha256_b64 for recipient-side verification)
+    // Append to metadata
     metadata.wrapped_deks = metadata.wrapped_deks || ({} as any);
-    const entry: any = { wrapped_dek: wrappedDekHex, owner_signature: ownerSignature, dek_sha256_b64: dekShaB64 };
-    // Always attach encrypted_data_sha256_b64, even if null (for diagnostics)
-    entry.encrypted_data_sha256_b64 = encryptedDataShaB64 || null;
+
+    const entry: any = {
+      wrapped_dek: wrappedDekHex,
+      dek_sha256_b64: dekShaB64,
+      encrypted_data_sha256_b64: encryptedDataShaB64 || null
+    };
+
+    if (encryptedWithPubKey) {
+      entry.encrypted_with_public_key = true;
+      entry.owner_ephemeral_pubkey = ownerEphemeralPubKey;
+    } else {
+      entry.owner_signature = ownerSignature;
+    }
     if (Array.isArray(metadata.wrapped_deks)) {
       metadata.wrapped_deks.push({ address: recipientAddress, ...entry });
     } else {

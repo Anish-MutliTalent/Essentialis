@@ -6,13 +6,16 @@ import { Counter } from './Interactive';
 import { FaWhatsapp } from 'react-icons/fa';
 
 const CommunityStats = () => {
-    const [stats, setStats] = useState({ total_community: 0 });
+    const [stats, setStats] = useState<{ total_community: number | null }>({ total_community: null });
 
     useEffect(() => {
-        fetch('/api/public/stats') // Adjust URL if production env
+        fetch('/api/public/stats')
             .then(res => res.json())
             .then(data => setStats(data))
-            .catch(err => console.error("Stats fetch error", err));
+            .catch(err => {
+                console.error("Stats fetch error", err);
+                // Keep as null to show loading/indeterminate state on error as requested
+            });
     }, []);
 
     return (
@@ -43,7 +46,11 @@ const CommunityStats = () => {
                                 <span className="text-[10px] text-green-400 bg-green-400/10 px-1.5 py-0.5 rounded border border-green-400/20">Live</span>
                             </div>
                             <div className="text-4xl font-bold text-white tracking-tight flex items-baseline gap-1">
-                                <Counter from={0} to={stats.total_community} duration={2.5} />
+                                {stats.total_community === null ? (
+                                    <span className="animate-pulse">...</span>
+                                ) : (
+                                    <Counter from={0} to={stats.total_community} duration={2.5} />
+                                )}
                             </div>
                         </div>
                     </div>

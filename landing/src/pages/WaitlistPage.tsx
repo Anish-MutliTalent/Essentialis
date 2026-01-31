@@ -30,6 +30,12 @@ const WaitlistPage: React.FC = () => {
     const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const [message, setMessage] = useState('');
 
+    // DEBUG: Force success state to debug render
+    // useEffect(() => {
+    //    setStatus('success');
+    //    setMessage('Debug Success Message');
+    // }, []);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -61,21 +67,24 @@ const WaitlistPage: React.FC = () => {
     };
 
     if (status === 'success') {
+        console.log('Rendering Success State', { message, platform, typeofMessage: typeof message });
         return (
-            <div className="min-h-screen flex items-center justify-center bg-black text-white p-4 pt-24">
+            <div className="min-h-screen flex items-center justify-center bg-black text-white p-4 pt-24 relative">
                 <div className="absolute inset-0 bg-[url('https://essentialis.cloud/favicon-96x96.png')] bg-center bg-no-repeat opacity-5 blur-3xl pointer-events-none" />
-                <Card variant="premium" className="max-w-md w-full text-center py-8 bg-black/60 border-gray-800">
-                    <div className="mx-auto w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mb-4 border border-green-500/30">
-                        <FaClock className="text-green-400 text-2xl" />
-                    </div>
-                    <Heading level={2} className="mb-2">Request Received</Heading>
-                    <Text color="muted" className="mb-6 px-4">
-                        {message} We will review your request and contact you via {platform}.
-                    </Text>
-                    <Button variant="secondary" onClick={() => navigate('/')}>
-                        Back to Home
-                    </Button>
-                </Card>
+                <div className="relative z-10 max-w-md w-full">
+                    <Card variant="premium" className="w-full text-center py-8 bg-black/60 border-gray-800">
+                        <div className="mx-auto w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mb-4 border border-green-500/30">
+                            <FaClock className="text-green-400 text-2xl" />
+                        </div>
+                        <Heading level={2} className="mb-2">Request Received</Heading>
+                        <Text color="muted" className="mb-6 px-4">
+                            {typeof message === 'string' ? message : JSON.stringify(message)} We will review your request and contact you via {platform}.
+                        </Text>
+                        <Button variant="secondary" onClick={() => navigate('/')}>
+                            Back to Home
+                        </Button>
+                    </Card>
+                </div>
             </div>
         );
     }
