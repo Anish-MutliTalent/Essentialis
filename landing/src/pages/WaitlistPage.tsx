@@ -69,7 +69,7 @@ const WaitlistPage: React.FC = () => {
     if (status === 'success') {
         console.log('Rendering Success State', { message, platform, typeofMessage: typeof message });
         return (
-            <div className="min-h-screen flex items-center justify-center bg-black text-white p-4 pt-24 relative">
+            <div className="min-h-screen flex items-center justify-center text-white p-4 pt-24 relative">
                 <div className="absolute inset-0 bg-[url('https://essentialis.cloud/favicon-96x96.png')] bg-center bg-no-repeat opacity-5 blur-3xl pointer-events-none" />
                 <div className="relative z-10 max-w-md w-full">
                     <Card variant="premium" className="w-full text-center py-8 bg-black/60 border-gray-800">

@@ -24,11 +24,58 @@ import {
 } from 'react-icons/fa';
 import { LoadingSpinner } from '../../index';
 
-import 'luckysheet/dist/plugins/css/pluginsCss.css';
-import 'luckysheet/dist/plugins/plugins.css';
-import 'luckysheet/dist/css/luckysheet.css';
-import 'luckysheet/dist/assets/iconfont/iconfont.css';
-import 'luckysheet/dist/plugins/js/plugin';
+
+
+// Dynamically load Luckysheet resources
+const loadLuckysheet = async () => {
+  if ((window as any).luckysheet) return;
+
+  const loadScript = (src: string) => {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = src;
+      script.onload = () => resolve(true);
+      script.onerror = () => reject(new Error(`Failed to load ${src}`));
+      document.body.appendChild(script);
+    });
+  };
+
+  const loadStyle = (href: string) => {
+    if (document.querySelector(`link[href="${href}"]`)) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    document.head.appendChild(link);
+  };
+
+  // Load CSS
+  loadStyle('https://cdn.jsdelivr.net/npm/luckysheet/dist/plugins/css/pluginsCss.css');
+  loadStyle('https://cdn.jsdelivr.net/npm/luckysheet/dist/plugins/plugins.css');
+  loadStyle('https://cdn.jsdelivr.net/npm/luckysheet/dist/css/luckysheet.css');
+  loadStyle('https://cdn.jsdelivr.net/npm/luckysheet/dist/assets/iconfont/iconfont.css');
+
+  // Load JS sequentially
+  if (!(window as any).jQuery) {
+    await loadScript('https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js');
+  }
+  await loadScript('https://cdn.jsdelivr.net/npm/luckysheet/dist/plugins/js/plugin.js');
+  await loadScript('https://cdn.jsdelivr.net/npm/luckysheet/dist/luckysheet.umd.js');
+
+  // XLSX is needed for reading the file before passing to Luckysheet
+  // The original code imported XLSX, but we also removed the CDN link.
+  // We can keep the import * as XLSX if it's bundled (which it is, see package.json), 
+  // OR we can load it from CDN if we want to reduce bundle size further. 
+  // Given the user wants to reduce bundle size, we should probably stick to the import for now 
+  // as rewriting all XLSX usage to window.XLSX is risky without more checks.
+  // Wait, I see "import * as XLSX from 'xlsx';" in the file. 
+  // Let's stick with the bundled XLSX for safety as it is used in the logic.
+  // But wait, the previous code had a CDN link for xlsx.full.min.js too.
+  // If we remove the CDN link, we rely on the bundled one.
+};
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   '/pdf.worker.min.js',
@@ -819,133 +866,139 @@ const SpreadsheetViewer: React.FC<{ fileUrl: string; containerClassName: string 
   const containerRef = useRef<HTMLDivElement>(null);
   const sheetIdRef = useRef(`luckysheet_${Math.random().toString(36).slice(2)}`);
 
+  const [isLoading, setIsLoading] = useState(true);
+
   useEffect(() => {
     if (!containerRef.current) return;
 
-    fetch(fileUrl)
-      .then(r => r.arrayBuffer())
-      .then(buf => {
-        const wb = XLSX.read(buf, { type: 'array', cellStyles: true });
+    loadLuckysheet().then(() => {
+      setIsLoading(true); // Keep loading while fetching file
+      fetch(fileUrl)
+        .then(r => r.arrayBuffer())
+        .then(buf => {
+          const wb = XLSX.read(buf, { type: 'array', cellStyles: true });
 
-        const sheets = wb.SheetNames.map((name, index) => {
-          const ws = wb.Sheets[name];
-          const celldata: any[] = [];
+          const sheets = wb.SheetNames.map((name, index) => {
+            const ws = wb.Sheets[name];
+            const celldata: any[] = [];
 
-          Object.keys(ws).forEach(addr => {
-            if (addr.startsWith('!')) return;
+            Object.keys(ws).forEach(addr => {
+              if (addr.startsWith('!')) return;
 
-            const cell = ws[addr];
-            const { r, c } = XLSX.utils.decode_cell(addr);
+              const cell = ws[addr];
+              const { r, c } = XLSX.utils.decode_cell(addr);
 
-            const v: any = {};
+              const v: any = {};
 
-            if (cell.f) v.f = cell.f;
-            if (cell.v !== undefined) v.v = cell.v;
+              if (cell.f) v.f = cell.f;
+              if (cell.v !== undefined) v.v = cell.v;
 
-            const s = cell.s;
-            if (s) {
-              if (s.font) {
-                v.bl = s.font.bold ? 1 : 0;
-                v.it = s.font.italic ? 1 : 0;
-                v.fs = s.font.sz;
-                v.ff = s.font.name;
-                v.cl = s.font.underline ? 1 : 0;
-                v.st = s.font.strike ? 1 : 0;
+              const s = cell.s;
+              if (s) {
+                if (s.font) {
+                  v.bl = s.font.bold ? 1 : 0;
+                  v.it = s.font.italic ? 1 : 0;
+                  v.fs = s.font.sz;
+                  v.ff = s.font.name;
+                  v.cl = s.font.underline ? 1 : 0;
+                  v.st = s.font.strike ? 1 : 0;
 
-                if (s.font.color?.rgb) {
-                  v.fc = '#' + s.font.color.rgb.slice(2);
+                  if (s.font.color?.rgb) {
+                    v.fc = '#' + s.font.color.rgb.slice(2);
+                  }
+                }
+
+                if (s.fill?.fgColor?.rgb) {
+                  v.bg = '#' + s.fill.fgColor.rgb.slice(2);
+                }
+
+                if (s.alignment) {
+                  const h = s.alignment.horizontal;
+                  const vAlign = s.alignment.vertical;
+
+                  v.ht = h === 'center' ? 1 : h === 'right' ? 2 : 0;
+                  v.vt = vAlign === 'middle' ? 1 : vAlign === 'bottom' ? 2 : 0;
+
+                  v.tb = s.alignment.wrapText ? 2 : 0;
+                  v.tr = s.alignment.textRotation || 0;
+                }
+
+                if (s.border) {
+                  v.bd = {};
+                  Object.entries(s.border).forEach(([side, def]: any) => {
+                    if (!def) return;
+                    v.bd[side] = {
+                      style: 1,
+                      color: def.color?.rgb
+                        ? '#' + def.color.rgb.slice(2)
+                        : '#000'
+                    };
+                  });
+                }
+
+                if (s.numFmt) {
+                  v.ct = { fa: s.numFmt, t: 'n' };
                 }
               }
 
-              if (s.fill?.fgColor?.rgb) {
-                v.bg = '#' + s.fill.fgColor.rgb.slice(2);
-              }
+              celldata.push({ r, c, v });
+            });
 
-              if (s.alignment) {
-                const h = s.alignment.horizontal;
-                const vAlign = s.alignment.vertical;
+            const merges = (ws['!merges'] || []).map((m: any) => ({
+              r: m.s.r,
+              c: m.s.c,
+              rs: m.e.r - m.s.r + 1,
+              cs: m.e.c - m.s.c + 1
+            }));
 
-                v.ht = h === 'center' ? 1 : h === 'right' ? 2 : 0;
-                v.vt = vAlign === 'middle' ? 1 : vAlign === 'bottom' ? 2 : 0;
+            const columnlen = ws['!cols']?.map((c: any, i: number) => ({
+              index: i,
+              width: Math.round(c.wpx || 120)
+            }));
 
-                v.tb = s.alignment.wrapText ? 2 : 0;
-                v.tr = s.alignment.textRotation || 0;
-              }
+            const rowlen = ws['!rows']?.map((r: any, i: number) => ({
+              index: i,
+              height: Math.round(r.hpx || 28)
+            }));
 
-              if (s.border) {
-                v.bd = {};
-                Object.entries(s.border).forEach(([side, def]: any) => {
-                  if (!def) return;
-                  v.bd[side] = {
-                    style: 1,
-                    color: def.color?.rgb
-                      ? '#' + def.color.rgb.slice(2)
-                      : '#000'
-                  };
-                });
-              }
+            const ref = XLSX.utils.decode_range(ws['!ref'] || 'A1');
 
-              if (s.numFmt) {
-                v.ct = { fa: s.numFmt, t: 'n' };
-              }
-            }
-
-            celldata.push({ r, c, v });
+            return {
+              name,
+              index,
+              order: index,
+              status: index === 0 ? 1 : 0,
+              row: ref.e.r + 1,
+              column: ref.e.c + 1,
+              celldata,
+              merge: merges,
+              columnlen,
+              rowlen
+            };
           });
 
-          const merges = (ws['!merges'] || []).map((m: any) => ({
-            r: m.s.r,
-            c: m.s.c,
-            rs: m.e.r - m.s.r + 1,
-            cs: m.e.c - m.s.c + 1
-          }));
-
-          const columnlen = ws['!cols']?.map((c: any, i: number) => ({
-            index: i,
-            width: Math.round(c.wpx || 120)
-          }));
-
-          const rowlen = ws['!rows']?.map((r: any, i: number) => ({
-            index: i,
-            height: Math.round(r.hpx || 28)
-          }));
-
-          const ref = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-
-          return {
-            name,
-            index,
-            order: index,
-            status: index === 0 ? 1 : 0,
-            row: ref.e.r + 1,
-            column: ref.e.c + 1,
-            celldata,
-            merge: merges,
-            columnlen,
-            rowlen
+          const mountSheet = () => {
+            if ((window as any).luckysheet) {
+              (window as any).luckysheet.create({
+                container: sheetIdRef.current,
+                data: sheets,
+                allowEdit: false,
+                showtoolbar: false,
+                showinfobar: false,
+                showstatisticBar: false,
+                showsheetbar: true,
+                defaultColWidth: 120,
+                defaultRowHeight: 28
+              });
+              setIsLoading(false);
+            } else {
+              console.warn("Luckysheet not ready, retrying...");
+              setTimeout(mountSheet, 500);
+            }
           };
+          mountSheet();
         });
-
-        const mountSheet = () => {
-          if ((window as any).luckysheet) {
-            (window as any).luckysheet.create({
-              container: sheetIdRef.current,
-              data: sheets,
-              allowEdit: false,
-              showtoolbar: false,
-              showinfobar: false,
-              showstatisticBar: false,
-              showsheetbar: true,
-              defaultColWidth: 120,
-              defaultRowHeight: 28
-            });
-          } else {
-            console.warn("Luckysheet not ready, retrying...");
-            setTimeout(mountSheet, 500);
-          }
-        };
-        mountSheet();
-      });
+    });
   }, [fileUrl]);
 
   return (
@@ -962,6 +1015,11 @@ const SpreadsheetViewer: React.FC<{ fileUrl: string; containerClassName: string 
           </a>
         </div>
         <div ref={containerRef} id={sheetIdRef.current} className="w-full h-full overflow-hidden" />
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-20">
+            <LoadingSpinner size="lg" color="gold" />
+          </div>
+        )}
       </div>
     </div>
   );

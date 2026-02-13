@@ -40,21 +40,26 @@ export default defineConfig({
     },
   ],
   build: {
+    target: 'esnext',
+    cssCodeSplit: true,
     commonjsOptions: {
       transformMixedEsModules: true,
     },
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          icons: ['lucide-react'],
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-three': ['three', '@react-three/fiber', '@react-three/drei'],
+          'vendor-anim': ['framer-motion', 'gsap'],
+          'vendor-pdf': ['pdfjs-dist'],
+          'vendor-ui': ['lucide-react', 'react-icons'],
         },
       },
     },
     chunkSizeWarningLimit: 1000,
   },
   optimizeDeps: {
-    include: ['tweetnacl', 'tweetnacl-util'],
+    include: ['tweetnacl', 'tweetnacl-util', 'xlsx'],
   },
 
   ssr: {
