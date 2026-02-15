@@ -1,7 +1,8 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Navigation from './components/Navigation';
+import PortalScreen from './components/PortalScreen';
 import { initSmoothScroll } from './lib/lenis';
 import { ThirdwebProvider, useActiveAccount, AutoConnect } from 'thirdweb/react';
 import { createWallet, inAppWallet } from 'thirdweb/wallets';
@@ -30,10 +31,10 @@ const ReferralHandler = lazy(() => import('./pages/ReferralHandler'));
 const AccessGuard = lazy(() => import('./components/AccessGuard'));
 
 // Landing Components (Lazy)
-const LivingBlueprint = lazy(() => import('./components/LivingBlueprint'));
-const PortalScreen = lazy(() => import('./components/PortalScreen'));
-const AudioPlayer = lazy(() => import('./components/AudioPlayer'));
-const BackToTop = lazy(() => import('./components/BackToTop'));
+
+import LivingBlueprint from './components/LivingBlueprint';
+import AudioPlayer from './components/AudioPlayer';
+import BackToTop from './components/BackToTop';
 
 const Homepage = lazy(() => import('./pages/Homepage'));
 const About = lazy(() => import('./pages/About'));
