@@ -9,37 +9,38 @@ import { client } from './lib/thirdweb';
 import { DocsProvider } from "./components/contexts/DocsContext";
 
 // Frontend Components
-import LoginPage from './components/LoginPage';
-import DashboardPage from './pages/DashboardPage';
-// Dashboard content components
-import DashboardHome from './components/UI/dashboard/content/DashboardHome';
-import MyDocs from './components/UI/dashboard/content/MyDocs';
-import Settings from './components/UI/dashboard/content/Settings';
-import CompleteProfileForm from './components/UI/dashboard/content/CompleteProfileForm';
-import MintDocPage from './components/UI/dashboard/content/MintDocPage';
-import DocView from './components/UI/dashboard/content/DocView';
-import EditDocPage from './components/UI/dashboard/content/EditDocPage';
-import DocHistory from './components/UI/dashboard/content/DocHistory';
-import AdminPanelPage from './pages/AdminPanelPage';
-import AccessGatePage from './pages/AccessGatePage';
-import WaitlistPage from './pages/WaitlistPage';
-import ReferralHandler from './pages/ReferralHandler';
-import AccessGuard from './components/AccessGuard';
+const LoginPage = lazy(() => import('./components/LoginPage'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 
-import LivingBlueprint from './components/LivingBlueprint';
-import PortalScreen from './components/PortalScreen';
-import AudioPlayer from './components/AudioPlayer';
-import BackToTop from './components/BackToTop';
-import { AnimatePresence } from 'framer-motion';
+// Dashboard content components (Lazy)
+const DashboardHome = lazy(() => import('./components/UI/dashboard/content/DashboardHome'));
+const MyDocs = lazy(() => import('./components/UI/dashboard/content/MyDocs'));
+const Settings = lazy(() => import('./components/UI/dashboard/content/Settings'));
+const CompleteProfileForm = lazy(() => import('./components/UI/dashboard/content/CompleteProfileForm'));
+const MintDocPage = lazy(() => import('./components/UI/dashboard/content/MintDocPage'));
+const DocView = lazy(() => import('./components/UI/dashboard/content/DocView'));
+const EditDocPage = lazy(() => import('./components/UI/dashboard/content/EditDocPage'));
+const DocHistory = lazy(() => import('./components/UI/dashboard/content/DocHistory'));
+const AdminPanelPage = lazy(() => import('./pages/AdminPanelPage'));
+
+// Access & Pages
+const AccessGatePage = lazy(() => import('./pages/AccessGatePage'));
+const WaitlistPage = lazy(() => import('./pages/WaitlistPage'));
+const ReferralHandler = lazy(() => import('./pages/ReferralHandler'));
+const AccessGuard = lazy(() => import('./components/AccessGuard'));
+
 // Landing Components (Lazy)
+const LivingBlueprint = lazy(() => import('./components/LivingBlueprint'));
+const PortalScreen = lazy(() => import('./components/PortalScreen'));
+const AudioPlayer = lazy(() => import('./components/AudioPlayer'));
+const BackToTop = lazy(() => import('./components/BackToTop'));
+
 const Homepage = lazy(() => import('./pages/Homepage'));
 const About = lazy(() => import('./pages/About'));
 const Pricing = lazy(() => import('./pages/Pricing'));
 const Documentation = lazy(() => import('./pages/Documentation'));
 const Blog = lazy(() => import('./pages/Blog'));
 const BlogPost = lazy(() => import('./pages/BlogPost'));
-// const OpenBeta was removed
-// const Waitlist was removed
 const Contact = lazy(() => import('./pages/Contact'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('./pages/TermsOfService'));
@@ -196,29 +197,29 @@ function AppContent() {
 
   return (
     <div className="min-h-screen text-white relative">
-      <AnimatePresence mode="wait">
-        {!hasEntered && !isDashboard && (
-          <PortalScreen key="portal" onEnter={() => setHasEntered(true)} />
-        )}
-      </AnimatePresence>
-
-      {(hasEntered || isDashboard) && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1.5, delay: 0.5 }}
-        >
-          {!isDashboard && (
-            <>
-              {/* Premium blurred radial gradient background for Landing */}
-              <LivingBlueprint />
-              <Navigation />
-              <AudioPlayer />
-              <BackToTop />
-            </>
+      <Suspense fallback={<FastLoader />}>
+        <AnimatePresence mode="wait">
+          {!hasEntered && !isDashboard && (
+            <PortalScreen key="portal" onEnter={() => setHasEntered(true)} />
           )}
+        </AnimatePresence>
 
-          <Suspense fallback={<FastLoader />}>
+        {(hasEntered || isDashboard) && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1.5, delay: 0.5 }}
+          >
+            {!isDashboard && (
+              <>
+                {/* Premium blurred radial gradient background for Landing */}
+                <LivingBlueprint />
+                <Navigation />
+                <AudioPlayer />
+                <BackToTop />
+              </>
+            )}
+
             <Routes>
               {/* Landing Pages */}
               <Route path="/" element={<RootRedirectOrLanding />} />
@@ -269,9 +270,9 @@ function AppContent() {
                 <Route path="admin" element={<AdminPanelPage />} />
               </Route>
             </Routes>
-          </Suspense>
-        </motion.div>
-      )}
+          </motion.div>
+        )}
+      </Suspense>
     </div>
   );
 }
