@@ -4,9 +4,10 @@ import { Zap, ShieldCheck, Database, Fingerprint, Activity } from "lucide-react"
 
 interface PortalScreenProps {
     onEnter: () => void;
+    onAppReady: boolean;
 }
 
-const PortalScreen = ({ onEnter }: PortalScreenProps) => {
+const PortalScreen = ({ onEnter, onAppReady }: PortalScreenProps) => {
     const [loadingProgress, setLoadingProgress] = useState(0);
     const [ready, setReady] = useState(false);
     const [showStory, setShowStory] = useState(0);
@@ -17,30 +18,36 @@ const PortalScreen = ({ onEnter }: PortalScreenProps) => {
     ];
 
     useEffect(() => {
+        // We only progress the visual loader to 90% until the app is ACTUALLY ready
         const interval = setInterval(() => {
             setLoadingProgress((prev) => {
+                if (prev >= 90 && !onAppReady) {
+                    return 90; // Stall at 90% if app not ready
+                }
                 if (prev >= 100) {
                     clearInterval(interval);
                     setReady(true);
                     return 100;
                 }
-                return prev + Math.random() * 30; // Faster loading
+                // If app IS ready, we can jump to 100 fast
+                const jump = onAppReady ? 10 : 2;
+                return prev + Math.random() * jump;
             });
-        }, 300); // Shorter interval
+        }, 100);
 
         return () => clearInterval(interval);
-    }, []);
+    }, [onAppReady]);
 
     useEffect(() => {
         if (showStory < storyline.length) {
             const timer = setTimeout(() => {
                 setShowStory(prev => prev + 1);
-            }, 1200); // Faster story transition
+            }, 800);
             return () => clearTimeout(timer);
         }
     }, [showStory]);
 
-    const isFullyReady = ready && showStory >= storyline.length - 1;
+    const isFullyReady = ready && showStory >= storyline.length - 1 && onAppReady;
 
     return (
         <motion.div
@@ -157,35 +164,37 @@ const PortalScreen = ({ onEnter }: PortalScreenProps) => {
 
                 {/* Logo Area - Centered & Large */}
                 <div className="relative flex flex-col items-center justify-center min-h-[300px]">
-                    <AnimatePresence>
-                        {showStory >= storyline.length - 1 && (
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.8, filter: 'brightness(0)' }}
-                                animate={{ opacity: 1, scale: 1, filter: 'brightness(1)' }}
-                                transition={{ duration: 1.5, ease: "easeOut" }}
-                                className="relative group cursor-pointer"
-                            >
-                                {/* Logo Inner Glow */}
-                                <div className="absolute inset-0 bg-yellow-500/20 blur-[60px] rounded-full scale-75 animate-pulse" />
+                    {/* Render immediately for LCP */}
+                    <motion.div
+                        initial={{ opacity: 0.01, scale: 0.95, filter: 'brightness(0.5)' }}
+                        animate={{
+                            opacity: showStory >= storyline.length - 1 ? 1 : 0.3,
+                            scale: showStory >= storyline.length - 1 ? 1 : 0.98,
+                            filter: showStory >= storyline.length - 1 ? 'brightness(1)' : 'brightness(0.5)'
+                        }}
+                        transition={{ duration: 1.5, ease: "easeOut" }}
+                        className="relative group cursor-pointer"
+                    >
+                        {/* Logo Inner Glow */}
+                        <div className="absolute inset-0 bg-yellow-500/20 blur-[60px] rounded-full scale-75 animate-pulse" />
 
-                                <img
-                                    src="/essentialis.svg"
-                                    alt="Essentialis Logo"
-                                    className="w-48 h-48 md:w-64 md:h-64 relative z-10 drop-shadow-[0_0_45px_rgba(234,179,8,0.4)] transition-transform duration-700 group-hover:scale-105"
-                                />
+                        <img
+                            src="/essentialis.svg"
+                            alt="Essentialis Logo"
+                            className="w-48 h-48 md:w-64 md:h-64 relative z-10 drop-shadow-[0_0_45px_rgba(234,179,8,0.4)] transition-transform duration-700 group-hover:scale-105"
+                            fetchPriority="high"
+                        />
 
-                                <motion.div
-                                    initial={{ opacity: 0, y: 15 }}
-                                    animate={{ opacity: 0.7, y: 0 }}
-                                    transition={{ delay: 1, duration: 1 }}
-                                    className="mt-8 text-center"
-                                >
-                                    <div className="text-yellow-500 tracking-[0.8em] uppercase font-black text-xs">Essentialis</div>
-                                    <div className="mt-2 text-white/30 tracking-[0.3em] uppercase font-bold text-[9px]">Sovereign Archive Ecosystem</div>
-                                </motion.div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                        <motion.div
+                            initial={{ opacity: 0, y: 15 }}
+                            animate={{ opacity: showStory >= storyline.length - 1 ? 0.7 : 0, y: showStory >= storyline.length - 1 ? 0 : 10 }}
+                            transition={{ delay: 0.2, duration: 1 }}
+                            className="mt-8 text-center"
+                        >
+                            <div className="text-yellow-500 tracking-[0.8em] uppercase font-black text-xs">Essentialis</div>
+                            <div className="mt-2 text-white/30 tracking-[0.3em] uppercase font-bold text-[9px]">Sovereign Archive Ecosystem</div>
+                        </motion.div>
+                    </motion.div>
                 </div>
 
                 {/* Interaction Area - Anchored Bottom */}

@@ -50,7 +50,8 @@ export default defineConfig({
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-three': ['three', '@react-three/fiber', '@react-three/drei'],
-          'vendor-anim': ['framer-motion', 'gsap'],
+          'vendor-framer': ['framer-motion'],
+          'vendor-gsap': ['gsap'],
           'vendor-pdf': ['pdfjs-dist'],
           'vendor-ui': ['lucide-react', 'react-icons'],
         },
