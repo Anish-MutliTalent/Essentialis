@@ -48,6 +48,16 @@ const Navigation = () => {
     { name: 'Contact', href: '/contact', icon: Mail },
   ];
 
+  // Determine destination for "Experience Demo"
+  const [demoLink, setDemoLink] = useState('/access');
+
+  useEffect(() => {
+    // If user already passed the gate, send them to login/dashboard directly.
+    // Otherwise, send them to the gate first to avoid bundle thrashing.
+    const hasAccess = sessionStorage.getItem('access_granted') === 'true';
+    setDemoLink(hasAccess ? '/login' : '/access');
+  }, []);
+
   return (
     <nav ref={navRef} className="fixed top-0 left-0 right-0 z-50 transition-all">
       {/* Background layer that fades with scroll, links stay always visible */}
@@ -102,7 +112,7 @@ const Navigation = () => {
                 </Link>
               ))}
               <MagneticButton
-                href="/login"
+                href={demoLink}
                 ariaLabel="Experience Demo"
                 className="shadow-2xl bg-transparent"
                 icon=""
@@ -149,7 +159,7 @@ const Navigation = () => {
                 </Link>
               ))}
               <Link
-                to="/login"
+                to={demoLink}
                 className="border border-yellow-400 text-yellow-400 px-5 py-3 rounded-lg font-semibold hover:bg-yellow-400/10 transition-colors shadow-yellow-400/30 shadow-lg inline-flex items-center gap-2 w-full justify-center mt-2"
                 style={{ fontSize: '1rem' }}
                 onClick={() => setIsMenuOpen(false)}

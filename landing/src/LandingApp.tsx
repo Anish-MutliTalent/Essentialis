@@ -47,7 +47,7 @@ function RootRedirectOrLanding() {
                     }
                 }
             } catch (e) {
-                // ignore
+                // If 401 or network error, just ignore - user is guest
             } finally {
                 if (mounted) setChecking(false);
             }

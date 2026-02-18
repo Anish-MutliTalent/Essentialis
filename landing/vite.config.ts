@@ -18,7 +18,19 @@ export default defineConfig({
       name: 'configure-specific-headers',
       configureServer(server) {
         server.middlewares.use((req, res, next) => {
-          if (req.url?.includes('/dashboard/my-docs/') || req.url?.includes('/zetajs') || req.url?.includes('/zetaoffice')) {
+          // Apply headers to everything EXCEPT public auth routes
+          const url = req.url || '';
+          if (!url.includes('/login') && !url.includes('/access') && !url.includes('/ref')) {
+            res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+            res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+          }
+          next();
+        });
+      },
+      configurePreviewServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const url = req.url || '';
+          if (!url.includes('/login') && !url.includes('/access') && !url.includes('/ref')) {
             res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
             res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
           }
@@ -48,7 +60,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-react': ['react', 'react-dom', 'react-router-dom', 'thirdweb'],
           'vendor-three': ['three', '@react-three/fiber', '@react-three/drei'],
           'vendor-framer': ['framer-motion'],
           'vendor-gsap': ['gsap'],

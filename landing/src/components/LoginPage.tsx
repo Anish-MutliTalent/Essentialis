@@ -1,7 +1,8 @@
 // src/components/LoginPage.tsx
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useActiveAccount, useConnect, useActiveWallet } from "thirdweb/react";
+import { useActiveAccount, useConnect, useActiveWallet, useDisconnect } from "thirdweb/react";
+
 import {
   inAppWallet,
   createWallet,
@@ -344,6 +345,17 @@ const LoginPage = () => {
     }
   }, []);
 
+  // --- Helper to handle redirect or manual continuation ---
+  const handleAuthSuccess = useCallback(() => {
+    // User requested "directly go to dashboard", so we skip the "passedGate" check
+    // and just redirect immediately.
+    console.log("handleAuthSuccess: auto-redirect (hard reload) to dashboard");
+    // We MUST use a hard reload (window.location.href) instead of client-side navigate()
+    // because we need the server to send new Headers (COOP/COEP) that are only sent
+    // for /dashboard routes. Client-side routing keeps the original /login headers (which are loose).
+    window.location.href = '/dashboard';
+  }, []);
+
   // --- Effect to Link Wallet & Fetch Details ---
   useEffect(() => {
     const processConnection = async (currentAccount: { address: string }, currentActiveWallet: any) => {
@@ -376,8 +388,7 @@ const LoginPage = () => {
                   setBackendLoginStatus(`Login successful (claim failed: ${claimError.message})`);
                 }
 
-                // Navigate to dashboard
-                navigate('/dashboard', { replace: true });
+                handleAuthSuccess();
                 return;
               }
             }
@@ -393,7 +404,7 @@ const LoginPage = () => {
             const data = await res.json();
             if (data.logged_in && data.wallet_address?.toLowerCase() === currentAccount.address.toLowerCase()) {
               setBackendLoginStatus(`Backend session active.`);
-              navigate('/dashboard', { replace: true });
+              handleAuthSuccess();
               return;
             } else {
               sessionStorage.removeItem(`backend_linked_${currentAccount.address}`);
@@ -412,7 +423,7 @@ const LoginPage = () => {
     } else if (!account && !isConnecting) {
       setBackendLoginStatus("Awaiting wallet connection...");
     }
-  }, [account, activeWallet, isBackendLoading, isConnecting, linkWalletToBackend, navigate]);
+  }, [account, activeWallet, isBackendLoading, isConnecting, linkWalletToBackend, handleAuthSuccess]);
 
   // --- User Details Form Submission Handler ---
 
@@ -440,11 +451,21 @@ const LoginPage = () => {
 
           if (data.logged_in) {
             if (nextParam && nextParam.startsWith('/')) {
-              navigate(decodeURIComponent(nextParam), { replace: true });
+              if (account) {
+                navigate(decodeURIComponent(nextParam), { replace: true });
+              } else {
+                console.log("Session valid, waiting for wallet to connect before redirecting to nextParam.");
+              }
             } else {
-              navigate('/dashboard', { replace: true });
+              if (account) {
+                handleAuthSuccess();
+              } else {
+                console.log("Session valid, waiting for wallet to connect before redirecting.");
+                setBackendLoginStatus("Welcome back! Please establish wallet connection.");
+              }
             }
-            return;
+            // Do not return here if we didn't redirect; let the rest of the component render
+            if (account) return;
           } else {
             setUiState("idle");
           }
@@ -457,7 +478,7 @@ const LoginPage = () => {
     };
 
     checkSession();
-  }, [account, navigate]);
+  }, [account, navigate, handleAuthSuccess]);
 
 
   if (!checkedSession) {
@@ -468,6 +489,15 @@ const LoginPage = () => {
     );
   }
 
+  // Disconnect handler
+  const { disconnect } = useDisconnect();
+  const handleDisconnect = () => {
+    if (activeWallet) {
+      disconnect(activeWallet);
+    }
+    sessionStorage.removeItem(`backend_linked_${account?.address}`);
+  };
+
   return (
     <div className="min-h-screen bg-black">
       <Container>
@@ -475,7 +505,7 @@ const LoginPage = () => {
           <Card variant="premium" className="w-full max-w-md mx-4">
             <CardHeader className="text-center">
               <Heading level={2} className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
-                {account ? "PROFILE" : "LOG IN / REGISTER"}
+                {account ? "WELCOME BACK" : "LOG IN / REGISTER"}
               </Heading>
             </CardHeader>
 
@@ -582,7 +612,6 @@ const LoginPage = () => {
                 </div>
               )}
 
-              {/* --- Connected State & Details Form --- */}
               {showUserDetailsForm && (
                 <div className="space-y-6 animate-fadeIn">
                   {account && (
@@ -593,6 +622,11 @@ const LoginPage = () => {
                           {backendLoginStatus}
                         </div>
                       )}
+
+                      <div className="text-center">
+                        <LoadingSpinner />
+                        <Text className="mt-2 text-gray-400">Redirecting to Dashboard...</Text>
+                      </div>
                     </div>
                   )}
                 </div>

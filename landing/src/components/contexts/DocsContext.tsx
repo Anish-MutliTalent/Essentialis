@@ -1,5 +1,6 @@
 // src/context/DocsContext.tsx
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { useActiveAccount } from "thirdweb/react";
 
 export interface DocItem {
   token_id: string;
@@ -29,11 +30,8 @@ interface DocsContextType {
 const DocsContext = createContext<DocsContextType | undefined>(undefined);
 
 export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const account = useActiveAccount(); // Get active wallet/account
   const [docs, setDocs] = useState<DocItem[]>(() => {
-    // Initialize with cache if available to prevent flash? 
-    // Actually we prefer waiting for ID check to be sure we show correct state,
-    // but we could load initial for optimistic view.
-    // Let's stick to "Fetch IDs first" as truth, then merge.
     return [];
   });
   const [loading, setLoading] = useState(true);
@@ -47,11 +45,6 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Restore persistence logic
   useEffect(() => {
     try {
-      // Only save if we have legitimate docs and not in initial loading state
-      // We might want to save even if some are loading? No, only save fully loaded ones?
-      // Actually, if we save items with isLoading=true, they will be broken on reload.
-      // So we filter out loading items? Or just save everything and handle isLoading on restore?
-      // Better to save only fully loaded items to cache.
       if (docs.length > 0) {
         const docsToSave = docs.filter(d => !d.isLoading);
         if (docsToSave.length > 0) {
@@ -88,6 +81,15 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const _fetchDocs = useCallback(async () => {
+    // If no account, don't fetch. Clear docs if needed?
+    if (!account) {
+      // Optionally clear docs or keep them? 
+      // If we logged out, we should probably clear.
+      setDocs([]);
+      setLoading(false);
+      return;
+    }
+
     currentFetchId.current += 1;
     const myRunId = currentFetchId.current;
 
@@ -102,6 +104,12 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const res = await fetch(endpoint, { credentials: "include" });
       if (myRunId !== currentFetchId.current) return;
+
+      if (res.status === 401) {
+        // Session expired or invalid on backend, but wallet connected on frontend.
+        // We can't fetch.
+        throw new Error("Unauthorized: Please sign in again.");
+      }
 
       if (!res.ok) throw new Error(`Failed to fetch IDs: ${res.status}`);
 
@@ -213,9 +221,9 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(err?.message ?? String(err));
       setLoading(false);
     }
-  }, []);
+  }, [account]); // Depend on account
 
-  // fetch on mount
+  // fetch on mount or account change
   useEffect(() => {
     _fetchDocs();
   }, [_fetchDocs]);

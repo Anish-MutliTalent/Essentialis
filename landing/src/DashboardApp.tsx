@@ -1,8 +1,6 @@
 import React, { Suspense, lazy, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { ThirdwebProvider, useActiveAccount, AutoConnect } from 'thirdweb/react';
-import { createWallet, inAppWallet } from 'thirdweb/wallets';
-import { client } from './lib/thirdweb';
+import { useActiveAccount } from 'thirdweb/react';
 import { DocsProvider } from "./components/contexts/DocsContext";
 
 // Static Imports for Instant Load
@@ -12,7 +10,6 @@ import DashboardHome from './components/UI/dashboard/content/DashboardHome';
 
 // Keep heavy sub-pages lazy
 const MyDocs = lazy(() => import('./components/UI/dashboard/content/MyDocs'));
-// const Settings = lazy(() => import('./components/UI/dashboard/content/Settings'));
 import Settings from './components/UI/dashboard/content/Settings'; // Make Settings eager too for smoothness
 const CompleteProfileForm = lazy(() => import('./components/UI/dashboard/content/CompleteProfileForm'));
 const MintDocPage = lazy(() => import('./components/UI/dashboard/content/MintDocPage'));
@@ -22,22 +19,18 @@ const DocHistory = lazy(() => import('./components/UI/dashboard/content/DocHisto
 const AdminPanelPage = lazy(() => import('./pages/AdminPanelPage'));
 const AccessGuard = lazy(() => import('./components/AccessGuard'));
 
-// Wallets
-const wallets = [
-    inAppWallet({
-        auth: { options: ['email', 'google'] },
-    }),
-    createWallet('io.metamask'),
-];
-
 // Protected Route Inner
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     const account = useActiveAccount();
     const location = useLocation();
+
+    // Standard access guard logic
     if (!account) {
+        console.log("[ProtectedRoute] No account, redirecting...");
         const next = encodeURIComponent(location.pathname + location.search);
         return <Navigate to={`/login?next=${next}`} replace />;
     }
+    console.log("[ProtectedRoute] Account present, rendering children");
     return <>{children}</>;
 };
 
@@ -51,28 +44,60 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     return <>{children}</>;
 }
 
+// Fail-safe Catch-All that checks if we are actually at a valid route
+// that the Router failed to match due to nesting/splat issues.
+const RouteCatchAll = () => {
+    const location = useLocation();
+    useEffect(() => {
+        console.log("[DashboardApp] CatchAll hit for path:", location.pathname);
+    }, [location]);
+
+    if (location.pathname === '/login') {
+        return (
+            <Suspense fallback={null}>
+                <AccessGuard><LoginPage /></AccessGuard>
+            </Suspense>
+        );
+    }
+
+    // Prevent infinite redirect loop if we are already at dashboard root
+    if (location.pathname === '/dashboard' || location.pathname === '/dashboard/') {
+        return <div>404 - Dashboard Route Not Found (CatchAll)</div>;
+    }
+
+    return <Navigate to="/dashboard" replace />;
+};
+
 const DashboardApp = () => {
+    const location = useLocation();
+    const isLogin = location.pathname.startsWith('/login');
+
     return (
-        <ThirdwebProvider>
-            <DocsProvider>
-                <AutoConnect client={client} wallets={wallets} />
-                <DashboardLayout>
+        <DocsProvider>
+            <DashboardLayout>
+                {isLogin ? (
                     <Routes>
                         <Route
-                            path="/login"
+                            index
                             element={
-                                <Suspense fallback={null}>
+                                <Suspense fallback={<div className="flex items-center justify-center h-screen text-yellow-400">Loading Login...</div>}>
                                     <AccessGuard><LoginPage /></AccessGuard>
                                 </Suspense>
                             }
                         />
+                        <Route path="*" element={<Navigate to="/login" replace />} />
+                    </Routes>
+                ) : (
+                    <Routes>
                         <Route
-                            path="/dashboard"
+                            path="/"
                             element={
                                 <ProtectedRoute>
-                                    <Suspense fallback={null}>
-                                        <DashboardPage />
-                                    </Suspense>
+                                    <AccessGuard>
+                                        <Suspense fallback={<div className="flex items-center justify-center h-screen text-yellow-400">Loading Dashboard...</div>}>
+                                            <DashboardPage />
+                                        </Suspense>
+                                    </AccessGuard>
                                 </ProtectedRoute>
                             }
                         >
@@ -86,12 +111,12 @@ const DashboardApp = () => {
                             <Route path="my-docs/:tokenId/history" element={<DocHistory />} />
                             <Route path="admin" element={<AdminPanelPage />} />
                         </Route>
-                        {/* If we land here but path is /something-else, redirect to dashboard or login */}
-                        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                        {/* Catch-all relative to /dashboard */}
+                        <Route path="*" element={<RouteCatchAll />} />
                     </Routes>
-                </DashboardLayout>
-            </DocsProvider>
-        </ThirdwebProvider>
+                )}
+            </DashboardLayout>
+        </DocsProvider>
     );
 };
 

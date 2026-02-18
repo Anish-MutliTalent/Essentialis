@@ -182,7 +182,7 @@ const PortalScreen = ({ onEnter, onAppReady }: PortalScreenProps) => {
                             src="/essentialis.svg"
                             alt="Essentialis Logo"
                             className="w-48 h-48 md:w-64 md:h-64 relative z-10 drop-shadow-[0_0_45px_rgba(234,179,8,0.4)] transition-transform duration-700 group-hover:scale-105"
-                            fetchPriority="high"
+                            fetchpriority="high"
                         />
 
                         <motion.div

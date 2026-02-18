@@ -30,6 +30,7 @@ const AccessGatePage: React.FC = () => {
             if (data.allowed) {
                 // User allowed -> Proceed to Login
                 sessionStorage.setItem('access_granted', 'true');
+                sessionStorage.setItem('just_passed_gate', 'true');
                 navigate('/login', { state: { email } });
             } else {
                 // User denied -> Redirect to Waitlist
@@ -51,7 +52,7 @@ const AccessGatePage: React.FC = () => {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-black text-white p-4 pt-24">
-            <div className="absolute inset-0 bg-[url('https://essentialis.cloud/favicon-96x96.png')] bg-center bg-no-repeat opacity-5 blur-3xl pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-radial from-yellow-500/5 to-transparent blur-3xl pointer-events-none" />
 
             <div className="w-full max-w-md relative z-10">
                 <Card variant="premium" className="backdrop-blur-xl bg-black/60 border-gray-800">

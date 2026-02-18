@@ -20,8 +20,6 @@
     "@react-three/fiber": "^8.17.14",
     "@react-three/postprocessing": "^2.19.1",
     "@studio-freight/lenis": "^1.0.0",
-    "@supabase/supabase-js": "^2.52.0",
-    "@thirdweb-dev/sdk": "^4.0.99",
     "@types/jquery": "^3.5.33",
     "@types/three": "^0.174.0",
     "axios": "^1.9.0",

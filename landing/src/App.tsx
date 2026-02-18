@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import PortalScreen from './components/PortalScreen';
+import ErrorBoundary from './components/ErrorBoundary';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 
 // Fast loading component for the transition
@@ -17,18 +18,25 @@ const FastLoader = () => (
 // We need manual types for the dynamic imports to work cleanly with variables, 
 // but since we are just doing import(), it returns a Promise.
 
+// Static Imports
+import DashboardApp from './DashboardApp';
+
 // Separate Lazies
 const LandingApp = lazy(() => import('./LandingApp'));
-const DashboardApp = lazy(() => import('./DashboardApp'));
+// const DashboardApp = lazy(() => import('./DashboardApp')); // User requested eager load
 
 // Inner Component to use useLocation
 function AppContent() {
   const location = useLocation();
-  const [hasEntered, setHasEntered] = useState(false);
-  const [appReady, setAppReady] = useState(false);
 
   // Determines which app *should* be active based on URL
   const isDashboard = location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/login');
+
+  // Skip Portal if we are already in the Dashboard/Login flow
+  const [hasEntered, setHasEntered] = useState(isDashboard);
+  const [appReady, setAppReady] = useState(false);
+
+  // Preload logic (mostly for LandingApp now since Dashboard is static)
   const targetBundle = isDashboard ? 'dashboard' : 'landing';
 
   useEffect(() => {
@@ -37,7 +45,8 @@ function AppContent() {
     if (targetBundle === 'landing') {
       preloadPromise = import('./LandingApp');
     } else {
-      preloadPromise = import('./DashboardApp');
+      // Dashboard is already loaded statically, but we can simulate readiness
+      preloadPromise = Promise.resolve();
     }
 
     preloadPromise
@@ -67,8 +76,8 @@ function AppContent() {
         <Suspense fallback={<FastLoader />}>
           <Routes>
             {/* Define explicit routes for Dashboard App */}
-            <Route path="/login" element={<DashboardApp />} />
-            <Route path="/dashboard/*" element={<DashboardApp />} />
+            <Route path="/login/*" element={<ErrorBoundary name="DashboardApp-Login"><DashboardApp /></ErrorBoundary>} />
+            <Route path="/dashboard/*" element={<ErrorBoundary name="DashboardApp-Dashboard"><DashboardApp /></ErrorBoundary>} />
 
             {/* Catch-all for Landing App */}
             <Route path="*" element={<LandingApp />} />
@@ -81,7 +90,7 @@ function AppContent() {
 
 function App() {
   return (
-    <Router future={{ v7_relativeSplatPath: true }}>
+    <Router future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
       <AppContent />
     </Router>
   );
