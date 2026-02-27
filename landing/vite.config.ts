@@ -18,9 +18,10 @@ export default defineConfig({
       name: 'configure-specific-headers',
       configureServer(server) {
         server.middlewares.use((req, res, next) => {
-          // Apply headers to everything EXCEPT public auth routes
+          // STRICTER ALLOW-LIST: Only apply COOP/COEP to "My Docs" and Viewer routes.
+          // This keeps standard Dashboard pages and Login pages loose/compatible.
           const url = req.url || '';
-          if (!url.includes('/login') && !url.includes('/access') && !url.includes('/ref')) {
+          if (url.includes('/my-docs') || url.includes('/zetajs') || url.includes('/zetaoffice') || url.includes('/pdf.worker')) {
             res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
             res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
           }
@@ -30,7 +31,7 @@ export default defineConfig({
       configurePreviewServer(server) {
         server.middlewares.use((req, res, next) => {
           const url = req.url || '';
-          if (!url.includes('/login') && !url.includes('/access') && !url.includes('/ref')) {
+          if (url.includes('/my-docs') || url.includes('/zetajs') || url.includes('/zetaoffice') || url.includes('/pdf.worker')) {
             res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
             res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
           }

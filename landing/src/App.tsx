@@ -1,4 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
+import { AutoConnect } from 'thirdweb/react';
+import { inAppWallet, createWallet } from 'thirdweb/wallets';
+import { client } from './lib/thirdweb';
 import { AnimatePresence } from 'framer-motion';
 import PortalScreen from './components/PortalScreen';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -23,6 +26,7 @@ import DashboardApp from './DashboardApp';
 
 // Separate Lazies
 const LandingApp = lazy(() => import('./LandingApp'));
+const DevApp = lazy(() => import('./DevApp'));
 // const DashboardApp = lazy(() => import('./DashboardApp')); // User requested eager load
 
 // Inner Component to use useLocation
@@ -31,9 +35,10 @@ function AppContent() {
 
   // Determines which app *should* be active based on URL
   const isDashboard = location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/login');
+  const isDev = location.pathname.startsWith('/dev');
 
   // Skip Portal if we are already in the Dashboard/Login flow
-  const [hasEntered, setHasEntered] = useState(isDashboard);
+  const [hasEntered, setHasEntered] = useState(isDashboard || isDev);
   const [appReady, setAppReady] = useState(false);
 
   // Preload logic (mostly for LandingApp now since Dashboard is static)
@@ -72,12 +77,29 @@ function AppContent() {
         )}
       </AnimatePresence>
 
+      {/* AutoConnect handles restoring inAppWallet sessions after hard reloads (like when navigating to MyDocs) */}
+      <AutoConnect
+        client={client}
+        wallets={[
+          inAppWallet({
+            executionMode: {
+              mode: 'EIP7702',
+              sponsorGas: true,
+            },
+            auth: { options: ['email', 'google'] },
+          }),
+          createWallet('io.metamask'),
+        ]}
+      />
+
       {hasEntered && (
         <Suspense fallback={<FastLoader />}>
           <Routes>
             {/* Define explicit routes for Dashboard App */}
             <Route path="/login/*" element={<ErrorBoundary name="DashboardApp-Login"><DashboardApp /></ErrorBoundary>} />
             <Route path="/dashboard/*" element={<ErrorBoundary name="DashboardApp-Dashboard"><DashboardApp /></ErrorBoundary>} />
+            <Route path="/dev/*" element={<ErrorBoundary name="DevApp"><DevApp /></ErrorBoundary>} />
+
 
             {/* Catch-all for Landing App */}
             <Route path="*" element={<LandingApp />} />

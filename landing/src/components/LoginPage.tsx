@@ -167,6 +167,9 @@ const LoginPage = () => {
   const [uiState, setUiState] = useState<'idle' | 'email_otp' | 'connecting' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Disconnect handler
+  const { disconnect } = useDisconnect();
+
   // Input states
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
@@ -201,6 +204,36 @@ const LoginPage = () => {
       setUiState('idle');
     }
   }, [isConnecting, connectionError, account, uiState]);
+
+  // --- COOP/COEP Context Switch ---
+  // If we arrived here from a cross-origin-isolated page (My Docs), the strict
+  // headers are still active, which blocks OAuth popups. Force a hard reload
+  // so the server can send this page WITHOUT those headers.
+  useEffect(() => {
+    // Also clean up any stale coi-serviceworker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (const registration of registrations) {
+          console.log("🧹 LoginPage: Unregistering Service Worker:", registration);
+          registration.unregister();
+        }
+      });
+    }
+
+    if (window.crossOriginIsolated) {
+      const alreadyTried = sessionStorage.getItem('login_coi_reload');
+      if (!alreadyTried) {
+        sessionStorage.setItem('login_coi_reload', '1');
+        console.log("LoginPage: Hard-reloading to DISABLE strict COOP/COEP for OAuth...");
+        window.location.reload();
+      } else {
+        console.warn("LoginPage: Still cross-origin isolated after reload.");
+        sessionStorage.removeItem('login_coi_reload');
+      }
+    } else {
+      sessionStorage.removeItem('login_coi_reload');
+    }
+  }, []);
 
   // --- Wallet Connection Handlers ---
   const handleEmailLogin = useCallback(async () => {
@@ -347,14 +380,11 @@ const LoginPage = () => {
 
   // --- Helper to handle redirect or manual continuation ---
   const handleAuthSuccess = useCallback(() => {
-    // User requested "directly go to dashboard", so we skip the "passedGate" check
-    // and just redirect immediately.
-    console.log("handleAuthSuccess: auto-redirect (hard reload) to dashboard");
-    // We MUST use a hard reload (window.location.href) instead of client-side navigate()
-    // because we need the server to send new Headers (COOP/COEP) that are only sent
-    // for /dashboard routes. Client-side routing keeps the original /login headers (which are loose).
-    window.location.href = '/dashboard';
-  }, []);
+    console.log("handleAuthSuccess: navigating to dashboard (client-side)");
+    // Use client-side navigation to preserve wallet state.
+    // COOP/COEP headers are only needed for /my-docs (PPT viewer), not /dashboard.
+    navigate('/dashboard', { replace: true });
+  }, [navigate]);
 
   // --- Effect to Link Wallet & Fetch Details ---
   useEffect(() => {
@@ -490,7 +520,6 @@ const LoginPage = () => {
   }
 
   // Disconnect handler
-  const { disconnect } = useDisconnect();
   const handleDisconnect = () => {
     if (activeWallet) {
       disconnect(activeWallet);

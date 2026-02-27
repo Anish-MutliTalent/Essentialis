@@ -1397,7 +1397,6 @@ const PptViewer: React.FC<{ fileUrl: string, containerClassName?: string }> = ({
       </div>
     );
   }
-
   return (
     <div
       ref={containerRef}

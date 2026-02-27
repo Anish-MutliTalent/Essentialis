@@ -1,6 +1,6 @@
-import React, { Suspense, lazy, useEffect } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useActiveAccount } from 'thirdweb/react';
+import { useActiveAccount, useIsAutoConnecting } from 'thirdweb/react';
 import { DocsProvider } from "./components/contexts/DocsContext";
 
 // Static Imports for Instant Load
@@ -22,11 +22,31 @@ const AccessGuard = lazy(() => import('./components/AccessGuard'));
 // Protected Route Inner
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     const account = useActiveAccount();
+    const isAutoConnecting = useIsAutoConnecting();
     const location = useLocation();
+    const [isInitializing, setIsInitializing] = useState(!account);
+
+    // Give thirdweb auto-connect a moment to start on fresh page loads.
+    // Without this, useIsAutoConnecting() returns false on the very first render
+    // (before the auto-connect process even begins), causing an immediate
+    // redirect to /login after any hard reload.
+    useEffect(() => {
+        if (account) {
+            setIsInitializing(false);
+            return;
+        }
+        const timer = setTimeout(() => setIsInitializing(false), 800);
+        return () => clearTimeout(timer);
+    }, [account]);
+
+    // Wait for initialization + auto-connect to finish before making a decision
+    if (!account && (isInitializing || isAutoConnecting)) {
+        return <div className="flex items-center justify-center h-screen text-yellow-400">Connecting Wallet...</div>;
+    }
 
     // Standard access guard logic
     if (!account) {
-        console.log("[ProtectedRoute] No account, redirecting...");
+        console.log("[ProtectedRoute] No account & not auto-connecting, redirecting...");
         const next = encodeURIComponent(location.pathname + location.search);
         return <Navigate to={`/login?next=${next}`} replace />;
     }

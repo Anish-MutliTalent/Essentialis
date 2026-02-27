@@ -67,10 +67,32 @@ const parseSize = (sizeStr: string): number => {
 }
 
 const MyDocs: React.FC = () => {
+  // --- COOP/COEP Context Switch ---
+  // The PPT viewer requires SharedArrayBuffer, which needs the top-level document
+  // to be loaded with COOP: same-origin + COEP: require-corp headers.
+  // If we arrived here via client-side nav (from /login or /dashboard), the document
+  // was loaded WITHOUT those headers. Force a hard reload so the server can send them.
+  useEffect(() => {
+    if (!window.crossOriginIsolated) {
+      const alreadyTried = sessionStorage.getItem('mydocs_coi_reload');
+      if (!alreadyTried) {
+        sessionStorage.setItem('mydocs_coi_reload', '1');
+        console.log("MyDocs: Hard-reloading to enable COOP/COEP for SharedArrayBuffer...");
+        window.location.reload();
+      } else {
+        // Already tried once — don't loop. Clear the flag for next time.
+        console.warn("MyDocs: COOP/COEP still not active after reload. PPT viewer may not work.");
+        sessionStorage.removeItem('mydocs_coi_reload');
+      }
+    } else {
+      // Successfully isolated — clear the flag
+      sessionStorage.removeItem('mydocs_coi_reload');
+    }
+  }, []);
+
   const { docs, fetchDocs, loading, totalDocsCount } = useDocs();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortOption, setSortOption] = useState<string>('date-desc');
-
   // Check if *all* displayed docs have finished loading their details
   // We use this to enable/disable sorting.
   // Note: if docs array is empty but we expect docs (loading=false, total>0), we count as not ready.

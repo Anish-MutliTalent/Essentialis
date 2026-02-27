@@ -25,8 +25,8 @@ const API_BASE_URL = '/api';
  */
 async function clearAllClientData(): Promise<void> {
   // Storage
-  try { sessionStorage.clear(); } catch(e) { console.warn('sessionStorage.clear failed', e); }
-  try { localStorage.clear(); } catch(e) { console.warn('localStorage.clear failed', e); }
+  try { sessionStorage.clear(); } catch (e) { console.warn('sessionStorage.clear failed', e); }
+  try { localStorage.clear(); } catch (e) { console.warn('localStorage.clear failed', e); }
 
   // Cookies: iterate and expire each one. Note: httpOnly cookies cannot be removed from JS.
   try {
@@ -38,7 +38,7 @@ async function clearAllClientData(): Promise<void> {
       document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;SameSite=None;Secure`;
       document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
     }
-  } catch(e) { console.warn('clearing cookies failed', e); }
+  } catch (e) { console.warn('clearing cookies failed', e); }
 
   // Cache Storage
   try {
@@ -46,7 +46,7 @@ async function clearAllClientData(): Promise<void> {
       const keys = await caches.keys();
       await Promise.all(keys.map(k => caches.delete(k)));
     }
-  } catch(e) { console.warn('clearing caches failed', e); }
+  } catch (e) { console.warn('clearing caches failed', e); }
 
   // IndexedDB: use indexedDB.databases() if available (modern browsers). Fallback: attempt to delete a few common DB names.
   try {
@@ -61,7 +61,7 @@ async function clearAllClientData(): Promise<void> {
         await Promise.all(likely.map(n => indexedDB.deleteDatabase(n)));
       }
     }
-  } catch(e) { console.warn('clearing indexedDB failed', e); }
+  } catch (e) { console.warn('clearing indexedDB failed', e); }
 
   // Service workers
   try {
@@ -69,10 +69,10 @@ async function clearAllClientData(): Promise<void> {
       const regs = await navigator.serviceWorker.getRegistrations();
       await Promise.all(regs.map(r => r.unregister()));
     }
-  } catch(e) { console.warn('unregistering service workers failed', e); }
+  } catch (e) { console.warn('unregistering service workers failed', e); }
 
   // Final: reload to ensure in-memory state is reset
-  try { window.location.reload(); } catch(e) { console.warn('reload failed', e); }
+  try { window.location.reload(); } catch (e) { console.warn('reload failed', e); }
 }
 
 const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ isOpen, onClose, profileData }) => {
@@ -82,103 +82,102 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ isOpen, onClose, profil
     <>
       {/* Mobile Overlay */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
           onClick={onClose}
         />
       )}
-      
-      <aside className={`fixed top-0 right-0 h-full w-full sm:w-80 bg-gray-900/95 sm:bg-gray-900/80 backdrop-blur-professional shadow-2xl transform transition-transform duration-300 ease-in-out z-50 overflow-y-auto border-l border-gray-800 ${
-        isOpen ? 'translate-x-0' : 'translate-x-full'
-      }`}>
-      <div className="p-4 sm:p-6">
-        <div className="flex justify-between items-center mb-6 sm:mb-8">
-          <Heading level={3} className="gradient-gold-text text-lg sm:text-xl">Profile Details</Heading>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-yellow-400 transition-colors-smooth focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 focus:ring-offset-gray-900 rounded-lg p-1"
-            aria-label="Close profile sidebar"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
 
-        {profileData ? (
-          <div className="space-y-6">
-             <div className="flex justify-center mb-6">
-                  <div className="relative">
-                    <JazziconAvatar
-                      wallet={profileData.wallet_address}
-                      size={64}
-                      alt="Profile"
-                      className="w-24 h-24 rounded-full border-4 border-yellow-400/50 object-cover shadow-gold"
-                    />
-                    <div className="absolute -bottom-2 -right-2 w-6 h-6 bg-green-500 rounded-full border-2 border-gray-900"></div>
+      <aside className={`fixed top-0 right-0 h-full w-full sm:w-80 bg-gray-900/95 sm:bg-gray-900/80 backdrop-blur-professional shadow-2xl transform transition-transform duration-300 ease-in-out z-50 overflow-y-auto border-l border-gray-800 ${isOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}>
+        <div className="p-4 sm:p-6">
+          <div className="flex justify-between items-center mb-6 sm:mb-8">
+            <Heading level={3} className="gradient-gold-text text-lg sm:text-xl">Profile Details</Heading>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-yellow-400 transition-colors-smooth focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 focus:ring-offset-gray-900 rounded-lg p-1"
+              aria-label="Close profile sidebar"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {profileData ? (
+            <div className="space-y-6">
+              <div className="flex justify-center mb-6">
+                <div className="relative">
+                  <JazziconAvatar
+                    wallet={profileData.wallet_address}
+                    size={64}
+                    alt="Profile"
+                    className="w-24 h-24 rounded-full border-4 border-yellow-400/50 object-cover shadow-gold"
+                  />
+                  <div className="absolute -bottom-2 -right-2 w-6 h-6 bg-green-500 rounded-full border-2 border-gray-900"></div>
+                </div>
+              </div>
+
+              <Card variant="professional" className="space-y-4">
+                <CardContent className="space-y-4">
+                  <div>
+                    <Text variant="small" color="muted">Name</Text>
+                    <Text className="text-lg font-medium">{profileData.name || 'Not Set'}</Text>
                   </div>
-             </div>
 
-             <Card variant="professional" className="space-y-4">
-               <CardContent className="space-y-4">
-                 <div>
-                   <Text variant="small" color="muted">Name</Text>
-                   <Text className="text-lg font-medium">{profileData.name || 'Not Set'}</Text>
-                 </div>
-                 
-                 <div>
-                   <Text variant="small" color="muted">Email</Text>
-                   <Text className="text-lg font-medium">{profileData.email || 'Not Set'}</Text>
-                 </div>
-                 
-                 <div>
-                   <Text variant="small" color="muted">Wallet Address</Text>
-                   <Text className="text-sm break-all font-mono bg-gray-800/50 p-2 rounded border border-gray-700">
-                     {profileData.wallet_address}
-                   </Text>
-                 </div>
-                 
-                 <div>
-                   <Text variant="small" color="muted">Age</Text>
-                   <Text className="text-lg font-medium">{profileData.age || 'Not Set'}</Text>
-                 </div>
-                 
-                 <div>
-                   <Text variant="small" color="muted">Gender</Text>
-                   <Text className="text-lg font-medium capitalize">{profileData.gender || 'Not Set'}</Text>
-                 </div>
-               </CardContent>
-             </Card>
+                  <div>
+                    <Text variant="small" color="muted">Email</Text>
+                    <Text className="text-lg font-medium">{profileData.email || 'Not Set'}</Text>
+                  </div>
 
-             {/* Disconnect/Logout Button */}
-       <Button
-         onClick={async () => {
-           if (activeWallet) {
-             await activeWallet.disconnect();
-           }
-           try {
-            await fetch(`${API_BASE_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
-           } catch(e){ console.error("Backend logout failed", e)}
+                  <div>
+                    <Text variant="small" color="muted">Wallet Address</Text>
+                    <Text className="text-sm break-all font-mono bg-gray-800/50 p-2 rounded border border-gray-700">
+                      {profileData.wallet_address}
+                    </Text>
+                  </div>
 
-           // clear everything we can on the client and reload
-           await clearAllClientData();
-         }}
-         variant="secondary"
-         className="w-full border-red-500/50 text-red-400 hover:border-red-400 hover:bg-red-500/10"
-         >
-         Disconnect Wallet
-         </Button>
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <div className="animate-pulse-gold">
-              <div className="w-16 h-16 bg-yellow-400/20 rounded-full mx-auto mb-4"></div>
+                  <div>
+                    <Text variant="small" color="muted">Age</Text>
+                    <Text className="text-lg font-medium">{profileData.age || 'Not Set'}</Text>
+                  </div>
+
+                  <div>
+                    <Text variant="small" color="muted">Gender</Text>
+                    <Text className="text-lg font-medium capitalize">{profileData.gender || 'Not Set'}</Text>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Disconnect/Logout Button */}
+              <Button
+                onClick={async () => {
+                  if (activeWallet) {
+                    await activeWallet.disconnect();
+                  }
+                  try {
+                    await fetch(`${API_BASE_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
+                  } catch (e) { console.error("Backend logout failed", e) }
+
+                  // clear everything we can on the client and reload
+                  await clearAllClientData();
+                }}
+                variant="secondary"
+                className="w-full border-red-500/50 text-red-400 hover:border-red-400 hover:bg-red-500/10"
+              >
+                Disconnect Wallet
+              </Button>
             </div>
-            <Text color="muted">Loading profile...</Text>
-          </div>
-        )}
-      </div>
-    </aside>
+          ) : (
+            <div className="text-center py-12">
+              <div className="animate-pulse-gold">
+                <div className="w-16 h-16 bg-yellow-400/20 rounded-full mx-auto mb-4"></div>
+              </div>
+              <Text color="muted">Loading profile...</Text>
+            </div>
+          )}
+        </div>
+      </aside>
     </>
   );
 };

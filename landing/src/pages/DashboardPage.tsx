@@ -1,5 +1,5 @@
 // src/pages/DashboardPage.tsx
-import { useState, useEffect, useCallback, createContext, useContext } from 'react';
+import { useState, useEffect, useCallback, createContext, useContext, Suspense } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import LeftSidebar from '../components/UI/dashboard/LeftSidebar';
 import ProfileSidebar from '../components/UI/dashboard/ProfileSidebar';
@@ -87,11 +87,17 @@ const DashboardPage = () => {
     } finally {
       setIsLoadingInitial(false);
     }
-  }, [account, navigate]);
+  }, [account?.address, navigate]);
 
   useEffect(() => {
+    console.log("DashboardPage: effect running, fetchUserProfile changing?");
     fetchUserProfile();
   }, [fetchUserProfile]);
+
+  useEffect(() => {
+    console.log("DashboardPage: MOUNTED");
+    return () => console.log("DashboardPage: UNMOUNTED");
+  }, []);
 
   const toggleProfileSidebar = () => setIsProfileSidebarOpen(!isProfileSidebarOpen);
   const toggleLeftSidebar = () => setIsLeftSidebarOpen(!isLeftSidebarOpen);
@@ -103,6 +109,7 @@ const DashboardPage = () => {
 
   // --- Only block rendering on very first load ---
   if (isLoadingInitial) {
+    console.log("DashboardPage: rendering loading screen...");
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-black text-white">
         <div className="flex flex-col items-center space-y-6 text-center">
@@ -193,8 +200,17 @@ const DashboardPage = () => {
           </header>
 
           {/* Content Outlet */}
-          <div className="flex-grow overflow-y-auto p-4 sm:p-6 lg:p-8">
-            <Outlet />
+          <div className="flex-grow overflow-y-auto p-4 sm:p-6 lg:p-8 relative">
+            <Suspense fallback={
+              <div className="flex h-full w-full items-center justify-center">
+                <div className="flex flex-col items-center space-y-4">
+                  <LoadingSpinner size="md" color="gold" />
+                  <Text color="muted">Loading page...</Text>
+                </div>
+              </div>
+            }>
+              <Outlet />
+            </Suspense>
           </div>
         </main>
 
