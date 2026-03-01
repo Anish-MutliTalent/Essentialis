@@ -14,3 +14,5 @@ itsdangerous
 gunicorn
 eth-account
 erc6492-signature-verifier
+py-solc-x
+eth-tester[py-evm]

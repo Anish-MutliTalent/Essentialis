@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Heading, Text, Button, Input, LoadingSpinner } from '../components/UI';
-import { FaUserPlus, FaTicketAlt, FaCheck, FaExclamationTriangle, FaSync } from 'react-icons/fa';
+import { FaUserPlus, FaTicketAlt, FaCheck, FaExclamationTriangle, FaSync, FaShareAlt } from 'react-icons/fa';
 
 interface ReferralCode {
     id: number;
@@ -18,10 +18,22 @@ interface WaitlistEntry {
     created_at: string;
 }
 
+interface UserReferralEntry {
+    id: number;
+    user_email?: string;
+    user_wallet?: string;
+    referral_code: string;
+    landing_count: number;
+    waitlist_count: number;
+    signup_list: string[];
+    created_at: string | null;
+}
+
 const AdminPanelPage: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'waitlist' | 'referrals'>('waitlist');
+    const [activeTab, setActiveTab] = useState<'waitlist' | 'referrals' | 'user-referrals'>('waitlist');
     const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
     const [referrals, setReferrals] = useState<ReferralCode[]>([]);
+    const [userReferrals, setUserReferrals] = useState<UserReferralEntry[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [newCodeDays, setNewCodeDays] = useState(7);
     const [newCodeUses, setNewCodeUses] = useState(1);
@@ -96,14 +108,27 @@ const AdminPanelPage: React.FC = () => {
 
     useEffect(() => {
         if (activeTab === 'waitlist') fetchWaitlist();
-        else fetchReferrals();
+        else if (activeTab === 'referrals') fetchReferrals();
+        else if (activeTab === 'user-referrals') fetchUserReferrals();
     }, [activeTab]);
+
+    const fetchUserReferrals = async () => {
+        setIsLoading(true);
+        try {
+            const res = await fetch('/api/admin/user-referrals');
+            if (res.ok) setUserReferrals(await res.json());
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <Heading level={2} className="text-yellow-400">Admin Portal</Heading>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                     <Button
                         variant={activeTab === 'waitlist' ? 'primary' : 'secondary'}
                         onClick={() => setActiveTab('waitlist')}
@@ -117,6 +142,13 @@ const AdminPanelPage: React.FC = () => {
                         size="sm"
                     >
                         <FaTicketAlt className="mr-2" /> Referrals
+                    </Button>
+                    <Button
+                        variant={activeTab === 'user-referrals' ? 'primary' : 'secondary'}
+                        onClick={() => setActiveTab('user-referrals')}
+                        size="sm"
+                    >
+                        <FaShareAlt className="mr-2" /> User Referrals
                     </Button>
                 </div>
             </div>
@@ -140,8 +172,8 @@ const AdminPanelPage: React.FC = () => {
                                         <div className="mb-3 md:mb-0">
                                             <div className="flex items-center gap-2">
                                                 <span className={`text-xs px-2 py-0.5 rounded capitalize ${entry.platform === 'linkedin' ? 'bg-blue-900 text-blue-200' :
-                                                        entry.platform === 'whatsapp' ? 'bg-green-900 text-green-200' :
-                                                            'bg-sky-900 text-sky-200'
+                                                    entry.platform === 'whatsapp' ? 'bg-green-900 text-green-200' :
+                                                        'bg-sky-900 text-sky-200'
                                                     }`}>
                                                     {entry.platform}
                                                 </span>
@@ -269,6 +301,63 @@ const AdminPanelPage: React.FC = () => {
                                 </table>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {activeTab === 'user-referrals' && (
+                    <div className="p-4 space-y-4">
+                        <div className="flex justify-between items-center mb-2">
+                            <Heading level={3}>User Referral Stats</Heading>
+                            <Button size="sm" variant="outline" onClick={fetchUserReferrals}>
+                                <FaSync className={isLoading ? "animate-spin" : ""} />
+                            </Button>
+                        </div>
+
+                        {userReferrals.length === 0 ? (
+                            <Text color="muted" className="text-center py-10">No user referrals yet.</Text>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm text-gray-400">
+                                    <thead className="bg-gray-800 text-gray-200 uppercase text-xs">
+                                        <tr>
+                                            <th className="px-4 py-2">User</th>
+                                            <th className="px-4 py-2">Code</th>
+                                            <th className="px-4 py-2">Landings</th>
+                                            <th className="px-4 py-2">Signups</th>
+                                            <th className="px-4 py-2">Referred Emails</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-800">
+                                        {userReferrals.map((entry) => (
+                                            <tr key={entry.id} className="hover:bg-gray-800/30">
+                                                <td className="px-4 py-3">
+                                                    <div className="text-white text-sm">{entry.user_email || 'N/A'}</div>
+                                                    {entry.user_wallet && (
+                                                        <div className="text-xs text-gray-500 font-mono truncate max-w-[150px]">
+                                                            {entry.user_wallet}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3 font-mono text-yellow-400">{entry.referral_code}</td>
+                                                <td className="px-4 py-3 text-center">{entry.landing_count}</td>
+                                                <td className="px-4 py-3 text-center">{entry.waitlist_count}</td>
+                                                <td className="px-4 py-3">
+                                                    {entry.signup_list.length === 0 ? (
+                                                        <span className="text-gray-500">—</span>
+                                                    ) : (
+                                                        <div className="space-y-1 max-h-20 overflow-y-auto">
+                                                            {entry.signup_list.map((email, i) => (
+                                                                <div key={i} className="text-xs text-gray-300">{email}</div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
                 )}
             </Card>

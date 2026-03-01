@@ -459,6 +459,14 @@ const NodeNetwork = () => {
 // ========== Main Homepage ==========
 const Homepage = memo(() => {
   const [latestMembers, setLatestMembers] = useState<string[]>([]);
+  const [waitlistHref, setWaitlistHref] = useState('/join-waitlist');
+
+  useEffect(() => {
+    const ref = sessionStorage.getItem('user_ref');
+    if (ref) {
+      setWaitlistHref(`/join-waitlist?ref=${encodeURIComponent(ref)}`);
+    }
+  }, []);
 
   useEffect(() => {
     fetch('/api/public/stats')
@@ -775,7 +783,7 @@ const Homepage = memo(() => {
                 Join thousands of users who trust Essentialis with their most critical data.
               </p>
               <MagneticButton
-                href="/join-waitlist"
+                href={waitlistHref}
                 className="shadow-2xl inline-flex"
                 icon={<ArrowRight className="w-4 h-4 ml-2" />}
               >

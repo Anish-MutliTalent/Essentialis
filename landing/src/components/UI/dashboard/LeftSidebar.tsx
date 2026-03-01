@@ -1,6 +1,6 @@
 // src/components/dashboard/LeftSidebar.tsx
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { Home, FileText, Settings, X, PlusCircle, Shield } from 'lucide-react';
+import { Home, FileText, Settings, X, PlusCircle, Shield, Share2 } from 'lucide-react';
 import { Button } from '../index';
 import { useDashboardContext } from '../../../pages/DashboardPage';
 
@@ -17,6 +17,7 @@ const LeftSidebar = ({ isOpen = true, onClose }: LeftSidebarProps) => {
   const navItems = [
     { path: '/dashboard', name: 'Home', exact: true, icon: Home },
     { path: '/dashboard/my-docs', name: 'My Docs', icon: FileText },
+    { path: '/dashboard/refer', name: 'Refer', icon: Share2 },
     { path: '/dashboard/settings', name: 'Settings', icon: Settings },
   ];
 

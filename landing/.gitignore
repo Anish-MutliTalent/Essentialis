@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Self-hosted Remix IDE static build (~150MB)
+public/remix/

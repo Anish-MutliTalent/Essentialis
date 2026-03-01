@@ -98,3 +98,12 @@ class ReferralCode(db.Model):
     max_uses = db.Column(db.Integer, default=1) # 1 for one-time, -1 for infinite
     used_count = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
+
+class UserReferral(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True, nullable=False)
+    referral_code = db.Column(db.String(50), unique=True, index=True, nullable=False)
+    landing_count = db.Column(db.Integer, default=0)       # visits to /?ref=code
+    waitlist_count = db.Column(db.Integer, default=0)       # waitlist signups via this ref
+    signup_list = db.Column(db.Text, default='[]')          # JSON array of email strings
+    created_at = db.Column(db.DateTime, default=datetime.now(UTC))

@@ -80,8 +80,10 @@ def create_app(config_class=Config):
 
     # Blueprints
     from .routes import bp as main_bp
+    from .deploy.routes import deploy_bp
     app.register_blueprint(main_bp)
     app.register_blueprint(faucet_bp, url_prefix='/faucet')
+    app.register_blueprint(deploy_bp, url_prefix='/deploy')
 
     # Create database tables if they don't exist
     with app.app_context():

@@ -22,6 +22,7 @@ const DocView = lazy(() => import('./components/UI/dashboard/content/DocView'));
 const EditDocPage = lazy(() => import('./components/UI/dashboard/content/EditDocPage'));
 const DocHistory = lazy(() => import('./components/UI/dashboard/content/DocHistory'));
 const AdminPanelPage = lazy(() => import('./pages/AdminPanelPage'));
+const ReferralsPage = lazy(() => import('./components/UI/dashboard/content/ReferralsPage'));
 
 // Access & Pages
 const AccessGatePage = lazy(() => import('./pages/AccessGatePage'));
@@ -210,6 +211,7 @@ function AppContent() {
                         <Route path="my-docs" element={<MyDocs />} />
                         <Route path="mint-doc" element={<MintDocPage />} />
                         <Route path="settings" element={<Settings />} />
+                        <Route path="refer" element={<ReferralsPage />} />
                         <Route path="complete-profile" element={<CompleteProfileForm />} />
                         <Route path="my-docs/:tokenId/view" element={<DocView />} />
                         <Route path="my-docs/:tokenId/edit" element={<EditDocPage />} />

@@ -33,6 +33,21 @@ function RootRedirectOrLanding() {
     const [checking, setChecking] = useState(true);
 
     useEffect(() => {
+        // Detect and persist user referral code from ?ref= query param
+        const params = new URLSearchParams(window.location.search);
+        const refCode = params.get('ref');
+        if (refCode) {
+            sessionStorage.setItem('user_ref', refCode);
+            // Fire landing track API (fire-and-forget)
+            fetch('/api/referral/track-landing', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ref: refCode }),
+            }).catch(() => { }); // silently ignore errors
+        }
+    }, []);
+
+    useEffect(() => {
         let mounted = true;
         (async () => {
             try {

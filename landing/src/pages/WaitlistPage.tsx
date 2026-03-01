@@ -42,6 +42,7 @@ const WaitlistPage: React.FC = () => {
         setStatus('idle');
 
         try {
+            const userRef = sessionStorage.getItem('user_ref');
             const response = await fetch('/api/access/join-waitlist', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -49,7 +50,8 @@ const WaitlistPage: React.FC = () => {
                     email: email || undefined,
                     contact_info: contactInfo,
                     platform,
-                    referrer // Include referrer
+                    referrer, // Include referrer
+                    user_ref: userRef || undefined, // Include user referral code
                 }),
             });
 

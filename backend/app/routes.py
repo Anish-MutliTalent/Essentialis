@@ -12,7 +12,7 @@ from itsdangerous import URLSafeTimedSerializer  # IMPORT URLSafeTimedSerializer
 # Import from your app modules using relative imports
 from . import auth, services, models, db, ipfs # Assuming db is also in app/__init__
 from .dbretry import safe_query_get
-from .models import User, ActionLog, AdminLoginToken, AllowedEmail, Waitlist, ReferralCode  # Explicitly import models used
+from .models import User, ActionLog, AdminLoginToken, AllowedEmail, Waitlist, ReferralCode, UserReferral  # Explicitly import models used
 from functools import wraps
 from datetime import datetime, UTC, timedelta
 import asyncio
@@ -911,6 +911,7 @@ def join_waitlist():
     email = data.get('email')
     contact_info = data.get('contact_info')
     platform = data.get('platform', 'email') # linkedin, whatsapp, telegram, email
+    user_ref = data.get('user_ref')  # User referral code (from /?ref= tracking)
 
     if not contact_info and not email:
         return jsonify({"error": "Contact info required"}), 400
@@ -929,6 +930,22 @@ def join_waitlist():
         platform=platform
     )
     db.session.add(new_entry)
+    
+    # Track user referral conversion
+    if user_ref:
+        ref = UserReferral.query.filter_by(referral_code=user_ref).first()
+        if ref:
+            ref.waitlist_count += 1
+            # Append email to signup_list
+            try:
+                signup_emails = json.loads(ref.signup_list or '[]')
+            except (json.JSONDecodeError, TypeError):
+                signup_emails = []
+            entry_email = email or final_contact
+            if entry_email and entry_email not in signup_emails:
+                signup_emails.append(entry_email)
+            ref.signup_list = json.dumps(signup_emails)
+    
     db.session.commit()
     
     return jsonify({"message": "Added to waitlist"}), 201
@@ -1057,3 +1074,79 @@ def generate_referral():
         "code": code_str, 
         "message": "Referral code generated"
     }), 201
+
+
+# --- User Referral Routes ---
+
+@bp.route('/user/referral', methods=['GET'])
+@login_required
+def get_user_referral():
+    user_id = session.get('user_id')
+    ref = UserReferral.query.filter_by(user_id=user_id).first()
+    
+    if not ref:
+        # Auto-create a referral entry for this user
+        code = secrets.token_urlsafe(8)
+        # Ensure uniqueness
+        while UserReferral.query.filter_by(referral_code=code).first():
+            code = secrets.token_urlsafe(8)
+        ref = UserReferral(user_id=user_id, referral_code=code)
+        db.session.add(ref)
+        db.session.commit()
+    
+    try:
+        signup_emails = json.loads(ref.signup_list or '[]')
+    except (json.JSONDecodeError, TypeError):
+        signup_emails = []
+    
+    return jsonify({
+        "referral_code": ref.referral_code,
+        "landing_count": ref.landing_count,
+        "waitlist_count": ref.waitlist_count,
+        "signup_list": signup_emails,
+        "created_at": ref.created_at.isoformat() if ref.created_at else None
+    }), 200
+
+
+@bp.route('/referral/track-landing', methods=['POST'])
+def track_referral_landing():
+    data = request.get_json()
+    ref_code = data.get('ref')
+    
+    if not ref_code:
+        return jsonify({"error": "Missing ref code"}), 400
+    
+    ref = UserReferral.query.filter_by(referral_code=ref_code).first()
+    if not ref:
+        return jsonify({"error": "Invalid ref code"}), 404
+    
+    ref.landing_count += 1
+    db.session.commit()
+    
+    return jsonify({"ok": True}), 200
+
+
+@bp.route('/admin/user-referrals', methods=['GET'])
+@admin_required
+def get_admin_user_referrals():
+    referrals = db.session.query(UserReferral, User).join(User, UserReferral.user_id == User.id).all()
+    
+    result = []
+    for ref, user in referrals:
+        try:
+            signup_emails = json.loads(ref.signup_list or '[]')
+        except (json.JSONDecodeError, TypeError):
+            signup_emails = []
+        
+        result.append({
+            "id": ref.id,
+            "user_email": user.email,
+            "user_wallet": user.wallet_address,
+            "referral_code": ref.referral_code,
+            "landing_count": ref.landing_count,
+            "waitlist_count": ref.waitlist_count,
+            "signup_list": signup_emails,
+            "created_at": ref.created_at.isoformat() if ref.created_at else None
+        })
+    
+    return jsonify(result), 200
