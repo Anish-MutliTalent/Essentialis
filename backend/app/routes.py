@@ -523,6 +523,121 @@ def prepare_list_tx():
     }), 200
 
 
+# --- Storage Sync Routes ---
+@bp.route('/user/workspace/sync', methods=['POST'])
+@login_required
+def sync_workspace_to_github():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    workspace_name = data.get('workspace_name')
+    files = data.get('files', [])
+
+    if not workspace_name or not files:
+        return jsonify({"error": "workspace_name and files are required"}), 400
+
+    github_pat = current_app.config.get('GITHUB_PAT')
+    target_repo = current_app.config.get('GITHUB_TARGET_REPO')
+
+    if not github_pat or not target_repo:
+        return jsonify({"error": "GitHub PAT or Target Repo not configured on backend"}), 503
+
+    headers = {
+        'Authorization': f'token {github_pat}',
+        'Accept': 'application/vnd.github.v3+json'
+    }
+
+    base_url = f'https://api.github.com/repos/{target_repo}'
+    branch = 'main' # Assuming default branch is main
+
+    try:
+        # Build the tree data for all files
+        tree_data = []
+        for file in files:
+            file_path = f"workspaces/{session.get('wallet_address', 'unknown')}/{workspace_name}/{file['path']}"
+            tree_data.append({
+                'path': file_path,
+                'mode': '100644',
+                'type': 'blob',
+                'content': file['content']
+            })
+
+        # 1. Try to get the current branch reference
+        ref_url = f'{base_url}/git/refs/heads/{branch}'
+        ref_response = requests.get(ref_url, headers=headers)
+
+        is_empty_repo = False
+        if ref_response.status_code in (404, 409, 422):
+            is_empty_repo = True
+        elif 'empty' in ref_response.text.lower():
+            is_empty_repo = True
+        
+        if is_empty_repo:
+            import base64
+            # --- EMPTY REPO: Initialize with a README ---
+            init_payload = {
+                "message": "Initialize workspace repository",
+                "content": base64.b64encode(b"# Essentialis Workspace Backend\n\nAuto-generated repository for user workspaces.").decode('utf-8')
+            }
+            init_response = requests.put(f'{base_url}/contents/README.md', headers=headers, json=init_payload)
+            if init_response.status_code not in (200, 201, 422): # 422 might mean it already exists in edge cases
+                return jsonify({"error": f"Failed to initialize repository: {init_response.text}"}), 500
+            
+            # Now the repo is initialized. Fetch the branch reference again to enter the normal flow
+            ref_response = requests.get(ref_url, headers=headers)
+
+        # --- NORMAL COMMIT FLOW (now guaranteed to not be empty) ---
+        if ref_response.status_code not in (200, 201):
+            return jsonify({"error": f"Failed to get branch reference: {ref_response.text}"}), 500
+
+        try:
+            commit_sha = ref_response.json()['object']['sha']
+        except Exception as e:
+            return jsonify({"error": f"Failed to parse branch reference JSON from GitHub ({ref_response.status_code}): {ref_response.text}"}), 500
+
+        # Get the commit to find the base tree
+        commit_url = f'{base_url}/git/commits/{commit_sha}'
+        commit_response = requests.get(commit_url, headers=headers)
+        base_tree_sha = commit_response.json()['tree']['sha']
+
+        # Create tree with base_tree
+        tree_payload = {
+            'base_tree': base_tree_sha,
+            'tree': tree_data
+        }
+        new_tree_response = requests.post(f'{base_url}/git/trees', headers=headers, json=tree_payload)
+        if new_tree_response.status_code != 201:
+            return jsonify({"error": f"Failed to create tree: {new_tree_response.json()}"}), 500
+        new_tree_sha = new_tree_response.json()['sha']
+
+        # Create commit with parent
+        commit_payload = {
+            'message': f"Sync workspace: {workspace_name} from user {session.get('wallet_address', 'unknown')}",
+            'tree': new_tree_sha,
+            'parents': [commit_sha]
+        }
+        new_commit_response = requests.post(f'{base_url}/git/commits', headers=headers, json=commit_payload)
+        if new_commit_response.status_code != 201:
+            return jsonify({"error": f"Failed to create commit: {new_commit_response.json()}"}), 500
+        new_commit_sha = new_commit_response.json()['sha']
+
+        # Update the reference
+        update_ref_payload = {
+            'sha': new_commit_sha,
+            'force': True
+        }
+        update_ref_response = requests.patch(ref_url, headers=headers, json=update_ref_payload)
+        if update_ref_response.status_code != 200:
+            return jsonify({"error": f"Failed to update ref: {update_ref_response.json()}"}), 500
+
+        return jsonify({"message": "Successfully synced to cloud repository"}), 200
+
+    except Exception as e:
+        current_app.logger.error(f"Error syncing to GitHub: {e}")
+        return jsonify({"error": f"Sync failed: {str(e)}"}), 500
+
+
 # --- ADMIN ROUTES ---
 @bp.route('/admin/generate_login_url', methods=['GET'])  # Should be protected
 # @admin_required # Or some other form of initial admin auth to get this link

@@ -1,0 +1,9 @@
+{
+    "name": "essentialis-shell",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Essentialis Development Platform — Unified Shell",
+    "scripts": {
+        "start": "node server.js"
+    }
+}

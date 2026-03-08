@@ -30,6 +30,9 @@ class Config:
     # Handle with extreme care. Consider using a hardware wallet or KMS for production.
     PLATFORM_OPERATIONAL_WALLET_PRIVATE_KEY = os.environ.get('PLATFORM_OPERATIONAL_WALLET_PRIVATE_KEY')
 
+    GITHUB_PAT = os.environ.get('GITHUB_PAT')
+    GITHUB_TARGET_REPO = os.environ.get('GITHUB_TARGET_REPO')
+
     ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL')
     ADMIN_PASSWORD_HASH = ""  # Store hashed admin password, set during setup
     ADMIN_SHARED_SECRET_FOR_USERNAME = os.environ.get('ADMIN_SHARED_SECRET_FOR_USERNAME')

@@ -26,7 +26,6 @@ import DashboardApp from './DashboardApp';
 
 // Separate Lazies
 const LandingApp = lazy(() => import('./LandingApp'));
-const DevApp = lazy(() => import('./DevApp'));
 // const DashboardApp = lazy(() => import('./DashboardApp')); // User requested eager load
 
 // Inner Component to use useLocation
@@ -35,10 +34,9 @@ function AppContent() {
 
   // Determines which app *should* be active based on URL
   const isDashboard = location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/login');
-  const isDev = location.pathname.startsWith('/dev');
 
   // Skip Portal if we are already in the Dashboard/Login flow
-  const [hasEntered, setHasEntered] = useState(isDashboard || isDev);
+  const [hasEntered, setHasEntered] = useState(isDashboard);
   const [appReady, setAppReady] = useState(false);
 
   // Preload logic (mostly for LandingApp now since Dashboard is static)
@@ -98,8 +96,6 @@ function AppContent() {
             {/* Define explicit routes for Dashboard App */}
             <Route path="/login/*" element={<ErrorBoundary name="DashboardApp-Login"><DashboardApp /></ErrorBoundary>} />
             <Route path="/dashboard/*" element={<ErrorBoundary name="DashboardApp-Dashboard"><DashboardApp /></ErrorBoundary>} />
-            <Route path="/dev/*" element={<ErrorBoundary name="DevApp"><DevApp /></ErrorBoundary>} />
-
 
             {/* Catch-all for Landing App */}
             <Route path="*" element={<LandingApp />} />
