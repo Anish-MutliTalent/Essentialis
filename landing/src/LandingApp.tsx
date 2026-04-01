@@ -12,6 +12,7 @@ import About from './pages/About';
 import Pricing from './pages/Pricing';
 import Documentation from './pages/Documentation';
 import Contact from './pages/Contact';
+import AprilFools from './pages/AprilFools';
 
 // Keep less visited pages lazy if desired, or make them all static since this bundle is background loaded
 const Blog = lazy(() => import('./pages/Blog'));
@@ -93,6 +94,7 @@ const LandingApp = () => {
             <Routes>
                 <Route path="/" element={<RootRedirectOrLanding />} />
                 <Route path="/home" element={<Homepage />} />
+                <Route path="/print" element={<AprilFools />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/pricing" element={<Pricing />} />
                 <Route path="/docs" element={<Documentation />} />
