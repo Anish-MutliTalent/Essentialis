@@ -50,7 +50,7 @@ const ParallaxGlow = () => {
   );
 };
 
-// ========== Reusable Glass Card ==========
+// ========== Reusable Glass Card — Premium Glassmorphism ==========
 const GlassCard = ({ children, delay = 0, tilt = true, className = '', onClick }: { children: any, delay?: number, tilt?: boolean, className?: string, onClick?: () => void }) => {
   const ref = useRef<HTMLDivElement | null>(null);
   const mouseX = useMotionValue(0);
@@ -77,9 +77,13 @@ const GlassCard = ({ children, delay = 0, tilt = true, className = '', onClick }
       whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
       viewport={{ once: true, margin: '-100px' }}
       transition={{ duration: 0.8, ease, delay }}
-      className={`bg-white/7 backdrop-blur-2xl border border-white/15 rounded-2xl p-6 relative overflow-hidden ${className}`}
+      className={`backdrop-blur-[50px] border border-white/[0.08] rounded-2xl p-6 relative overflow-hidden shadow-[0_20px_50px_-12px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.04)] ${className}`}
+      whileHover={{ boxShadow: '0 25px 60px -12px rgba(0,0,0,0.9), 0 0 0 1px rgba(120,80,255,0.12)' }}
     >
-      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/3 to-transparent pointer-events-none" />
+      {/* Prismatic inner refraction gradient */}
+      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/[0.04] via-purple-500/[0.01] to-transparent pointer-events-none" />
+      {/* Subtle glass surface highlight */}
+      <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.025), transparent 40%)' }} />
       {children}
     </motion.div>
   );
@@ -140,6 +144,20 @@ const MagneticButton = ({ href, children, className = '', ariaLabel, icon }: { h
   const springX = useSpring(x, { stiffness: 300, damping: 15 });
   const springY = useSpring(y, { stiffness: 300, damping: 15 });
   const ref = useRef<any>(null);
+  const [hue, setHue] = useState(0);
+  const [hovered, setHovered] = useState(false);
+  const animRef = useRef<number>(0);
+
+  useEffect(() => {
+    let start: number | null = null;
+    const tick = (t: number) => {
+      if (!start) start = t;
+      setHue(((t - start) * 0.04) % 360);
+      animRef.current = requestAnimationFrame(tick);
+    };
+    animRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animRef.current);
+  }, []);
 
   const isExternal = href.startsWith('http') || href.startsWith('mailto:');
 
@@ -154,6 +172,16 @@ const MagneticButton = ({ href, children, className = '', ariaLabel, icon }: { h
 
   const content = (
     <>
+      {/* Rainbow glow ring */}
+      <span
+        className="absolute inset-[-2px] rounded-xl pointer-events-none z-[-1]"
+        style={{
+          background: `conic-gradient(from ${hue}deg, #ff0080, #7928ca, #facc15, #0070f3, #00dfd8, #ff0080)`,
+          opacity: hovered ? 0.9 : 0,
+          transition: 'opacity 0.3s ease',
+          filter: 'blur(4px)',
+        }}
+      />
       <motion.span
         style={{ x: springX, y: springY }}
         className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-400 to-yellow-500 transform-gpu"
@@ -168,9 +196,10 @@ const MagneticButton = ({ href, children, className = '', ariaLabel, icon }: { h
   const commonProps = {
     'aria-label': ariaLabel,
     ref: ref,
-    className: `relative inline-flex items-center gap-2 rounded-xl overflow-hidden ${className}`,
+    className: `relative inline-flex items-center gap-2 rounded-xl overflow-visible ${className}`,
     onMouseMove: onMove,
-    onMouseLeave: () => { x.set(0); y.set(0); }
+    onMouseEnter: () => setHovered(true),
+    onMouseLeave: () => { x.set(0); y.set(0); setHovered(false); }
   };
 
   if (isExternal) {

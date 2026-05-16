@@ -4,7 +4,7 @@
 @tailwind utilities;
 
 body {
-  background-color: #000;
+  background-color: #030308;
   overflow-x: hidden;
 }
 
@@ -33,7 +33,7 @@ body {
 html,
 body,
 #root {
-  background-color: #000000;
+  background-color: #030308;
   min-height: 100vh;
 }
 
@@ -330,7 +330,7 @@ textarea:focus-visible {
 /* Professional Borders */
 .border-gradient-gold {
   border: 1px solid transparent;
-  background: linear-gradient(#000, #000) padding-box,
+  background: linear-gradient(#030308, #030308) padding-box,
     linear-gradient(135deg, #d4af37, #b8941f) border-box;
 }
 

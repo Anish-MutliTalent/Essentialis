@@ -40,29 +40,29 @@ export default {
         },
         yellow: {
           50: '#fffffbff',
-          100: '#fef3c7',
-          200: '#fff8ddff',
-          300: '#f7f3b4ff',
-          400: '#f7ef8aff', // Professional gold
-          500: '#c0ab37ff', // Darker gold
-          600: '#9a7b1aff',
+          100: '#fcf3c8ff',
+          200: '#ecde98ff',
+          300: '#eedc84ff',
+          400: '#e9cf4eff', // Professional gold
+          500: '#ccaa00ff', // Darker gold
+          600: '#9a7c1aff',
           700: '#7c6315ff',
           800: '#5e4b10',
           900: '#40330b',
           950: '#221b06',
         },
         gold: {
-          50: '#fefdf8',
-          100: '#fefbf0',
-          200: '#fdf6d9',
-          300: '#fbefc2',
-          400: '#f7e194',
-          500: '#e0ce6bff', // Main gold
-          600: '#b8941f',
-          700: '#9a7b1a',
-          800: '#7c6315',
-          900: '#5e4b10',
-          950: '#40330b',
+          50: '#fffffbff',
+          100: '#fcf3c8ff',
+          200: '#ecde98ff',
+          300: '#eedc84ff',
+          400: '#e9cf4eff', // Professional gold
+          500: '#ccaa00ff', // Darker gold
+          600: '#9a7c1aff',
+          700: '#7c6315ff',
+          800: '#5e4b10',
+          900: '#40330b',
+          950: '#221b06',
         },
       },
       spacing: {

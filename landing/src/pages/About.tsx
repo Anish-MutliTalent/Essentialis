@@ -80,7 +80,7 @@ const TEAM = [
     bio: '16 y/o visionary experienced in React, JavaScript, and smart contract development.',
     gradient: 'from-amber-400 to-orange-500',
     linkedin: 'https://www.linkedin.com/in/pavankumaar009/',
-    followers: '900+',
+    followers: '1K',
     // Attempting a high-res placeholder that looks professional if actual PFP fetch is impossible
     pfp: 'https://media.licdn.com/dms/image/v2/D5603AQFuw0MHXRFGKA/profile-displayphoto-shrink_400_400/B56ZPsvvIpGQAg-/0/1734843757912?e=1770854400&v=beta&t=kG_USCPtL2e10txa7M18olZRjqXHIYyShC0UsgzJ8rU'
   },
@@ -90,7 +90,7 @@ const TEAM = [
     bio: '15 y/o expert in UI/UX, Solidity, Web3, and full-stack architecture.',
     gradient: 'from-blue-400 to-indigo-500',
     linkedin: 'https://www.linkedin.com/in/anishbhattacharya1120/',
-    followers: '800+',
+    followers: '1.2K',
     pfp: 'https://media.licdn.com/dms/image/v2/D4E03AQFV8iDS3yGHYg/profile-displayphoto-scale_400_400/B4EZorj1SvHUAg-/0/1761667406215?e=1770854400&v=beta&t=CpOmNuC4iLg_yAJGRgauhaLrwnQCaZAcopySB8vPqpA'
   }
 ];

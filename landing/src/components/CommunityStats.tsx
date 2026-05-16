@@ -19,13 +19,23 @@ const CommunityStats = () => {
     }, []);
 
     return (
+        
         <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.8, duration: 0.8 }}
-            className="mt-8 relative z-20 flex items-center gap-6"
+            className="relative z-20 w-full h-full"
         >
-            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 relative overflow-hidden group hover:border-yellow-400/30 transition-all w-[440px]">
+            <div
+                className="backdrop-blur-[50px] border border-white/[0.08] rounded-2xl p-6 relative overflow-hidden group hover:border-purple-400/20 transition-all duration-300 w-full h-full flex flex-col justify-center shadow-[0_20px_50px_-12px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.04)]"
+                style={{
+                    backgroundColor: 'rgba(255,255,255,0.015)',
+                    backdropFilter: 'blur(50px) saturate(200%)',
+                    WebkitBackdropFilter: 'blur(50px) saturate(200%)',
+                }}
+            >
+                {/* Prismatic inner gradient */}
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/[0.03] via-violet-500/[0.01] to-transparent pointer-events-none" />
                 {/* Techy Corner Accents */}
                 <div className="absolute top-0 right-0 p-4 opacity-70">
                     <span className="flex h-2 w-2 relative">
@@ -88,26 +98,6 @@ const CommunityStats = () => {
                 </div>
             </div>
 
-            {/* Side HUD for Stats */}
-            <div className="hidden sm:block w-32 font-mono text-[10px] space-y-4">
-                <div className="relative pl-3 border-l border-white/10">
-                    <div className="absolute -left-[3px] top-0 w-1.5 h-1.5 bg-green-400 rounded-full shadow-[0_0_8px_#4ade80]" />
-                    <div className="text-gray-500 uppercase tracking-wider mb-1">Network</div>
-                    <div className="text-green-400 font-bold">ACTIVE</div>
-                </div>
-
-                <div className="relative pl-3 border-l border-white/10">
-                    <div className="absolute -left-[3px] top-0 w-1.5 h-1.5 bg-white/20 rounded-full" />
-                    <div className="text-gray-500 uppercase tracking-wider mb-1">Yield</div>
-                    <div className="text-white">+12/hr</div>
-                </div>
-
-                <div className="relative pl-3 border-l border-white/10">
-                    <div className="absolute -left-[3px] top-0 w-1.5 h-1.5 bg-white/20 rounded-full" />
-                    <div className="text-gray-500 uppercase tracking-wider mb-1">Chain</div>
-                    <div className="text-yellow-500/80">L2</div>
-                </div>
-            </div>
         </motion.div>
     );
 };

@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import {
     motion,
     useScroll,
@@ -69,25 +69,79 @@ function ParallaxMarquee({ children, baseVelocity = 100 }: ParallaxProps) {
     );
 }
 
-const FeedbackCard = ({ name, feedback, role }: { name: string, feedback: string, role: string }) => (
-    <div className="flex flex-col flex-shrink-0 w-[300px] sm:w-[350px] p-6 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 hover:border-yellow-400/30 transition-colors">
-        <div className="flex gap-1 mb-4">
-            {[1, 2, 3, 4, 5].map((_, i) => (
-                <Star key={i} className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-            ))}
-        </div>
-        <p className="text-gray-300 text-sm leading-relaxed mb-6 flex-grow">"{feedback}"</p>
-        <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400/20 to-yellow-600/20 flex items-center justify-center font-bold text-yellow-400 text-sm">
-                {name.substring(0, 1)}
+const FeedbackCard = ({ name, feedback, role }: { name: string, feedback: string, role: string }) => {
+    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+    const [hovered, setHovered] = useState(false);
+    const [hue, setHue] = useState(0);
+    const cardRef = useRef<HTMLDivElement>(null);
+    const animRef = useRef<number>(0);
+
+    useEffect(() => {
+        let start: number | null = null;
+        const tick = (t: number) => {
+            if (!start) start = t;
+            setHue(((t - start) * 0.02) % 360);
+            animRef.current = requestAnimationFrame(tick);
+        };
+        animRef.current = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(animRef.current);
+    }, []);
+
+    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!cardRef.current) return;
+        const rect = cardRef.current.getBoundingClientRect();
+        setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    };
+
+    return (
+        <div
+            ref={cardRef}
+            onMouseMove={handleMouseMove}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            className="flex flex-col flex-shrink-0 w-[300px] sm:w-[350px] p-6 rounded-2xl transition-all duration-300 relative overflow-hidden group"
+            style={{
+                backgroundColor: 'rgba(255,255,255,0.02)',
+                backdropFilter: 'blur(40px) saturate(180%)',
+                WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+            }}
+        >
+            {/* Rainbow border */}
+            <div className="absolute inset-[-1px] rounded-2xl pointer-events-none z-[0]"
+                style={{
+                    background: `conic-gradient(from ${hue}deg, #ff0080, #7928ca, #0070f3, #00dfd8, #fff500, #ff0080)`,
+                    opacity: hovered ? 0.5 : 0.06,
+                    transition: 'opacity 0.4s ease',
+                    filter: 'blur(2px)',
+                }}
+            />
+            <div className="absolute inset-[1px] rounded-2xl z-[0]" style={{ background: 'rgba(4,4,10,0.93)' }} />
+            {/* Cursor spotlight */}
+            <div className="absolute inset-0 rounded-2xl pointer-events-none z-[1]"
+                style={{
+                    background: hovered ? `radial-gradient(300px circle at ${mousePos.x}px ${mousePos.y}px, rgba(120,80,255,0.1), transparent 60%)` : 'none',
+                }}
+            />
+            <div className="relative z-10">
+                <div className="flex gap-1 mb-4">
+                    {[1, 2, 3, 4, 5].map((_, i) => (
+                        <Star key={i} className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                    ))}
+                </div>
+                <p className="text-gray-300 text-sm leading-relaxed mb-6 flex-grow">"{feedback}"</p>
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400/20 via-cyan-400/15 to-yellow-400/10 flex items-center justify-center font-bold text-yellow-400 text-sm border border-white/10">
+                        {name.substring(0, 1)}
+                    </div>
+                    <div>
+                        <div className="text-white font-medium text-sm">{name}</div>
+                        <div className="text-xs text-gray-500">{role}</div>
+                    </div>
+                </div>
             </div>
-            <div>
-                <div className="text-white font-medium text-sm">{name}</div>
-                <div className="text-xs text-gray-500">{role}</div>
-            </div>
         </div>
-    </div>
-);
+    );
+};
 
 export default function Testimonials() {
     return (
