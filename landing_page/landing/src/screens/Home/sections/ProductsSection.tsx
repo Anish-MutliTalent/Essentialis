@@ -487,7 +487,7 @@ export const ProductsSection = (): JSX.Element => {
                   big-tech, no tracking, just pure privacy. Uses a simple UI, just
                   like the apps you already use
                 </p>
-                <CtaButton label="Learn More" variant="light" />
+                <CtaButton label="Coming Soon" variant="light" />
               </div>
             </div>
           </article>

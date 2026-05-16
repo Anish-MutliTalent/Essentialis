@@ -15,7 +15,7 @@ import { FadeIn } from '../../../components/FadeIn';
 
 
 const FEEDBACK = [
-    { name: "Selvakumar S.", role: "Blockchain Developer", feedback: "Essentialis Cloud is great. Love the idea of user-owned data without the crypto friction.", pfp: "https://i.pravatar.cc/150?u=hasanur" },
+    { name: "Selvakumar S.", role: "Blockchain Developer", feedback: "Essentialis Cloud is great. Love the idea of user-owned data without the crypto friction.", pfp: "" },
     { name: "Hasanur Rehman", role: "JEE Aspirant", feedback: "It'd be nice if users had more ownership instead of everything being tied to one big company" },
     { name: "Burman Nayak", role: "Design Head", feedback: "The project is really interesting. I'm a college student but I work in design and blockchain so I loved to try out the app." },
     { name: "Prisha Sasikumar", role: "Founder @ DanceVibes", feedback: "So cool! Privacy tech is highly underrated so it’s great that you’re bringing this to prominence" },

@@ -132,7 +132,7 @@ export const HeroSection = (): JSX.Element => {
             aria-label="Join Waitlist"
           >
             <span className="absolute top-3.5 left-[34px] h-[26px] flex items-center justify-center [font-family:'Inter',Helvetica] font-semibold text-black text-xl text-center tracking-[0] leading-[25.6px] whitespace-nowrap">
-              Join Waitlist
+              <a href="https://old.essentialis.cloud/join-waitlist">Join Waitlist</a>
             </span>
           </button>
           <GlassContainer
@@ -204,7 +204,7 @@ export const HeroSection = (): JSX.Element => {
             aria-label="Learn more"
           >
             <div className="relative flex items-center justify-center w-fit [font-family:'Inter',Helvetica] font-bold text-white text-base text-center tracking-[0.35px] leading-5 whitespace-nowrap">
-              Learn More
+              <a href="https://old.essentialis.cloud/about">Learn More</a>
             </div>
             <img
               className="relative w-4 h-4 pointer-events-none select-none"
@@ -226,7 +226,7 @@ export const HeroSection = (): JSX.Element => {
             />
             <div className="inline-flex flex-col items-start relative flex-[0_0_auto]">
               <div className="relative flex items-center w-fit mt-[-1.00px] [font-family:'Inter',Helvetica] font-semibold text-neutral-400 text-base tracking-[0.35px] leading-5 whitespace-nowrap">
-                Follow us
+                <a href="https://www.linkedin.com/company/essentialis-cloud/">Follow us</a>
               </div>
             </div>
           </button>
@@ -235,12 +235,14 @@ export const HeroSection = (): JSX.Element => {
             className="relative w-[49px] h-[50px] cursor-pointer"
             aria-label="Open social link"
           >
+            <a href="https://chat.whatsapp.com/GjCN1H5X4k22ZqXp1u4y5x">
             <img
               className="relative w-[49px] h-[50px] pointer-events-none select-none"
               alt=""
               aria-hidden="true"
               src="https://c.animaapp.com/UXoQJ2zg/img/component-9.svg"
             />
+            </a>
           </button>
         </div>
       </section>

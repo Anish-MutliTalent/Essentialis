@@ -74,7 +74,7 @@ export const Navigation = (): JSX.Element => {
                         aria-label="Join waitlist"
                     >
                         <span className="text-black text-sm [font-family:'Inter',Helvetica] font-semibold tracking-[0] whitespace-nowrap">
-                            Join Waitlist
+                            <a href="https://old.essentialis.cloud/join-waitlist">Join Waitlist</a>
                         </span>
                     </button>
                 </nav>

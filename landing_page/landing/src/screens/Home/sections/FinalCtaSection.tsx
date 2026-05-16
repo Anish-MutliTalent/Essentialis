@@ -40,7 +40,7 @@ export const FinalCtaSection = (): JSX.Element => {
             className="relative flex items-center justify-center w-[187px] h-[54px] bg-white rounded-[48px] shadow-[inset_0px_4px_23.8px_-6px_#ffc473,inset_-1px_1px_2px_#ffffff] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]"
           >
             <span className="[font-family:'Inter',Helvetica] font-semibold text-black text-xl tracking-[0] leading-[25.6px] whitespace-nowrap">
-              Join Waitlist
+              <a href="https://old.essentialis.cloud/join-waitlist">Join Waitlist</a>
             </span>
           </button>
         </FadeIn>
