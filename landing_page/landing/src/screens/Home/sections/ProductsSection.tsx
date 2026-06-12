@@ -12,6 +12,7 @@ import { wrap } from "@motionone/utils";
 import { GlassContainer } from "../../../components/GlassContainer";
 import DynamicGradientEllipse from '../../../components/DynamicGradientEllipse';
 import { FadeIn } from '../../../components/FadeIn';
+import { Parallax } from '../../../components/Parallax';
 
 
 
@@ -89,7 +90,6 @@ const productDates = [
   "2018-03-15 22:15:00",
   "2009-11-11 11:11:11",
   "2025-10-10 10:10:10",
-  "2013-06-06 06:06:06",
 ];
 
 const builderCodeLines = [
@@ -263,6 +263,8 @@ const CtaButton = ({ label, variant }: CtaButtonProps): JSX.Element => {
 export const ProductsSection = (): JSX.Element => {
   return (
     <div className="relative w-full mt-[200px] lg:mt-[507px]">
+      {/* Left background cluster (SVG whites + colored overlays) — parallaxed together */}
+      <Parallax strength={0.3} className="absolute inset-0 pointer-events-none">
       <svg
         className="absolute top-[-442px] left-0 w-[1138px] h-[1968px] pointer-events-none select-none"
         xmlns="http://www.w3.org/2000/svg"
@@ -383,6 +385,10 @@ export const ProductsSection = (): JSX.Element => {
           <DynamicGradientEllipse color="#E89700" phaseOffset={1.860} linearRotation={false} />
         </div>
       </div>
+      </Parallax>
+
+      {/* Right background cluster — parallaxed at same depth as the left cluster */}
+      <Parallax strength={0.3} className="absolute inset-0 pointer-events-none">
       <div
         className="absolute top-[-321px] right-[-522px] w-[1414px] h-[1132px] pointer-events-none"
         aria-hidden="true"
@@ -399,6 +405,7 @@ export const ProductsSection = (): JSX.Element => {
           <DynamicGradientEllipse color="#E89700" phaseOffset={0.01} timeOffset={17.5} linearRotation={false} />
         </div>
       </div>
+      </Parallax>
     <section
       className="relative flex flex-col w-full max-w-[1285px] items-start gap-8 lg:gap-[69px] mx-auto px-4 sm:px-6 lg:px-0"
       aria-labelledby="products-section-heading"

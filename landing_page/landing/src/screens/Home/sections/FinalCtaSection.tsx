@@ -1,8 +1,15 @@
+import { useRef } from 'react';
+import { motion } from 'framer-motion';
 import GradientGlobe from "../../../components/GradientGlobe";
 import { FadeIn } from '../../../components/FadeIn';
+import { Parallax, useElementParallaxY } from '../../../components/Parallax';
+import { useWaitlist } from '../../../components/waitlist/WaitlistContext';
 
 
 export const FinalCtaSection = (): JSX.Element => {
+  const wordmarkRef = useRef<HTMLDivElement>(null);
+  const wordmarkY = useElementParallaxY(wordmarkRef, 0.15);
+  const { open: openWaitlist } = useWaitlist();
   return (
     <section
       aria-labelledby="final-cta-heading"
@@ -37,10 +44,11 @@ export const FinalCtaSection = (): JSX.Element => {
           <button
             type="button"
             aria-label="Join waitlist"
+            onClick={() => openWaitlist("final-cta")}
             className="relative flex items-center justify-center w-[187px] h-[54px] bg-white rounded-[48px] shadow-[inset_0px_4px_23.8px_-6px_#ffc473,inset_-1px_1px_2px_#ffffff] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]"
           >
             <span className="[font-family:'Inter',Helvetica] font-semibold text-black text-xl tracking-[0] leading-[25.6px] whitespace-nowrap">
-              <a href="https://old.essentialis.cloud/join-waitlist">Join Waitlist</a>
+              Join Waitlist
             </span>
           </button>
         </FadeIn>
@@ -53,16 +61,25 @@ export const FinalCtaSection = (): JSX.Element => {
       </div>
 
       <div className="relative w-full aspect-[1739/843]">
-        <GradientGlobe
+        {/* GradientGlobe — deep gradient layer */}
+        <Parallax strength={0.3} className="absolute inset-0 pointer-events-none">
+          <GradientGlobe
+            aria-hidden="true"
+            className="absolute left-1/2 -translate-x-1/2  w-[136vw] aspect-square pointer-events-none"
+          />
+        </Parallax>
+        {/* essENtialiS wordmark — parallax applied directly to the motion.div
+            so the mix-blend-overlay keeps blending against the parent
+            backdrop (GradientGlobe behind it). A Parallax wrapper would
+            isolate the blend. */}
+        <motion.div
+          ref={wordmarkRef}
+          style={{ y: wordmarkY }}
           aria-hidden="true"
-          className="absolute left-1/2 -translate-x-1/2  w-[136vw] aspect-square pointer-events-none"
-        />
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-0 -bottom-2 text-center mix-blend-overlay [font-family:'Cinzel_Decorative',Helvetica] font-bold text-white tracking-[0.35px] leading-none [font-size:14.8vw]"
+          className="absolute inset-x-0 -bottom-2 text-center mix-blend-overlay [font-family:'Cinzel_Decorative',Helvetica] font-bold text-white tracking-[0.35px] leading-none [font-size:14.8vw] pointer-events-none"
         >
           essENtialiS
-        </div>
+        </motion.div>
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent via-80% to-black pointer-events-none z-10"></div>
       </div>
     </section>

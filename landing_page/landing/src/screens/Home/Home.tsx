@@ -8,7 +8,7 @@ import { ValuesGridSection } from "./sections/ValuesGridSection";
 
 export const Home = (): JSX.Element => {
   return (
-    <main className="bg-black overflow-x-hidden w-full min-h-screen relative">
+    <main className="overflow-x-hidden w-full min-h-screen relative">
       <HeroSection />
       <div className="relative w-full">
         <ProblemSection />

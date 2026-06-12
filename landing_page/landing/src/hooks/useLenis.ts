@@ -1,17 +1,17 @@
 import { useEffect } from "react";
 import Lenis from "lenis";
 
-/**
- * Initialises Lenis smooth scroll.
- *
- * The project's index.html sets `html { overflow: hidden; height: 100% }` and
- * `body { overflow-y: auto }`, so `body` is the actual scroll container.
- * We must pass `wrapper: body, content: body's first child` so Lenis attaches
- * to the right element instead of window.
- *
- * Uses a `stopped` flag so the recursive RAF chain fully terminates
- * on cleanup (important for React StrictMode double-invoke).
- */
+export let lenisScrollY = 0;
+let lenisInstance: InstanceType<typeof Lenis> | null = null;
+
+export function lenisScrollTo(target: number) {
+  if (lenisInstance) {
+    lenisInstance.scrollTo(target, { duration: 1.2 });
+  } else {
+    document.body.scrollTo({ top: target, behavior: "smooth" });
+  }
+}
+
 export function useLenis() {
   useEffect(() => {
     const wrapper = document.body;
@@ -25,6 +25,12 @@ export function useLenis() {
       duration: 1.2,
       smoothWheel: true,
       touchMultiplier: 1.8,
+    });
+
+    lenisInstance = lenis;
+
+    lenis.on("scroll", ({ scroll }: { scroll: number }) => {
+      lenisScrollY = scroll;
     });
 
     let rafId: number;
@@ -42,6 +48,7 @@ export function useLenis() {
       stopped = true;
       cancelAnimationFrame(rafId);
       lenis.destroy();
+      lenisInstance = null;
     };
   }, []);
 }

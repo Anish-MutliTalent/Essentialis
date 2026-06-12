@@ -87,7 +87,40 @@ class Waitlist(db.Model):
     contact_info = db.Column(db.String(255), nullable=False) # LinkedIn/Whatsapp/TG handle
     platform = db.Column(db.String(50), nullable=False) # 'linkedin', 'whatsapp', 'telegram'
     status = db.Column(db.String(20), default='pending') # pending, approved, rejected
-    created_at = db.Column(db.DateTime, default=datetime.now(UTC))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
+
+    # --- Referral / position fields (added post-launch; see ensure_schema) ---
+    referral_code = db.Column(db.String(16), index=True, nullable=True)   # this member's own shareable code
+    referred_by = db.Column(db.String(16), index=True, nullable=True)     # referral_code of whoever referred them
+    referral_count = db.Column(db.Integer, default=0)                     # confirmed referrals (joined via this code)
+    referral_visits = db.Column(db.Integer, default=0)                    # landings via this code that did NOT (yet) join
+
+    # 'where did you hear about us' free text, captured at join
+    source = db.Column(db.String(255), nullable=True)
+
+
+class WaitlistDevice(db.Model):
+    """Maps an anonymous device id (localStorage uuid) to a waitlist entry so a
+    returning visitor on the same device is recognised without re-entering an
+    email. One entry can have many devices (cross-device linking)."""
+    id = db.Column(db.Integer, primary_key=True)
+    device_id = db.Column(db.String(64), unique=True, index=True, nullable=False)
+    waitlist_id = db.Column(db.Integer, db.ForeignKey('waitlist.id'), index=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
+    last_seen = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
+
+
+class AnalyticsEvent(db.Model):
+    """Lightweight funnel/visit tracking: visits, where people drop off, and
+    referral attribution for both joiners and non-joiners."""
+    id = db.Column(db.Integer, primary_key=True)
+    event = db.Column(db.String(64), index=True, nullable=False)  # visit, waitlist_open, waitlist_step, waitlist_join, waitlist_abandon
+    path = db.Column(db.String(255), nullable=True)
+    step = db.Column(db.Integer, nullable=True)                   # furthest step reached (for abandon/step events)
+    device_id = db.Column(db.String(64), index=True, nullable=True)
+    ref_code = db.Column(db.String(16), index=True, nullable=True)
+    meta = db.Column(db.Text, nullable=True)                      # optional JSON blob
+    created_at = db.Column(db.DateTime, index=True, default=lambda: datetime.now(UTC))
 
 class ReferralCode(db.Model):
     id = db.Column(db.Integer, primary_key=True)

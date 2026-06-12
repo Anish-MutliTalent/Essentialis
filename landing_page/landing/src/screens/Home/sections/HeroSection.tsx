@@ -1,6 +1,11 @@
+import { useRef } from "react"
+import { Link } from "react-router-dom"
 import { motion } from "framer-motion"
 import GradientGlobe from "../../../components/GradientGlobe"
 import { GlassContainer } from "../../../components/GlassContainer"
+import { Parallax, useElementParallaxY } from "../../../components/Parallax"
+import { useWaitlist } from "../../../components/waitlist/WaitlistContext"
+import { useStats } from "../../../hooks/useStats"
 
 const trustedTeams = [
   {
@@ -20,9 +25,6 @@ const trustedTeams = [
   },
 ];
 
-// Duplicate for seamless loop
-const marqueeLogos = [...trustedTeams, ...trustedTeams, ...trustedTeams];
-
 const Partners = (): JSX.Element => {
   return (
     <motion.div
@@ -35,30 +37,15 @@ const Partners = (): JSX.Element => {
       <h2 className="opacity-[0.45] [font-family:'Inter',Helvetica] font-normal text-white text-[14px] uppercase tracking-[0.2em] text-center leading-none whitespace-nowrap">
         Trusted by teams at
       </h2>
-      {/* Marquee container */}
-      <div
-        className="relative w-full overflow-hidden"
-        style={{
-          maskImage: 'linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%)',
-          WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%)',
-        }}
-      >
-        <div
-          className="flex gap-16 items-center"
-          style={{
-            animation: 'partners-scroll 28s linear infinite',
-            width: 'max-content',
-          }}
-        >
-          {marqueeLogos.map((logo, index) => (
-            <img
-              key={`${logo.src}-${index}`}
-              className={logo.className}
-              alt={logo.alt}
-              src={logo.src}
-            />
-          ))}
-        </div>
+      <div className="flex items-center justify-center gap-16 flex-wrap">
+        {trustedTeams.map((logo) => (
+          <img
+            key={logo.src}
+            className={logo.className}
+            alt={logo.alt}
+            src={logo.src}
+          />
+        ))}
       </div>
     </motion.div>
   )
@@ -66,17 +53,30 @@ const Partners = (): JSX.Element => {
 
 
 export const HeroSection = (): JSX.Element => {
-
+  const lockRef = useRef<HTMLImageElement>(null);
+  const lockY = useElementParallaxY(lockRef, 0.15);
+  const { open: openWaitlist } = useWaitlist();
+  const { total } = useStats();
 
   return (
     <div className="relative w-full">
     <div className="relative w-full h-screen">
-      {/* <img 
+      {/* <img
       className="absolute left-[6vw] h-[235vh] w-auto object-cover bottom-[-22vh] object-left"
       src="./ico-sphere-globe-bright.png"/> */}
-      <GradientGlobe className="absolute left-[6vw] h-[235vh] w-[235vh] bottom-[-22vh]"/>
-      <img
-        className="absolute top-0 left-1/2 -translate-x-[calc(50%-30px)] h-[100vh] w-auto mix-blend-overlay pointer-events-none select-none object-cover"
+      <Parallax strength={0.3} className="absolute inset-0 pointer-events-none">
+        <GradientGlobe className="absolute left-[6vw] h-[235vh] w-[235vh] bottom-[-22vh]"/>
+      </Parallax>
+      {/* Lock decorative — parallax applied directly to the motion.img.
+          A <Parallax> wrapper would break the mix-blend-overlay because the
+          wrapper's transform creates an isolated stacking context with the
+          lock alone inside → empty backdrop → no blend visible. Applying the
+          transform to the element itself is fine: the blend group still
+          composites against its parent's (hero's) backdrop. */}
+      <motion.img
+        ref={lockRef}
+        style={{ x: "calc(-50% + 30px)", y: lockY }}
+        className="absolute top-0 left-1/2 h-[100vh] w-auto mix-blend-overlay pointer-events-none select-none object-cover"
         src="./lock.png"
       />
       <div className="absolute bottom-8 inset-x-0 flex flex-col items-start gap-12 px-6 lg:contents">
@@ -128,11 +128,12 @@ export const HeroSection = (): JSX.Element => {
         <div className="inline-flex items-center gap-[30px] relative flex-[0_0_auto]">
           <button
             type="button"
+            onClick={() => openWaitlist("hero")}
             className="relative w-[187px] h-[54px] bg-white rounded-[48px] shadow-[inset_0px_4px_23.8px_-6px_#ffc473,inset_-1px_1px_2px_#ffffff] transition-transform duration-200 hover:scale-[1.01] active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             aria-label="Join Waitlist"
           >
             <span className="absolute top-3.5 left-[34px] h-[26px] flex items-center justify-center [font-family:'Inter',Helvetica] font-semibold text-black text-xl text-center tracking-[0] leading-[25.6px] whitespace-nowrap">
-              <a href="https://old.essentialis.cloud/join-waitlist">Join Waitlist</a>
+              Join Waitlist
             </span>
           </button>
           <GlassContainer
@@ -192,7 +193,7 @@ export const HeroSection = (): JSX.Element => {
             </div>
             <div className="flex h-[47px] items-baseline relative self-stretch w-full">
               <div className="relative flex items-center w-[194px] h-[53px] mt-[-1.00px] mb-[-5.00px] [font-family:'Inter',Helvetica] font-bold text-white text-[54px] tracking-[-0.01em] leading-10">
-                65
+                {total != null ? total.toLocaleString() : <span className="opacity-50">···</span>}
               </div>
             </div>
           </div>
@@ -204,7 +205,7 @@ export const HeroSection = (): JSX.Element => {
             aria-label="Learn more"
           >
             <div className="relative flex items-center justify-center w-fit [font-family:'Inter',Helvetica] font-bold text-white text-base text-center tracking-[0.35px] leading-5 whitespace-nowrap">
-              <a href="https://old.essentialis.cloud/about">Learn More</a>
+              <Link to="/about">Learn More</Link>
             </div>
             <img
               className="relative w-4 h-4 pointer-events-none select-none"

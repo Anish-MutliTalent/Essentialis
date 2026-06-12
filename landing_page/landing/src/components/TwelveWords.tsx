@@ -64,35 +64,35 @@ export const TwelveWords = ({ className }: { className?: string }): JSX.Element 
           <feMergeNode in="color1" />
         </feMerge>
       </filter>
-      <filter id="filter1_gf_303_13362" x="-564" y="162" width="942" height="958" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+      <filter id="filter1_gf_303_13362" x="-600" y="126" width="1014" height="1030" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
         <feFlood floodOpacity="0" result="BackgroundImageFix" />
         <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
-        <feGaussianBlur stdDeviation="50" result="effect2_foregroundBlur_303_13362" />
+        <feGaussianBlur stdDeviation="68" result="effect2_foregroundBlur_303_13362" />
       </filter>
-      <filter id="filter2_fg_303_13362" x="-579" y="148" width="942" height="958" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+      <filter id="filter2_fg_303_13362" x="-615" y="112" width="1014" height="1030" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
         <feFlood floodOpacity="0" result="BackgroundImageFix" />
         <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
-        <feGaussianBlur stdDeviation="50" result="effect1_foregroundBlur_303_13362" />
+        <feGaussianBlur stdDeviation="68" result="effect1_foregroundBlur_303_13362" />
       </filter>
-      <filter id="filter3_gf_303_13362" x="-463" y="253" width="730" height="748" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+      <filter id="filter3_gf_303_13362" x="-487" y="229" width="778" height="796" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
         <feFlood floodOpacity="0" result="BackgroundImageFix" />
         <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
-        <feGaussianBlur stdDeviation="22" result="effect2_foregroundBlur_303_13362" />
+        <feGaussianBlur stdDeviation="32" result="effect2_foregroundBlur_303_13362" />
       </filter>
-      <filter id="filter4_gf_303_13362" x="-19" y="134" width="776" height="794" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+      <filter id="filter4_gf_303_13362" x="-43" y="110" width="824" height="842" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
         <feFlood floodOpacity="0" result="BackgroundImageFix" />
         <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
-        <feGaussianBlur stdDeviation="28" result="effect2_foregroundBlur_303_13362" />
+        <feGaussianBlur stdDeviation="40" result="effect2_foregroundBlur_303_13362" />
       </filter>
-      <filter id="filter5_gf_303_13362" x="-399" y="-307" width="778" height="794" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+      <filter id="filter5_gf_303_13362" x="-423" y="-331" width="826" height="842" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
         <feFlood floodOpacity="0" result="BackgroundImageFix" />
         <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
-        <feGaussianBlur stdDeviation="28" result="effect2_foregroundBlur_303_13362" />
+        <feGaussianBlur stdDeviation="40" result="effect2_foregroundBlur_303_13362" />
       </filter>
-      <filter id="filter6_gf_303_13362" x="-367" y="194" width="942" height="958" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+      <filter id="filter6_gf_303_13362" x="-403" y="158" width="1014" height="1030" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
         <feFlood floodOpacity="0" result="BackgroundImageFix" />
         <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
-        <feGaussianBlur stdDeviation="50" result="effect2_foregroundBlur_303_13362" />
+        <feGaussianBlur stdDeviation="68" result="effect2_foregroundBlur_303_13362" />
       </filter>
       <pattern id="pattern0_303_13362" patternContentUnits="objectBoundingBox" width="1" height="1">
         <use href="#tangled_image" transform="scale(0.000244141)" />

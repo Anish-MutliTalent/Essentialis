@@ -125,6 +125,7 @@ class EllipseRenderManager {
     private instances = new Map<symbol, InstanceState>();
     private rafId: number | null = null;
     private dpr = 1;
+    private lastTick = 0;
 
     private init() {
         if (this.renderer) return;
@@ -189,8 +190,11 @@ class EllipseRenderManager {
 
     private tick = () => {
         this.rafId = requestAnimationFrame(this.tick);
+        const now = performance.now();
+        if (now - this.lastTick < 33) return; // ~30fps cap
+        this.lastTick = now;
         if (!this.renderer || !this.scene || !this.camera || !this.material) return;
-        const t = (performance.now() - GLOBAL_TIME_ORIGIN) / 1000 * SPEED_MULTIPLIER;
+        const t = (now - GLOBAL_TIME_ORIGIN) / 1000 * SPEED_MULTIPLIER;
         const u = this.material.uniforms;
 
         for (const inst of this.instances.values()) {

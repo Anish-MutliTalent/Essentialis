@@ -1,5 +1,8 @@
+import { useRef } from 'react';
+import { motion } from 'framer-motion';
 import DynamicGradientEllipse from '../../../components/DynamicGradientEllipse';
 import { FadeIn, FadeInStagger, FadeInItem } from '../../../components/FadeIn';
+import { Parallax, useElementParallaxY } from '../../../components/Parallax';
 
 
 const bulletItems = [
@@ -36,11 +39,15 @@ const bulletItems = [
 ];
 
 export const SolutionSection = (): JSX.Element => {
+  const shieldRef = useRef<HTMLImageElement>(null);
+  const shieldY = useElementParallaxY(shieldRef, 0.15);
   return (
     <div className="relative flex flex-col items-center w-full mt-[422px] lg:block lg:h-[507px]">
       {/* ═══ LEFT BACKGROUND GROUP ═══════════════════════════════════════════
           SVG holds ONLY the white/black radial ellipses (untouched).
-          The colored ellipses are now canvas-based DynamicGradientEllipse.  */}
+          The colored ellipses are now canvas-based DynamicGradientEllipse.
+          Wrapped in Parallax so the whole left cluster lags behind the text. */}
+      <Parallax strength={0.3} className="absolute inset-0 pointer-events-none">
       <svg
         className="absolute top-[-560px] left-0 w-[1121px] h-[1734px] pointer-events-none select-none"
         xmlns="http://www.w3.org/2000/svg"
@@ -165,9 +172,12 @@ export const SolutionSection = (): JSX.Element => {
       >
         <DynamicGradientEllipse color="#FFB01F" opacity={0.24} phaseOffset={2.698} />
       </div>
+      </Parallax>
 
       {/* ═══ RIGHT BACKGROUND GROUP ══════════════════════════════════════════
-          White ellipses stay as CSS divs, colored ones become canvases. */}
+          White ellipses stay as CSS divs, colored ones become canvases.
+          Also parallaxed — same depth as the left cluster. */}
+      <Parallax strength={0.3} className="absolute inset-0 pointer-events-none">
       <div
         className="absolute top-[-235px] right-[-795px] w-[1414px] h-[1132px]"
         aria-hidden="true"
@@ -226,7 +236,17 @@ export const SolutionSection = (): JSX.Element => {
         </div>
       </div>
 
-      <img
+      </Parallax>
+
+      {/* Shield decorative image — parallax applied directly to the motion.img.
+          Wrapping it in <Parallax> would break the mix-blend-overlay because
+          the wrapper's transform creates an isolated stacking context with
+          the shield alone inside → empty backdrop → no blend. Applying the
+          transform on the element itself preserves the blend (the blend
+          group still composites against its parent context's backdrop). */}
+      <motion.img
+        ref={shieldRef}
+        style={{ y: shieldY }}
         className="w-[547px] h-[547px] mix-blend-overlay pointer-events-none select-none lg:absolute lg:top-[-18px] lg:left-[calc(50%_-_24.6vw_-_273.5px)]"
         src="./shield.png"
       />

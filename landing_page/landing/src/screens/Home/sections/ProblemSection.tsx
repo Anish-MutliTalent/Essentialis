@@ -1,4 +1,5 @@
-import { motion } from "framer-motion";
+import { useRef } from "react";
+import { motion, useInView } from "framer-motion";
 import { Abandonment } from "../../../components/Abandonment";
 import { FragileCustody } from "../../../components/FragileCustody";
 import { TwelveWords } from "../../../components/TwelveWords";
@@ -21,6 +22,9 @@ const headingRows = [
 
 
 export const ProblemSection = (): JSX.Element => {
+  const twelveWordsRef = useRef<HTMLDivElement>(null);
+  const twelveWordsInView = useInView(twelveWordsRef, { once: true, margin: "-60px" });
+
   return (
     <>
       {/* Inner-shadow SVG filters — positioned off-screen so they don't affect layout */}
@@ -59,7 +63,7 @@ export const ProblemSection = (): JSX.Element => {
       </svg>
     <section
       aria-labelledby="pain-points-section-heading"
-      className="relative w-full max-w-[1400px] mx-auto mt-16 lg:mt-[108px] px-4 sm:px-6 lg:px-0"
+      className="relative z-10 w-full max-w-[1400px] mx-auto mt-16 lg:mt-[108px] px-4 sm:px-6 lg:px-0"
     >
       {/* Two-column layout at md+: left = heading/desc/cards, right = TwelveWords tower.
           items-stretch (default) makes both columns equal height, so the tower's
@@ -134,18 +138,24 @@ export const ProblemSection = (): JSX.Element => {
 
         {/* TwelveWords tower: wrapper stretches to left column height (items-stretch default).
             SVG is absolute bottom-0 so its base sits flush with the bottom of the cards;
-            anything taller than the left column overflows above and is hidden. */}
-        <motion.div
+            anything taller than the left column overflows above and is hidden.
+            The ref is on the static outer div so useInView uses the layout rect
+            (unaffected by the inner transform), fixing the animation at narrow viewports
+            where x:290 would push the element outside the intersection observer's view. */}
+        <div
+          ref={twelveWordsRef}
           className="hidden md:block [flex:288] min-w-0 relative overflow-hidden"
           aria-hidden="true"
-          style={{ willChange: 'transform' }}
-          initial={{ x: 290 }}
-          whileInView={{ x: 0 }}
-          viewport={{ once: true, margin: "-60px" }}
-          transition={{ duration: 0.75, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
         >
-          <TwelveWords className="absolute bottom-0 left-0 w-full h-auto" />
-        </motion.div>
+          <motion.div
+            className="w-full h-full"
+            style={{ willChange: 'transform' }}
+            animate={twelveWordsInView ? { x: 0 } : { x: 290 }}
+            transition={{ duration: 0.75, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <TwelveWords className="absolute bottom-0 left-0 w-full h-auto" />
+          </motion.div>
+        </div>
 
       </div>
     </section>

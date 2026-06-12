@@ -12,7 +12,7 @@ from itsdangerous import URLSafeTimedSerializer  # IMPORT URLSafeTimedSerializer
 # Import from your app modules using relative imports
 from . import auth, services, models, db, ipfs # Assuming db is also in app/__init__
 from .dbretry import safe_query_get
-from .models import User, ActionLog, AdminLoginToken, AllowedEmail, Waitlist, ReferralCode, UserReferral  # Explicitly import models used
+from .models import User, ActionLog, AdminLoginToken, AllowedEmail, Waitlist, ReferralCode, UserReferral, WaitlistDevice, AnalyticsEvent  # Explicitly import models used
 from functools import wraps
 from datetime import datetime, UTC, timedelta
 import asyncio
@@ -1019,51 +1019,207 @@ def check_access():
     # They need a referral code to bypass this and create their account (which adds them to User table).
     return jsonify({"allowed": False}), 200
 
+# --- Waitlist helpers -------------------------------------------------------
+
+def _gen_waitlist_code():
+    """Short, URL-safe, collision-checked referral code for a waitlist entry."""
+    code = secrets.token_urlsafe(6)[:10]
+    while Waitlist.query.filter_by(referral_code=code).first():
+        code = secrets.token_urlsafe(6)[:10]
+    return code
+
+
+def _waitlist_position(entry):
+    """1-based position. Ranking: more confirmed referrals first, then earliest
+    join. So every confirmed referral moves a member up the line."""
+    rc = entry.referral_count or 0
+    ahead = Waitlist.query.filter(
+        db.or_(
+            db.func.coalesce(Waitlist.referral_count, 0) > rc,
+            db.and_(
+                db.func.coalesce(Waitlist.referral_count, 0) == rc,
+                Waitlist.created_at < entry.created_at,
+            ),
+        )
+    ).count()
+    return ahead + 1
+
+
+def _link_device(device_id, entry):
+    if not device_id:
+        return
+    dev = WaitlistDevice.query.filter_by(device_id=device_id).first()
+    if dev:
+        dev.waitlist_id = entry.id
+        dev.last_seen = datetime.now(UTC)
+    else:
+        db.session.add(WaitlistDevice(device_id=device_id, waitlist_id=entry.id))
+
+
+def _serialize_waitlist_entry(entry, include_position=True):
+    data = {
+        "email": entry.email,
+        "platform": entry.platform,
+        "referral_code": entry.referral_code,
+        "referral_count": entry.referral_count or 0,
+        "status": entry.status,
+        "joined_at": entry.created_at.isoformat() if entry.created_at else None,
+    }
+    if include_position:
+        data["position"] = _waitlist_position(entry)
+        data["total"] = Waitlist.query.count()
+    return data
+
+
 @bp.route('/access/join-waitlist', methods=['POST'])
 def join_waitlist():
-    data = request.get_json()
-    # Accept either email OR contact_info path
-    email = data.get('email')
-    contact_info = data.get('contact_info')
-    platform = data.get('platform', 'email') # linkedin, whatsapp, telegram, email
-    user_ref = data.get('user_ref')  # User referral code (from /?ref= tracking)
+    data = request.get_json() or {}
+    email = (data.get('email') or '').strip() or None
+    contact_info = (data.get('contact_info') or '').strip() or None
+    platform = data.get('platform', 'email')  # linkedin, whatsapp, telegram, email
+    user_ref = (data.get('user_ref') or data.get('ref') or '').strip() or None  # referral code from /?ref=
+    device_id = (data.get('device_id') or '').strip() or None
+    source = (data.get('referrer') or data.get('source') or '').strip() or None
 
     if not contact_info and not email:
         return jsonify({"error": "Contact info required"}), 400
-    
-    # Use email as contact info if platform is email
+
     final_contact = contact_info if contact_info else email
-    
-    # Check if already in waitlist
+
+    # Idempotent: already on the waitlist (by contact OR email)?
     existing = Waitlist.query.filter_by(contact_info=final_contact).first()
+    if not existing and email:
+        existing = Waitlist.query.filter_by(email=email).first()
     if existing:
-        return jsonify({"message": "Already on waitlist"}), 200
-    
+        _link_device(device_id, existing)  # recognise this device next time
+        db.session.commit()
+        payload = _serialize_waitlist_entry(existing)
+        payload["message"] = "You're already on the waitlist."
+        payload["already"] = True
+        return jsonify(payload), 200
+
     new_entry = Waitlist(
         email=email,
         contact_info=final_contact,
-        platform=platform
+        platform=platform,
+        referral_code=_gen_waitlist_code(),
+        referred_by=user_ref,
+        referral_count=0,
+        referral_visits=0,
+        source=source,
     )
     db.session.add(new_entry)
-    
-    # Track user referral conversion
+    db.session.flush()  # assign id for device linking
+
+    _link_device(device_id, new_entry)
+
+    # --- Referral attribution: only a *completed* join benefits the referrer ---
     if user_ref:
-        ref = UserReferral.query.filter_by(referral_code=user_ref).first()
-        if ref:
-            ref.waitlist_count += 1
-            # Append email to signup_list
+        # Waitlist-member referral (pre-registration program)
+        referrer = Waitlist.query.filter_by(referral_code=user_ref).first()
+        if referrer and referrer.id != new_entry.id:
+            referrer.referral_count = (referrer.referral_count or 0) + 1
+        else:
+            new_entry.referred_by = None  # unknown code — don't credit anyone
+
+        # Also honour registered-user referral codes (legacy UserReferral program)
+        uref = UserReferral.query.filter_by(referral_code=user_ref).first()
+        if uref:
+            uref.waitlist_count += 1
             try:
-                signup_emails = json.loads(ref.signup_list or '[]')
+                signup_emails = json.loads(uref.signup_list or '[]')
             except (json.JSONDecodeError, TypeError):
                 signup_emails = []
             entry_email = email or final_contact
             if entry_email and entry_email not in signup_emails:
                 signup_emails.append(entry_email)
-            ref.signup_list = json.dumps(signup_emails)
-    
+            uref.signup_list = json.dumps(signup_emails)
+
+    # Funnel event
+    try:
+        db.session.add(AnalyticsEvent(
+            event='waitlist_join', device_id=device_id, ref_code=user_ref,
+            meta=json.dumps({"platform": platform, "source": source}),
+        ))
+    except Exception:
+        pass
+
     db.session.commit()
-    
-    return jsonify({"message": "Added to waitlist"}), 201
+
+    payload = _serialize_waitlist_entry(new_entry)
+    payload["message"] = "You're on the list!"
+    payload["already"] = False
+    return jsonify(payload), 201
+
+
+@bp.route('/access/waitlist-status', methods=['POST'])
+def waitlist_status():
+    """Recognise a returning visitor.
+    - By device_id: returns their entry + position with no email needed.
+    - By email (new device): links this device to the existing entry so future
+      visits are recognised by device alone (cross-device establishment).
+    """
+    data = request.get_json() or {}
+    device_id = (data.get('device_id') or '').strip() or None
+    email = (data.get('email') or '').strip() or None
+
+    entry = None
+    if device_id:
+        dev = WaitlistDevice.query.filter_by(device_id=device_id).first()
+        if dev:
+            entry = Waitlist.query.get(dev.waitlist_id)
+            if entry:
+                dev.last_seen = datetime.now(UTC)
+                db.session.commit()
+
+    if not entry and email:
+        entry = Waitlist.query.filter_by(email=email).first()
+        if entry and device_id:
+            _link_device(device_id, entry)  # establish this device for next time
+            db.session.commit()
+
+    if not entry:
+        return jsonify({"found": False}), 200
+
+    payload = _serialize_waitlist_entry(entry)
+    payload["found"] = True
+    return jsonify(payload), 200
+
+
+@bp.route('/analytics/track', methods=['POST'])
+def analytics_track():
+    """Fire-and-forget funnel/visit logging. Also bumps referral_visits when a
+    visit arrives via a known referral code (a landing that hasn't joined yet)."""
+    data = request.get_json(silent=True) or {}
+    event = (data.get('event') or '').strip()
+    if not event:
+        return jsonify({"ok": False}), 200  # never error the client
+
+    device_id = (data.get('device_id') or '').strip() or None
+    ref_code = (data.get('ref') or '').strip() or None
+    path = (data.get('path') or '')[:255] or None
+    step = data.get('step')
+    meta = data.get('meta')
+
+    try:
+        db.session.add(AnalyticsEvent(
+            event=event[:64],
+            path=path,
+            step=step if isinstance(step, int) else None,
+            device_id=device_id,
+            ref_code=ref_code,
+            meta=json.dumps(meta) if meta is not None else None,
+        ))
+        # Count referral landings (visits attributed to a code that hasn't joined)
+        if event == 'visit' and ref_code:
+            referrer = Waitlist.query.filter_by(referral_code=ref_code).first()
+            if referrer:
+                referrer.referral_visits = (referrer.referral_visits or 0) + 1
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    return jsonify({"ok": True}), 200
 
 @bp.route('/access/validate-referral', methods=['POST'])
 def validate_referral():
@@ -1115,13 +1271,84 @@ def validate_referral():
 @admin_required
 def get_waitlist():
     entries = Waitlist.query.filter_by(status='pending').order_by(Waitlist.created_at.desc()).all()
+    device_counts = dict(
+        db.session.query(WaitlistDevice.waitlist_id, db.func.count(WaitlistDevice.id))
+        .group_by(WaitlistDevice.waitlist_id)
+        .all()
+    )
     return jsonify([{
         "id": e.id,
         "email": e.email,
         "contact_info": e.contact_info,
         "platform": e.platform,
-        "created_at": e.created_at.isoformat()
+        "referral_code": e.referral_code,
+        "referred_by": e.referred_by,
+        "referral_count": e.referral_count or 0,
+        "referral_visits": e.referral_visits or 0,
+        "devices": device_counts.get(e.id, 0),
+        "source": e.source,
+        "position": _waitlist_position(e),
+        "created_at": e.created_at.isoformat() if e.created_at else None,
     } for e in entries]), 200
+
+
+@bp.route('/admin/funnel', methods=['GET'])
+@admin_required
+def get_funnel():
+    """Visit/drop-off funnel + referral leaderboard for the waitlist."""
+    # Event counts
+    rows = (
+        db.session.query(AnalyticsEvent.event, db.func.count(AnalyticsEvent.id))
+        .group_by(AnalyticsEvent.event)
+        .all()
+    )
+    events = {ev: cnt for ev, cnt in rows}
+
+    # Furthest-step drop-off (max step reached per device for waitlist flow)
+    step_rows = (
+        db.session.query(AnalyticsEvent.step, db.func.count(AnalyticsEvent.id))
+        .filter(AnalyticsEvent.event == 'waitlist_abandon')
+        .group_by(AnalyticsEvent.step)
+        .all()
+    )
+    abandons_by_step = {int(s): c for s, c in step_rows if s is not None}
+
+    # Referral leaderboard
+    top = (
+        Waitlist.query.filter(db.func.coalesce(Waitlist.referral_count, 0) > 0)
+        .order_by(Waitlist.referral_count.desc())
+        .limit(20)
+        .all()
+    )
+    leaderboard = [{
+        "referral_code": e.referral_code,
+        "email": e.email,
+        "referral_count": e.referral_count or 0,
+        "referral_visits": e.referral_visits or 0,
+        "position": _waitlist_position(e),
+    } for e in top]
+
+    visits = events.get('visit', 0)
+    opens = events.get('waitlist_open', 0)
+    joins = events.get('waitlist_join', 0)
+
+    return jsonify({
+        "totals": {
+            "waitlist": Waitlist.query.count(),
+            "users": User.query.count(),
+            "devices_seen": WaitlistDevice.query.count(),
+        },
+        "events": events,
+        "funnel": {
+            "visits": visits,
+            "waitlist_opens": opens,
+            "joins": joins,
+            "open_rate": round(opens / visits, 4) if visits else None,
+            "join_rate": round(joins / opens, 4) if opens else None,
+        },
+        "abandons_by_step": abandons_by_step,
+        "referral_leaderboard": leaderboard,
+    }), 200
 
 @bp.route('/admin/approve-waitlist', methods=['POST'])
 @admin_required

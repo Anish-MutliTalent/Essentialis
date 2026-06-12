@@ -86,5 +86,75 @@ def create_app(config_class=Config):
     # Create database tables if they don't exist
     with app.app_context():
         db.create_all()  # Ensure models are imported before this
+        ensure_schema(app)  # Add post-launch columns to existing tables
 
     return app
+
+
+def ensure_schema(app):
+    """db.create_all() creates missing tables but never alters existing ones.
+    This adds the post-launch Waitlist columns (referral/position/source) to an
+    already-existing `waitlist` table, then backfills referral codes. Safe to
+    run on every boot — each step is guarded by an existence check.
+    """
+    import secrets
+    from sqlalchemy import inspect, text
+
+    try:
+        inspector = inspect(db.engine)
+        if 'waitlist' not in inspector.get_table_names():
+            return  # fresh DB — create_all already built it with all columns
+
+        existing = {c['name'] for c in inspector.get_columns('waitlist')}
+        # column name -> SQL type clause (kept simple for SQLite + Postgres)
+        additions = {
+            'referral_code': 'VARCHAR(16)',
+            'referred_by': 'VARCHAR(16)',
+            'referral_count': 'INTEGER DEFAULT 0',
+            'referral_visits': 'INTEGER DEFAULT 0',
+            'source': 'VARCHAR(255)',
+        }
+        added = []
+        for col, ddl in additions.items():
+            if col not in existing:
+                db.session.execute(text(f'ALTER TABLE waitlist ADD COLUMN {col} {ddl}'))
+                added.append(col)
+        if added:
+            db.session.commit()
+            app.logger.info(f"ensure_schema: added waitlist columns {added}")
+
+        # Helpful indexes (no-op if they already exist)
+        for stmt in (
+            'CREATE INDEX IF NOT EXISTS ix_waitlist_referral_code ON waitlist (referral_code)',
+            'CREATE INDEX IF NOT EXISTS ix_waitlist_referred_by ON waitlist (referred_by)',
+        ):
+            try:
+                db.session.execute(text(stmt))
+            except Exception:
+                db.session.rollback()
+        db.session.commit()
+
+        # Backfill referral codes for any rows missing one.
+        from .models import Waitlist
+        missing = Waitlist.query.filter(
+            (Waitlist.referral_code.is_(None)) | (Waitlist.referral_code == '')
+        ).all()
+        if missing:
+            taken = {
+                r.referral_code for r in Waitlist.query.filter(Waitlist.referral_code.isnot(None)).all()
+            }
+            for entry in missing:
+                code = secrets.token_urlsafe(6)[:10]
+                while code in taken:
+                    code = secrets.token_urlsafe(6)[:10]
+                taken.add(code)
+                entry.referral_code = code
+                if entry.referral_count is None:
+                    entry.referral_count = 0
+                if entry.referral_visits is None:
+                    entry.referral_visits = 0
+            db.session.commit()
+            app.logger.info(f"ensure_schema: backfilled {len(missing)} waitlist referral codes")
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"ensure_schema skipped/failed: {e}")

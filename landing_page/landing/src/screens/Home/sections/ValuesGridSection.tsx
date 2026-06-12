@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { GlassContainer } from '../../../components/GlassContainer';
 import DynamicGradientEllipse from '../../../components/DynamicGradientEllipse';
+import { Parallax } from '../../../components/Parallax';
 
 const valueCards = [
   {
@@ -143,9 +144,10 @@ export const ValuesGridSection = (): JSX.Element => {
       aria-labelledby="values-grid-heading"
       className="relative mx-auto -mt-[15px] w-full pb-8 lg:pb-0 lg:w-[1414px] lg:h-[1132px]"
     >
+      <Parallax strength={0.3} className="absolute top-0 left-0 w-[1414px] h-[1132px] pointer-events-none">
       <div
         aria-hidden="true"
-        className="absolute top-0 left-0 w-[1414px] h-[1132px]"
+        className="absolute inset-0"
       >
         {/* White ellipse — unchanged */}
         <div className="absolute top-[357px] left-[353px] w-[642px] h-[658px] rounded-[321px/329px] blur-[117.6px] [background:radial-gradient(50%_50%_at_50%_50%,rgba(0,0,0,0.84)_34%,rgba(255,255,255,0.84)_100%)]" />
@@ -200,6 +202,7 @@ export const ValuesGridSection = (): JSX.Element => {
           <DynamicGradientEllipse color="#FA8500" opacity={1} phaseOffset={-0.162} multiLobe={true} linearRotation={true} />
         </div>
       </div>
+      </Parallax>
       <motion.header
         className="flex flex-col items-start justify-center px-4 sm:px-6 pt-8 pb-6 lg:px-0 lg:pt-0 lg:pb-0 lg:absolute lg:top-[340px] lg:left-[91px]"
         initial={{ opacity: 0, y: 20 }}
